@@ -26,6 +26,19 @@ const Students = () => {
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+
+  const validate = () => {
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Full name is required';
+    if (!formData.dob) errors.dob = 'Date of birth is required';
+    if (!formData.roll_no.trim()) errors.roll_no = 'Roll number is required';
+    if (!formData.class.trim()) errors.class = 'Class & section is required';
+    if (!formData.parent_contact.trim()) errors.parent_contact = 'Contact number is required';
+    if (!formData.address.trim()) errors.address = 'Address is required';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   useEffect(() => {
     fetchStudents();
@@ -64,10 +77,11 @@ const Students = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
     try {
       if (isEditing && selectedStudent) {
-        await api.put(`/api/students/${selectedStudent.id}`, formData);
+        await api.put(`/api/students/${selectedStudent._id}`, formData);
         toast.success('Student updated successfully');
       } else {
         await api.post('/api/students', formData);
@@ -75,6 +89,7 @@ const Students = () => {
       }
       setShowModal(false);
       setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', class: '', roll_no: '', parent_name: '', parent_email: '', status: 'active' });
+      setFormErrors({});
       setIsEditing(false);
       setSelectedStudent(null);
       fetchStudents();
@@ -142,6 +157,7 @@ const Students = () => {
             setIsEditing(false);
             setSelectedStudent(null);
             setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', class: '', roll_no: '', parent_name: '', parent_email: '', status: 'active' });
+            setFormErrors({});
             setShowModal(true);
           }}
           data-testid="add-student-button"
@@ -236,7 +252,7 @@ const Students = () => {
                           <Edit size={18} />
                         </button>
                         <button
-                          onClick={() => handleDelete(student.id)}
+                          onClick={() => handleDelete(student._id)}
                           className="p-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg transition-colors"
                           title="Delete"
                         >
@@ -265,6 +281,7 @@ const Students = () => {
                   setShowModal(false);
                   setIsEditing(false);
                   setSelectedStudent(null);
+                  setFormErrors({});
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -280,22 +297,22 @@ const Students = () => {
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Full Name *</label>
                     <input
                       type="text"
-                      required
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setFormErrors({ ...formErrors, name: '' }); }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="Enter full name"
                     />
+                    {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Date of Birth *</label>
                     <input
                       type="date"
-                      required
                       value={formData.dob}
-                      onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, dob: e.target.value }); setFormErrors({ ...formErrors, dob: '' }); }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     />
+                    {formErrors.dob && <p className="text-red-500 text-xs mt-1">{formErrors.dob}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Gender *</label>
@@ -313,23 +330,23 @@ const Students = () => {
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Roll Number *</label>
                     <input
                       type="text"
-                      required
                       value={formData.roll_no}
-                      onChange={(e) => setFormData({ ...formData, roll_no: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, roll_no: e.target.value }); setFormErrors({ ...formErrors, roll_no: '' }); }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="e.g., A001"
                     />
+                    {formErrors.roll_no && <p className="text-red-500 text-xs mt-1">{formErrors.roll_no}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Class & Section *</label>
                     <input
                       type="text"
-                      required
                       value={formData.class}
-                      onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, class: e.target.value }); setFormErrors({ ...formErrors, class: '' }); }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="e.g., Grade 5-A"
                     />
+                    {formErrors.class && <p className="text-red-500 text-xs mt-1">{formErrors.class}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Status *</label>
@@ -363,12 +380,12 @@ const Students = () => {
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Contact Number *</label>
                     <input
                       type="tel"
-                      required
                       value={formData.parent_contact}
-                      onChange={(e) => setFormData({ ...formData, parent_contact: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, parent_contact: e.target.value }); setFormErrors({ ...formErrors, parent_contact: '' }); }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="+91 XXXXX XXXXX"
                     />
+                    {formErrors.parent_contact && <p className="text-red-500 text-xs mt-1">{formErrors.parent_contact}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Email</label>
@@ -386,13 +403,13 @@ const Students = () => {
               <div>
                 <label className="block text-sm font-medium text-[#0F172A] mb-2">Address *</label>
                 <textarea
-                  required
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, address: e.target.value }); setFormErrors({ ...formErrors, address: '' }); }}
                   className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   rows="3"
                   placeholder="Enter full residential address"
                 />
+                {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
               </div>
               
               <div className="flex gap-3 pt-4 border-t-2 border-[#FCD34D]">
@@ -402,6 +419,7 @@ const Students = () => {
                     setShowModal(false);
                     setIsEditing(false);
                     setSelectedStudent(null);
+                    setFormErrors({});
                   }}
                   className="flex-1 bg-gray-200 text-[#0F172A] hover:bg-gray-300 h-10 px-4 py-2 rounded-lg font-semibold transition-colors"
                 >

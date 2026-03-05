@@ -23,6 +23,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Transport', path: '/transport', icon: Bus },
     { name: 'Hostel', path: '/hostel', icon: Building },
     { name: 'Communication', path: '/communication', icon: Mail },
+    { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
   // Staff navigation - 12 modules

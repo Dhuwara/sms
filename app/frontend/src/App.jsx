@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/Landing/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -13,57 +15,38 @@ import Library from './pages/Library';
 import Transport from './pages/Transport';
 import Hostel from './pages/Hostel';
 import Communication from './pages/Communication';
+import Settings from './pages/Settings';
 import StaffDashboard from './pages/Staff/StaffDashboard';
 import StudentDashboard from './pages/Student/StudentDashboard';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import Layout from './components/Layout';
-import { Toaster } from 'sonner';
+
+const getDefaultPath = (role) => {
+  switch (role) {
+    case 'staff': return '/staff/profile';
+    case 'student': return '/student/profile';
+    case 'parent': return '/parent/profile';
+    default: return '/dashboard';
+  }
+};
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [user, setUser] = React.useState(null);
+  const { user, loading, logout } = useAuth();
 
-  React.useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
-    }
-  }, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  const handleLogin = (token, userData) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setIsAuthenticated(true);
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUser(null);
-  };
-
-  // Helper to get redirect path based on role
-  const getDefaultPath = () => {
-    switch(user?.role) {
-      case 'staff': return '/staff/profile';
-      case 'student': return '/student/profile';
-      case 'parent': return '/parent/profile';
-      case 'admin':
-      default: return '/dashboard';
-    }
-  };
-
-  // Protected route wrapper
   const ProtectedRoute = ({ children, allowedRoles }) => {
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
-    if (allowedRoles && !allowedRoles.includes(user?.role)) {
-      return <Navigate to={getDefaultPath()} replace />;
+    if (!user) return <Navigate to="/login" replace />;
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+      return <Navigate to={getDefaultPath(user.role)} replace />;
     }
-    return <Layout user={user} onLogout={handleLogout}>{children}</Layout>;
+    return <Layout user={user} onLogout={logout}>{children}</Layout>;
   };
 
   return (
@@ -72,16 +55,10 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          
+
           <Route
             path="/login"
-            element={
-              isAuthenticated ? (
-                <Navigate to={getDefaultPath()} replace />
-              ) : (
-                <Login onLogin={handleLogin} />
-              )
-            }
+            element={user ? <Navigate to={getDefaultPath(user.role)} replace /> : <Login />}
           />
 
           {/* Admin Dashboard */}
@@ -102,8 +79,9 @@ function App() {
           <Route path="/transport" element={<ProtectedRoute allowedRoles={['admin']}><Transport /></ProtectedRoute>} />
           <Route path="/hostel" element={<ProtectedRoute allowedRoles={['admin']}><Hostel /></ProtectedRoute>} />
           <Route path="/communication" element={<ProtectedRoute allowedRoles={['admin']}><Communication /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />
 
-          {/* Staff routes - 12 modules */}
+          {/* Staff routes */}
           <Route path="/staff/profile" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="profile" /></ProtectedRoute>} />
           <Route path="/staff/attendance" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="attendance" /></ProtectedRoute>} />
           <Route path="/staff/timetable" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="timetable" /></ProtectedRoute>} />
@@ -117,7 +95,7 @@ function App() {
           <Route path="/staff/performance" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="performance" /></ProtectedRoute>} />
           <Route path="/staff/settings" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="settings" /></ProtectedRoute>} />
 
-          {/* Student routes - 12 modules */}
+          {/* Student routes */}
           <Route path="/student/profile" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="profile" /></ProtectedRoute>} />
           <Route path="/student/attendance" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="attendance" /></ProtectedRoute>} />
           <Route path="/student/timetable" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="timetable" /></ProtectedRoute>} />
@@ -131,7 +109,7 @@ function App() {
           <Route path="/student/requests" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="requests" /></ProtectedRoute>} />
           <Route path="/student/settings" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="settings" /></ProtectedRoute>} />
 
-          {/* Parent routes - 12 modules */}
+          {/* Parent routes */}
           <Route path="/parent/profile" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard user={user} module="profile" /></ProtectedRoute>} />
           <Route path="/parent/overview" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard user={user} module="overview" /></ProtectedRoute>} />
           <Route path="/parent/attendance" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard user={user} module="attendance" /></ProtectedRoute>} />
@@ -145,8 +123,7 @@ function App() {
           <Route path="/parent/health" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard user={user} module="health" /></ProtectedRoute>} />
           <Route path="/parent/settings" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard user={user} module="settings" /></ProtectedRoute>} />
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to={isAuthenticated ? getDefaultPath() : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={user ? getDefaultPath(user.role) : '/login'} replace />} />
         </Routes>
       </Router>
     </>

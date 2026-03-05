@@ -52,7 +52,7 @@ const Dashboard = ({ user }) => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/api/dashboard/stats');
+      const response = await api.get('/api/admin/stats');
       setStats(response.data);
     } catch (error) {
       toast.error('Failed to load dashboard stats');
