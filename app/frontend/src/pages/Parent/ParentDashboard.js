@@ -1,0 +1,1483 @@
+import React from 'react';
+import { 
+  User, Calendar, BookOpen, FileText, ClipboardCheck, 
+  MessageSquare, DollarSign, Award, Settings, Users,
+  Clock, CheckCircle, XCircle, Bell, Mail, Download,
+  Star, HelpCircle, LogOut, ChevronRight, AlertCircle,
+  Bus, Heart, Shield, CalendarDays, Phone, MapPin,
+  CreditCard, Receipt, Activity, GraduationCap, Home
+} from 'lucide-react';
+
+const ParentDashboard = ({ user, module = 'profile' }) => {
+
+  // 1. Parent Profile
+  const renderProfile = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Parent Profile</h2>
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <div className="flex items-center gap-6 mb-6">
+          <div className="w-24 h-24 bg-gradient-to-br from-[#D1FAE5] to-[#DBEAFE] rounded-full flex items-center justify-center text-4xl font-bold text-[#10B981]">
+            {user?.full_name?.charAt(0) || 'P'}
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-[#0F172A]">{user?.full_name || 'Parent User'}</h3>
+            <p className="text-[#64748B]">Parent ID: PRT-2024-001</p>
+            <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">Active Account</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="p-4 bg-[#D1FAE5] rounded-lg">
+            <p className="text-sm text-[#64748B]">Relation</p>
+            <p className="font-bold text-[#0F172A]">Father</p>
+          </div>
+          <div className="p-4 bg-[#DBEAFE] rounded-lg">
+            <p className="text-sm text-[#64748B]">Occupation</p>
+            <p className="font-bold text-[#0F172A]">Business Professional</p>
+          </div>
+        </div>
+
+        <div className="border-t border-[#E2E8F0] pt-4">
+          <h4 className="font-semibold mb-3">Contact Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
+              <Mail className="text-[#64748B]" size={18} />
+              <span className="text-sm">parent@email.com</span>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
+              <Phone className="text-[#64748B]" size={18} />
+              <span className="text-sm">+91 9876543210</span>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg col-span-2">
+              <MapPin className="text-[#64748B]" size={18} />
+              <span className="text-sm">123, Green Park, New Delhi - 110001</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#E2E8F0] pt-4 mt-4">
+          <h4 className="font-semibold mb-3">Linked Student(s)</h4>
+          <div className="space-y-3">
+            <div className="p-4 border-2 border-[#FCD34D] rounded-lg flex justify-between items-center bg-[#FFFBEB]">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#4F46E5] rounded-full flex items-center justify-center text-white font-bold">R</div>
+                <div>
+                  <p className="font-bold">Rahul Kumar</p>
+                  <p className="text-sm text-[#64748B]">Grade 10-A | Roll No: 15</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-[#10B981] text-white text-xs rounded-full font-semibold">Primary</span>
+            </div>
+            <div className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#EC4899] rounded-full flex items-center justify-center text-white font-bold">P</div>
+                <div>
+                  <p className="font-bold">Priya Kumar</p>
+                  <p className="text-sm text-[#64748B]">Grade 7-B | Roll No: 8</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-[#64748B] text-white text-xs rounded-full font-semibold">Sibling</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#E2E8F0] pt-4 mt-4">
+          <h4 className="font-semibold mb-3">Login & Security Settings</h4>
+          <div className="flex gap-3">
+            <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors">
+              Change Password
+            </button>
+            <button className="border-2 border-[#4F46E5] text-[#4F46E5] px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#EEF2FF] transition-colors">
+              Update Contact Info
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 2. Student Overview
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Student Overview</h2>
+      
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <div className="flex items-center gap-6 mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-full flex items-center justify-center text-3xl font-bold text-white">R</div>
+          <div>
+            <h3 className="text-2xl font-bold text-[#0F172A]">Rahul Kumar</h3>
+            <p className="text-[#64748B]">Student ID: STU-2024-001</p>
+            <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">Active Student</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-[#DBEAFE] rounded-lg">
+            <p className="text-sm text-[#64748B]">Class</p>
+            <p className="font-bold text-[#0F172A]">Grade 10</p>
+          </div>
+          <div className="p-4 bg-[#D1FAE5] rounded-lg">
+            <p className="text-sm text-[#64748B]">Section</p>
+            <p className="font-bold text-[#0F172A]">Section A</p>
+          </div>
+          <div className="p-4 bg-[#FEF3C7] rounded-lg">
+            <p className="text-sm text-[#64748B]">Roll Number</p>
+            <p className="font-bold text-[#0F172A]">15</p>
+          </div>
+          <div className="p-4 bg-[#FEE2E2] rounded-lg">
+            <p className="text-sm text-[#64748B]">Academic Year</p>
+            <p className="font-bold text-[#0F172A]">2024-25</p>
+          </div>
+        </div>
+
+        <div className="border-t border-[#E2E8F0] pt-4">
+          <h4 className="font-semibold mb-3">Child's Basic Details</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-3 bg-[#F8FAFC] rounded-lg">
+              <p className="text-sm text-[#64748B]">Date of Birth</p>
+              <p className="font-semibold">15 March 2010</p>
+            </div>
+            <div className="p-3 bg-[#F8FAFC] rounded-lg">
+              <p className="text-sm text-[#64748B]">Blood Group</p>
+              <p className="font-semibold">O+</p>
+            </div>
+            <div className="p-3 bg-[#F8FAFC] rounded-lg">
+              <p className="text-sm text-[#64748B]">Admission Date</p>
+              <p className="font-semibold">01 April 2020</p>
+            </div>
+            <div className="p-3 bg-[#F8FAFC] rounded-lg">
+              <p className="text-sm text-[#64748B]">House</p>
+              <p className="font-semibold">Blue House</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <GraduationCap className="text-[#4F46E5]" size={20} />
+          Teacher Details
+        </h3>
+        <div className="space-y-3">
+          <div className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+            <div>
+              <p className="font-bold">Mrs. Sunita Sharma</p>
+              <p className="text-sm text-[#64748B]">Class Teacher - Grade 10-A</p>
+            </div>
+            <button className="text-[#4F46E5] text-sm font-semibold">Message</button>
+          </div>
+          {[
+            { name: 'Mr. Rajesh Sharma', subject: 'Mathematics' },
+            { name: 'Ms. Priya Verma', subject: 'English' },
+            { name: 'Mrs. Anita Gupta', subject: 'Science' },
+            { name: 'Mr. Vikram Patel', subject: 'Social Studies' },
+          ].map((teacher, idx) => (
+            <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+              <div>
+                <p className="font-semibold text-sm">{teacher.name}</p>
+                <p className="text-xs text-[#64748B]">{teacher.subject}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <p className="text-sm text-[#64748B]">Attendance</p>
+          <p className="text-3xl font-bold text-[#065F46]">95.2%</p>
+          <p className="text-xs text-[#10B981]">This Month</p>
+        </div>
+        <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <p className="text-sm text-[#64748B]">Class Rank</p>
+          <p className="text-3xl font-bold text-[#1E40AF]">5th</p>
+          <p className="text-xs text-[#3B82F6]">Out of 35</p>
+        </div>
+        <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <p className="text-sm text-[#64748B]">Overall Grade</p>
+          <p className="text-3xl font-bold text-[#92400E]">A</p>
+          <p className="text-xs text-[#F59E0B]">Last Exam</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 3. Attendance Monitoring
+  const renderAttendance = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Attendance Monitoring</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <p className="text-sm text-[#64748B]">Present Days</p>
+          <p className="text-3xl font-bold text-[#065F46]">156</p>
+        </div>
+        <div className="p-6 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626]">
+          <p className="text-sm text-[#64748B]">Absent Days</p>
+          <p className="text-3xl font-bold text-[#991B1B]">8</p>
+        </div>
+        <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <p className="text-sm text-[#64748B]">Late Arrivals</p>
+          <p className="text-3xl font-bold text-[#92400E]">4</p>
+        </div>
+        <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <p className="text-sm text-[#64748B]">Attendance %</p>
+          <p className="text-3xl font-bold text-[#1E40AF]">95.2%</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Calendar className="text-[#F59E0B]" size={20} />
+          Today's Attendance Status
+        </h3>
+        <div className="p-4 bg-[#D1FAE5] rounded-lg flex items-center gap-4">
+          <CheckCircle className="text-[#10B981]" size={32} />
+          <div>
+            <p className="font-bold text-lg text-[#065F46]">Present</p>
+            <p className="text-sm text-[#64748B]">December 24, 2024 - Marked at 8:45 AM</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Monthly Attendance Report - December 2024</h3>
+        <div className="grid grid-cols-7 gap-2 text-center text-sm">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="font-semibold text-[#64748B] py-2">{day}</div>
+          ))}
+          {[...Array(31)].map((_, i) => {
+            const status = i < 24 ? (i === 7 || i === 14 || i === 21 ? 'holiday' : i === 10 ? 'absent' : 'present') : 'future';
+            return (
+              <div key={i} className={`p-2 rounded ${
+                status === 'present' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                status === 'absent' ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                status === 'holiday' ? 'bg-[#E2E8F0] text-[#64748B]' :
+                'bg-[#F8FAFC] text-[#94A3B8]'
+              }`}>
+                {i + 1}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex gap-4 text-sm">
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#D1FAE5] rounded"></span> Present</span>
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#FEE2E2] rounded"></span> Absent</span>
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#E2E8F0] rounded"></span> Holiday</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#DC2626] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <AlertCircle className="text-[#DC2626]" size={20} />
+          Absence Notifications
+        </h3>
+        <div className="space-y-3">
+          <div className="p-4 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-semibold text-[#991B1B]">Absent on December 11, 2024</p>
+                <p className="text-sm text-[#64748B]">Reason: Sick Leave (Informed)</p>
+              </div>
+              <span className="text-xs text-[#64748B]">2 weeks ago</span>
+            </div>
+          </div>
+          <div className="p-4 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-semibold text-[#92400E]">Late Arrival on December 16, 2024</p>
+                <p className="text-sm text-[#64748B]">Arrived at 9:10 AM (10 minutes late)</p>
+              </div>
+              <span className="text-xs text-[#64748B]">1 week ago</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 4. Academic Progress
+  const renderAcademic = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Academic Progress</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <p className="text-sm text-[#64748B]">Overall Grade</p>
+          <p className="text-2xl font-bold text-[#065F46]">A</p>
+        </div>
+        <div className="p-4 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <p className="text-sm text-[#64748B]">Class Rank</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">5 / 35</p>
+        </div>
+        <div className="p-4 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <p className="text-sm text-[#64748B]">Pending Homework</p>
+          <p className="text-2xl font-bold text-[#92400E]">2</p>
+        </div>
+        <div className="p-4 bg-[#EDE9FE] rounded-xl border-2 border-[#7C3AED]">
+          <p className="text-sm text-[#64748B]">Upcoming Exams</p>
+          <p className="text-2xl font-bold text-[#5B21B6]">5</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Subjects & Syllabus Progress</h3>
+        <div className="space-y-4">
+          {[
+            { subject: 'Mathematics', teacher: 'Mr. Sharma', progress: 80, grade: 'A+' },
+            { subject: 'Science', teacher: 'Mrs. Gupta', progress: 75, grade: 'A' },
+            { subject: 'English', teacher: 'Ms. Verma', progress: 85, grade: 'A' },
+            { subject: 'Social Studies', teacher: 'Mr. Patel', progress: 70, grade: 'B+' },
+            { subject: 'Hindi', teacher: 'Mrs. Singh', progress: 78, grade: 'A' },
+          ].map((item, idx) => (
+            <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <p className="font-bold">{item.subject}</p>
+                  <p className="text-sm text-[#64748B]">{item.teacher}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                  item.grade.startsWith('A') ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#92400E]'
+                }`}>{item.grade}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-2 bg-[#E2E8F0] rounded-full">
+                  <div className={`h-2 rounded-full ${item.progress >= 80 ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} style={{ width: `${item.progress}%` }}></div>
+                </div>
+                <span className="text-sm font-semibold">{item.progress}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <ClipboardCheck className="text-[#DC2626]" size={20} />
+            Homework & Assignments
+          </h3>
+          <div className="space-y-3">
+            {[
+              { title: 'Quadratic Equations - Exercise 5.3', subject: 'Mathematics', due: 'Dec 24', status: 'Due Today' },
+              { title: 'Essay Writing', subject: 'English', due: 'Dec 26', status: 'Pending' },
+              { title: 'Science Lab Report', subject: 'Science', due: 'Dec 20', status: 'Submitted' },
+            ].map((hw, idx) => (
+              <div key={idx} className={`p-3 border-2 rounded-lg ${
+                hw.status === 'Due Today' ? 'border-[#DC2626] bg-[#FEF2F2]' : 
+                hw.status === 'Submitted' ? 'border-[#10B981] bg-[#F0FDF4]' : 'border-[#E2E8F0]'
+              }`}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-sm">{hw.title}</p>
+                    <p className="text-xs text-[#64748B]">{hw.subject} • Due: {hw.due}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    hw.status === 'Due Today' ? 'bg-[#DC2626] text-white' :
+                    hw.status === 'Submitted' ? 'bg-[#10B981] text-white' : 'bg-[#F59E0B] text-white'
+                  }`}>{hw.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <GraduationCap className="text-[#7C3AED]" size={20} />
+            Test & Exam Schedules
+          </h3>
+          <div className="space-y-3">
+            {[
+              { name: 'Mid-Term - Mathematics', date: 'Dec 26', time: '9:00 AM' },
+              { name: 'Mid-Term - English', date: 'Dec 27', time: '9:00 AM' },
+              { name: 'Mid-Term - Science', date: 'Dec 28', time: '9:00 AM' },
+            ].map((exam, idx) => (
+              <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg">
+                <p className="font-semibold text-sm">{exam.name}</p>
+                <p className="text-xs text-[#64748B]">{exam.date} • {exam.time}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold">Marks, Grades & Report Cards</h3>
+          <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
+            <Download size={16} /> Download Report Card
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE]">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-sm">Subject</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Marks</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Grade</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { subject: 'Mathematics', marks: '92/100', grade: 'A+', remarks: 'Excellent' },
+                { subject: 'English', marks: '85/100', grade: 'A', remarks: 'Very Good' },
+                { subject: 'Science', marks: '88/100', grade: 'A', remarks: 'Excellent' },
+                { subject: 'Social Studies', marks: '78/100', grade: 'B+', remarks: 'Good' },
+                { subject: 'Hindi', marks: '82/100', grade: 'A', remarks: 'Very Good' },
+              ].map((result, idx) => (
+                <tr key={idx} className="border-b border-[#E2E8F0]">
+                  <td className="px-4 py-3 text-sm font-semibold">{result.subject}</td>
+                  <td className="px-4 py-3 text-sm">{result.marks}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      result.grade === 'A+' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                      result.grade === 'A' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                      'bg-[#FEF3C7] text-[#92400E]'
+                    }`}>{result.grade}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[#64748B]">{result.remarks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 p-4 bg-[#D1FAE5] rounded-lg">
+          <p className="font-bold text-[#065F46]">Total: 425/500 | Percentage: 85% | Overall Grade: A</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 5. Communication
+  const renderCommunication = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Communication</h2>
+      
+      {/* Communication Channels - WhatsApp, Email, SMS */}
+      <div className="bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] rounded-xl p-6 text-white">
+        <h3 className="font-bold text-xl mb-4">Contact School via Multiple Channels</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#25D366] rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold">WhatsApp</p>
+                <p className="text-xs text-white/80">+91 98765 43210</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/70">Message school on WhatsApp for quick queries</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#EA4335] rounded-full flex items-center justify-center">
+                <Mail className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold">Email</p>
+                <p className="text-xs text-white/80">info@ajmschool.edu</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/70">Send detailed emails with attachments</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#10B981] rounded-full flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold">SMS Alerts</p>
+                <p className="text-xs text-white/80">Subscribed</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/70">Receive instant SMS alerts for important updates</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <MessageSquare className="text-[#4F46E5]" size={20} />
+          Messages from Teachers
+        </h3>
+        <div className="space-y-4">
+          {[
+            { teacher: 'Mr. Sharma (Mathematics)', message: 'Rahul has shown great improvement in problem-solving. Encourage more practice at home.', time: 'Today, 10:30 AM', type: 'positive', via: 'WhatsApp' },
+            { teacher: 'Mrs. Gupta (Science)', message: 'Please ensure Rahul completes the lab report by Dec 28. It\'s important for grades.', time: 'Yesterday, 3:15 PM', type: 'info', via: 'Email' },
+            { teacher: 'Mrs. Sunita (Class Teacher)', message: 'Parent-Teacher Meeting scheduled for Dec 30. Please confirm your attendance.', time: 'Dec 20, 2024', type: 'important', via: 'SMS' },
+          ].map((msg, idx) => (
+            <div key={idx} className={`p-4 rounded-lg border-l-4 ${
+              msg.type === 'positive' ? 'bg-[#F0FDF4] border-[#10B981]' :
+              msg.type === 'important' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
+              'bg-[#F8FAFC] border-[#64748B]'
+            }`}>
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold">{msg.teacher}</p>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    msg.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' : 
+                    msg.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
+                    'bg-[#4F46E5]/20 text-[#4F46E5]'
+                  }`}>{msg.via}</span>
+                </div>
+                <span className="text-xs text-[#64748B]">{msg.time}</span>
+              </div>
+              <p className="text-sm text-[#64748B] mt-2">{msg.message}</p>
+              <div className="mt-3 flex gap-2">
+                <button className="text-sm bg-[#25D366] text-white px-3 py-1 rounded font-semibold">Reply via WhatsApp</button>
+                <button className="text-sm bg-[#EA4335] text-white px-3 py-1 rounded font-semibold">Reply via Email</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Bell className="text-[#DC2626]" size={20} />
+          School Announcements & Notices
+        </h3>
+        <div className="space-y-3">
+          {[
+            { title: 'Mid-Term Examination Schedule', message: 'Examinations begin from December 26, 2024. Please check the timetable.', time: '2 hours ago', priority: 'high', via: 'SMS' },
+            { title: 'Annual Day Celebration', message: 'Annual Day will be celebrated on January 15, 2025. Parents are cordially invited.', time: '1 day ago', priority: 'medium', via: 'Email' },
+            { title: 'Winter Vacation Notice', message: 'School will remain closed from January 1-5, 2025 for winter vacation.', time: '2 days ago', priority: 'low', via: 'WhatsApp' },
+          ].map((notice, idx) => (
+            <div key={idx} className={`p-4 rounded-lg border-l-4 ${
+              notice.priority === 'high' ? 'bg-[#FEE2E2] border-[#DC2626]' :
+              notice.priority === 'medium' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
+              'bg-[#F1F5F9] border-[#64748B]'
+            }`}>
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold">{notice.title}</p>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    notice.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' : 
+                    notice.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
+                    'bg-[#4F46E5]/20 text-[#4F46E5]'
+                  }`}>via {notice.via}</span>
+                </div>
+                <span className="text-xs text-[#64748B]">{notice.time}</span>
+              </div>
+              <p className="text-sm text-[#64748B] mt-1">{notice.message}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Send Message to School</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+            <option>Select Recipient</option>
+            <option>Class Teacher</option>
+            <option>Subject Teacher</option>
+            <option>Principal</option>
+            <option>Admin Office</option>
+          </select>
+          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+            <option>Regarding</option>
+            <option>Academic Query</option>
+            <option>Attendance Issue</option>
+            <option>Fee Related</option>
+            <option>General Inquiry</option>
+          </select>
+          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+            <option>Send Via</option>
+            <option>WhatsApp</option>
+            <option>Email</option>
+            <option>In-App Message</option>
+          </select>
+        </div>
+        <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-24" placeholder="Type your message here..."></textarea>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button className="bg-[#25D366] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            Send via WhatsApp
+          </button>
+          <button className="bg-[#EA4335] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2">
+            <Mail size={18} /> Send via Email
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#4F46E5] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Users className="text-[#4F46E5]" size={20} />
+            Parent-Teacher Meeting (PTM)
+          </h3>
+          <div className="p-4 bg-[#EEF2FF] rounded-lg mb-4">
+            <p className="font-semibold text-[#4F46E5]">Next PTM: December 30, 2024</p>
+            <p className="text-sm text-[#64748B]">Time: 10:00 AM - 1:00 PM</p>
+            <p className="text-sm text-[#64748B]">Venue: Main Hall</p>
+          </div>
+          <div className="flex gap-3">
+            <button className="flex-1 bg-[#10B981] text-white py-2 rounded-lg font-semibold text-sm">Confirm Attendance</button>
+            <button className="flex-1 border-2 border-[#DC2626] text-[#DC2626] py-2 rounded-lg font-semibold text-sm">Request Reschedule</button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Star className="text-[#F59E0B]" size={20} />
+            Feedback from Teachers
+          </h3>
+          <div className="space-y-3">
+            <div className="p-3 bg-[#D1FAE5] rounded-lg">
+              <p className="font-semibold text-sm">Academic Performance</p>
+              <div className="flex mt-1">
+                {[1,2,3,4,5].map(star => <Star key={star} size={16} className="text-[#F59E0B] fill-[#F59E0B]" />)}
+              </div>
+              <p className="text-xs text-[#64748B] mt-1">Excellent progress in all subjects</p>
+            </div>
+            <div className="p-3 bg-[#DBEAFE] rounded-lg">
+              <p className="font-semibold text-sm">Behavior & Discipline</p>
+              <div className="flex mt-1">
+                {[1,2,3,4].map(star => <Star key={star} size={16} className="text-[#F59E0B] fill-[#F59E0B]" />)}
+                <Star size={16} className="text-[#E2E8F0]" />
+              </div>
+              <p className="text-xs text-[#64748B] mt-1">Good behavior, participates actively</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 6. Fees & Payments
+  const renderFees = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Fees & Payments</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <p className="text-sm text-[#64748B]">Total Fees</p>
+          <p className="text-2xl font-bold text-[#065F46]">₹85,000</p>
+          <p className="text-xs text-[#10B981]">Academic Year 2024-25</p>
+        </div>
+        <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <p className="text-sm text-[#64748B]">Paid Amount</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">₹60,000</p>
+          <p className="text-xs text-[#3B82F6]">70.5% Complete</p>
+        </div>
+        <div className="p-6 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626]">
+          <p className="text-sm text-[#64748B]">Pending Amount</p>
+          <p className="text-2xl font-bold text-[#991B1B]">₹25,000</p>
+          <p className="text-xs text-[#DC2626]">Due: Jan 15, 2025</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Fee Structure</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-sm">Fee Type</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Amount</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Due Date</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { type: 'Tuition Fee (Q1)', amount: '₹20,000', due: 'Apr 15, 2024', status: 'Paid' },
+                { type: 'Tuition Fee (Q2)', amount: '₹20,000', due: 'Jul 15, 2024', status: 'Paid' },
+                { type: 'Tuition Fee (Q3)', amount: '₹20,000', due: 'Oct 15, 2024', status: 'Paid' },
+                { type: 'Tuition Fee (Q4)', amount: '₹20,000', due: 'Jan 15, 2025', status: 'Pending' },
+                { type: 'Lab Fee', amount: '₹3,000', due: 'Apr 15, 2024', status: 'Paid' },
+                { type: 'Library Fee', amount: '₹2,000', due: 'Jan 15, 2025', status: 'Pending' },
+              ].map((fee, idx) => (
+                <tr key={idx} className="border-b border-[#E2E8F0]">
+                  <td className="px-4 py-3 text-sm">{fee.type}</td>
+                  <td className="px-4 py-3 text-sm font-semibold">{fee.amount}</td>
+                  <td className="px-4 py-3 text-sm">{fee.due}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      fee.status === 'Paid' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'
+                    }`}>{fee.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <CreditCard className="text-[#4F46E5]" size={20} />
+            Online Payment
+          </h3>
+          <div className="p-4 bg-[#FEE2E2] rounded-lg mb-4">
+            <p className="text-sm text-[#64748B]">Amount Due</p>
+            <p className="text-2xl font-bold text-[#991B1B]">₹25,000</p>
+          </div>
+          <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2 mb-4">
+            <option>Select Fee Type</option>
+            <option>Tuition Fee (Q4) - ₹20,000</option>
+            <option>Library Fee - ₹2,000</option>
+            <option>Pay All Pending - ₹25,000</option>
+          </select>
+          
+          {/* Payment Methods */}
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-[#64748B] mb-3">Choose Payment Method</p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Razorpay */}
+              <button className="p-3 border-2 border-[#3B82F6] rounded-lg hover:bg-[#EFF6FF] transition-all flex flex-col items-center gap-2 group">
+                <div className="w-10 h-10 bg-[#3B82F6] rounded-lg flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
+                    <path d="M22.436 0H1.564C.7 0 0 .7 0 1.564v20.872C0 23.3.7 24 1.564 24h20.872c.864 0 1.564-.7 1.564-1.564V1.564C24 .7 23.3 0 22.436 0zM7.543 15.957l-2.4-1.3 6.5-11.357 2.4 1.3-6.5 11.357zm8.314 4.5l-2.4-1.3 2.7-4.7 2.4 1.3-2.7 4.7zm1.5-6.2l-2.4-1.3 1.3-2.3 2.4 1.3-1.3 2.3z"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-[#3B82F6]">Razorpay</span>
+              </button>
+              
+              {/* UPI */}
+              <button className="p-3 border-2 border-[#10B981] rounded-lg hover:bg-[#ECFDF5] transition-all flex flex-col items-center gap-2 group">
+                <div className="w-10 h-10 bg-[#10B981] rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">UPI</span>
+                </div>
+                <span className="text-sm font-semibold text-[#10B981]">UPI Payment</span>
+              </button>
+              
+              {/* Card */}
+              <button className="p-3 border-2 border-[#7C3AED] rounded-lg hover:bg-[#F5F3FF] transition-all flex flex-col items-center gap-2 group">
+                <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-[#7C3AED]">Debit/Credit Card</span>
+              </button>
+              
+              {/* QR Scanner */}
+              <button className="p-3 border-2 border-[#F59E0B] rounded-lg hover:bg-[#FFFBEB] transition-all flex flex-col items-center gap-2 group">
+                <div className="w-10 h-10 bg-[#F59E0B] rounded-lg flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+                    <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2zM17 17h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-[#F59E0B]">Scan QR Code</span>
+              </button>
+            </div>
+          </div>
+          
+          <button className="w-full bg-[#4F46E5] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-[#4338CA] transition-colors">
+            <CreditCard size={18} /> Proceed to Pay
+          </button>
+          
+          {/* Payment Info */}
+          <div className="mt-4 p-3 bg-[#F1F5F9] rounded-lg">
+            <p className="text-xs text-[#64748B] text-center">
+              🔒 Secure payment powered by Razorpay. All transactions are encrypted.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Receipt className="text-[#10B981]" size={20} />
+            Receipts & Invoices
+          </h3>
+          <div className="space-y-3">
+            {[
+              { id: 'REC-2024-003', amount: '₹20,000', date: 'Oct 15, 2024' },
+              { id: 'REC-2024-002', amount: '₹20,000', date: 'Jul 15, 2024' },
+              { id: 'REC-2024-001', amount: '₹23,000', date: 'Apr 15, 2024' },
+            ].map((receipt, idx) => (
+              <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                <div>
+                  <p className="font-semibold text-sm">{receipt.id}</p>
+                  <p className="text-xs text-[#64748B]">{receipt.date}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-[#10B981]">{receipt.amount}</span>
+                  <button className="text-[#4F46E5]"><Download size={18} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* QR Code for Payment */}
+          <div className="mt-6 p-4 border-2 border-dashed border-[#FCD34D] rounded-lg text-center">
+            <h4 className="font-semibold mb-3">Scan to Pay via UPI</h4>
+            <div className="w-32 h-32 mx-auto bg-white border-2 border-[#E2E8F0] rounded-lg flex items-center justify-center mb-2">
+              <svg viewBox="0 0 24 24" className="w-20 h-20 fill-[#0F172A]">
+                <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2zM17 17h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z"/>
+              </svg>
+            </div>
+            <p className="text-xs text-[#64748B]">ajmschool@upi</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 7. Behavior & Discipline
+  const renderBehavior = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Behavior & Discipline</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <Star className="text-[#10B981] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Behavior Rating</p>
+          <p className="text-2xl font-bold text-[#065F46]">Excellent</p>
+        </div>
+        <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <Award className="text-[#3B82F6] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Positive Remarks</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">12</p>
+        </div>
+        <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <AlertCircle className="text-[#F59E0B] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Areas for Improvement</p>
+          <p className="text-2xl font-bold text-[#92400E]">2</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Star className="text-[#10B981]" size={20} />
+          Teacher Remarks
+        </h3>
+        <div className="space-y-4">
+          {[
+            { teacher: 'Mr. Sharma (Mathematics)', remark: 'Shows excellent problem-solving skills. Always completes homework on time.', date: 'Dec 20, 2024', type: 'positive' },
+            { teacher: 'Ms. Verma (English)', remark: 'Active participation in class discussions. Great improvement in writing skills.', date: 'Dec 18, 2024', type: 'positive' },
+            { teacher: 'Mrs. Gupta (Science)', remark: 'Good in practical work. Needs to focus more on theory part.', date: 'Dec 15, 2024', type: 'neutral' },
+            { teacher: 'Mrs. Sunita (Class Teacher)', remark: 'Helpful to classmates. Takes leadership in group activities.', date: 'Dec 10, 2024', type: 'positive' },
+          ].map((item, idx) => (
+            <div key={idx} className={`p-4 rounded-lg border-l-4 ${
+              item.type === 'positive' ? 'bg-[#F0FDF4] border-[#10B981]' : 'bg-[#FEF3C7] border-[#F59E0B]'
+            }`}>
+              <div className="flex justify-between items-start">
+                <p className="font-semibold">{item.teacher}</p>
+                <span className="text-xs text-[#64748B]">{item.date}</span>
+              </div>
+              <p className="text-sm text-[#64748B] mt-2">"{item.remark}"</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Behavior Reports</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE]">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-sm">Category</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Rating</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Teacher Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { category: 'Punctuality', rating: 'Excellent', comment: 'Always on time' },
+                { category: 'Class Participation', rating: 'Very Good', comment: 'Actively participates in discussions' },
+                { category: 'Homework Completion', rating: 'Excellent', comment: 'Consistently completes all assignments' },
+                { category: 'Respect for Others', rating: 'Excellent', comment: 'Very respectful to teachers and peers' },
+                { category: 'Teamwork', rating: 'Very Good', comment: 'Good team player, helps classmates' },
+              ].map((item, idx) => (
+                <tr key={idx} className="border-b border-[#E2E8F0]">
+                  <td className="px-4 py-3 text-sm font-semibold">{item.category}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      item.rating === 'Excellent' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#DBEAFE] text-[#1E40AF]'
+                    }`}>{item.rating}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[#64748B]">{item.comment}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#10B981] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Shield className="text-[#10B981]" size={20} />
+          Discipline Notices
+        </h3>
+        <div className="p-4 bg-[#D1FAE5] rounded-lg text-center">
+          <CheckCircle className="text-[#10B981] mx-auto mb-2" size={32} />
+          <p className="font-semibold text-[#065F46]">No Discipline Issues</p>
+          <p className="text-sm text-[#64748B]">Your child has maintained excellent discipline throughout the year.</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 8. School Events & Activities
+  const renderEvents = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">School Events & Activities</h2>
+      
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <CalendarDays className="text-[#4F46E5]" size={20} />
+          School Calendar - December 2024
+        </h3>
+        <div className="grid grid-cols-7 gap-2 text-center text-sm">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="font-semibold text-[#64748B] py-2">{day}</div>
+          ))}
+          {[...Array(31)].map((_, i) => {
+            const isHoliday = i === 24 || i === 25;
+            const isExam = i >= 25 && i <= 30;
+            const isEvent = i === 14;
+            return (
+              <div key={i} className={`p-2 rounded ${
+                isHoliday ? 'bg-[#D1FAE5] text-[#065F46]' :
+                isExam ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                isEvent ? 'bg-[#EDE9FE] text-[#7C3AED]' :
+                'bg-[#F8FAFC]'
+              }`}>
+                {i + 1}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#D1FAE5] rounded"></span> Holiday</span>
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#FEE2E2] rounded"></span> Exam</span>
+          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#EDE9FE] rounded"></span> Event</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4">Upcoming Events</h3>
+          <div className="space-y-3">
+            {[
+              { name: 'Mid-Term Examinations', date: 'Dec 26-31', type: 'Exam' },
+              { name: 'Annual Day Celebration', date: 'Jan 15, 2025', type: 'Cultural' },
+              { name: 'Science Exhibition', date: 'Jan 20, 2025', type: 'Academic' },
+              { name: 'Sports Day', date: 'Feb 5, 2025', type: 'Sports' },
+            ].map((event, idx) => (
+              <div key={idx} className="p-3 border-l-4 border-[#4F46E5] bg-[#F8FAFC] rounded-r-lg">
+                <p className="font-semibold">{event.name}</p>
+                <p className="text-xs text-[#64748B]">{event.date} • {event.type}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4">Holidays</h3>
+          <div className="space-y-3">
+            {[
+              { name: 'Christmas', date: 'Dec 25', type: 'Public Holiday' },
+              { name: 'New Year', date: 'Jan 1', type: 'Public Holiday' },
+              { name: 'Makar Sankranti', date: 'Jan 14', type: 'Regional Holiday' },
+              { name: 'Republic Day', date: 'Jan 26', type: 'National Holiday' },
+            ].map((holiday, idx) => (
+              <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{holiday.name}</p>
+                  <p className="text-xs text-[#64748B]">{holiday.type}</p>
+                </div>
+                <span className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-sm font-semibold">{holiday.date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Co-curricular Activities & Student Participation</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { name: 'Science Club', role: 'Member', schedule: 'Every Saturday', status: 'Active' },
+            { name: 'Debate Team', role: 'Team Member', schedule: 'Tue & Thu', status: 'Active' },
+            { name: 'Cricket Team', role: 'Batsman', schedule: 'Mon & Fri', status: 'Active' },
+          ].map((activity, idx) => (
+            <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-bold">{activity.name}</h4>
+                <span className="px-2 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-xs font-semibold">{activity.status}</span>
+              </div>
+              <p className="text-sm text-[#64748B]">Role: {activity.role}</p>
+              <p className="text-sm text-[#64748B]">Schedule: {activity.schedule}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // 9. Requests & Approvals
+  const renderRequests = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Requests & Approvals</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4">Leave Request for Child</h3>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">From Date</label>
+                <input type="date" className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">To Date</label>
+                <input type="date" className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Reason</label>
+              <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 h-20" placeholder="Enter reason..."></textarea>
+            </div>
+            <button className="w-full bg-[#4F46E5] text-white py-2 rounded-lg font-semibold">Submit Request</button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4">Certificate Requests</h3>
+          <div className="space-y-3">
+            <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+              <option>Select Certificate Type</option>
+              <option>Bonafide Certificate</option>
+              <option>Character Certificate</option>
+              <option>Study Certificate</option>
+              <option>Transfer Certificate</option>
+            </select>
+            <div>
+              <label className="block text-sm font-medium mb-1">Purpose</label>
+              <input type="text" className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2" placeholder="e.g., Scholarship application" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Required By</label>
+              <input type="date" className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
+            </div>
+            <button className="w-full bg-[#10B981] text-white py-2 rounded-lg font-semibold">Request Certificate</button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4">Transport / Facility Requests</h3>
+          <div className="space-y-3">
+            <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+              <option>Select Request Type</option>
+              <option>Change Bus Route</option>
+              <option>Add Transport Service</option>
+              <option>Cancel Transport Service</option>
+              <option>Facility Request</option>
+            </select>
+            <div>
+              <label className="block text-sm font-medium mb-1">Details</label>
+              <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 h-20" placeholder="Provide details..."></textarea>
+            </div>
+            <button className="w-full bg-[#F59E0B] text-white py-2 rounded-lg font-semibold">Submit Request</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Request History</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-sm">Request ID</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Type</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Submitted</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { id: 'REQ-2024-025', type: 'Leave Request', date: 'Dec 20', status: 'Approved' },
+                { id: 'REQ-2024-024', type: 'Bonafide Certificate', date: 'Dec 15', status: 'Ready' },
+                { id: 'REQ-2024-023', type: 'Bus Route Change', date: 'Dec 10', status: 'Processing' },
+              ].map((req, idx) => (
+                <tr key={idx} className="border-b border-[#E2E8F0]">
+                  <td className="px-4 py-3 text-sm font-semibold">{req.id}</td>
+                  <td className="px-4 py-3 text-sm">{req.type}</td>
+                  <td className="px-4 py-3 text-sm">{req.date}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      req.status === 'Approved' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                      req.status === 'Ready' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                      'bg-[#FEF3C7] text-[#92400E]'
+                    }`}>{req.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {req.status === 'Ready' && <button className="text-xs bg-[#4F46E5] text-white px-3 py-1 rounded font-semibold">Download</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 10. Transport
+  const renderTransport = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Transport</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <Bus className="text-[#3B82F6] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Bus Number</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">DL-01-AB-1234</p>
+        </div>
+        <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <MapPin className="text-[#10B981] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Route Number</p>
+          <p className="text-2xl font-bold text-[#065F46]">Route 5</p>
+        </div>
+        <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <Clock className="text-[#F59E0B] mb-2" size={32} />
+          <p className="text-sm text-[#64748B]">Pickup Time</p>
+          <p className="text-2xl font-bold text-[#92400E]">7:30 AM</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Bus Route & Timings</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#DBEAFE] to-[#D1FAE5]">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-sm">Stop</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Location</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Morning Pickup</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Evening Drop</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { stop: 1, location: 'Green Park Metro', morning: '7:15 AM', evening: '3:45 PM' },
+                { stop: 2, location: 'Hauz Khas Market', morning: '7:25 AM', evening: '3:55 PM' },
+                { stop: 3, location: 'Safdarjung Enclave (Your Stop)', morning: '7:30 AM', evening: '4:00 PM', highlight: true },
+                { stop: 4, location: 'AIIMS Gate', morning: '7:40 AM', evening: '4:10 PM' },
+                { stop: 5, location: 'School', morning: '8:00 AM', evening: '3:30 PM' },
+              ].map((item, idx) => (
+                <tr key={idx} className={`border-b border-[#E2E8F0] ${item.highlight ? 'bg-[#FEF3C7]' : ''}`}>
+                  <td className="px-4 py-3 text-sm font-semibold">{item.stop}</td>
+                  <td className="px-4 py-3 text-sm">{item.location}</td>
+                  <td className="px-4 py-3 text-sm">{item.morning}</td>
+                  <td className="px-4 py-3 text-sm">{item.evening}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <User className="text-[#4F46E5]" size={20} />
+            Driver Contact (School-Approved)
+          </h3>
+          <div className="p-4 bg-[#F8FAFC] rounded-lg">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 bg-[#4F46E5] rounded-full flex items-center justify-center text-white text-xl font-bold">RS</div>
+              <div>
+                <p className="font-bold">Mr. Ramesh Singh</p>
+                <p className="text-sm text-[#64748B]">Driver - Route 5</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Phone className="text-[#64748B]" size={16} />
+                <span className="text-sm">+91 98765 43210</span>
+              </div>
+              <p className="text-xs text-[#64748B]">Contact only for transport emergencies</p>
+            </div>
+          </div>
+          <div className="mt-4 p-4 bg-[#F8FAFC] rounded-lg">
+            <p className="font-semibold">Conductor: Mr. Suresh</p>
+            <div className="flex items-center gap-2 mt-1">
+              <Phone className="text-[#64748B]" size={16} />
+              <span className="text-sm">+91 98765 43211</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <DollarSign className="text-[#10B981]" size={20} />
+            Transport Fee Status
+          </h3>
+          <div className="space-y-4">
+            <div className="p-4 bg-[#D1FAE5] rounded-lg">
+              <p className="text-sm text-[#64748B]">Annual Transport Fee</p>
+              <p className="text-2xl font-bold text-[#065F46]">₹24,000</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-[#F8FAFC] rounded-lg">
+                <p className="text-sm text-[#64748B]">Paid</p>
+                <p className="font-bold text-[#10B981]">₹18,000</p>
+              </div>
+              <div className="p-3 bg-[#F8FAFC] rounded-lg">
+                <p className="text-sm text-[#64748B]">Pending</p>
+                <p className="font-bold text-[#DC2626]">₹6,000</p>
+              </div>
+            </div>
+            <button className="w-full bg-[#4F46E5] text-white py-2 rounded-lg font-semibold">Pay Transport Fee</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 11. Health & Safety
+  const renderHealth = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Health & Safety</h2>
+      
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Heart className="text-[#DC2626]" size={20} />
+          Medical Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-[#FEE2E2] rounded-lg">
+            <p className="text-sm text-[#64748B]">Blood Group</p>
+            <p className="font-bold text-[#991B1B]">O+</p>
+          </div>
+          <div className="p-4 bg-[#D1FAE5] rounded-lg">
+            <p className="text-sm text-[#64748B]">Height</p>
+            <p className="font-bold text-[#065F46]">152 cm</p>
+          </div>
+          <div className="p-4 bg-[#DBEAFE] rounded-lg">
+            <p className="text-sm text-[#64748B]">Weight</p>
+            <p className="font-bold text-[#1E40AF]">45 kg</p>
+          </div>
+          <div className="p-4 bg-[#FEF3C7] rounded-lg">
+            <p className="text-sm text-[#64748B]">Vision</p>
+            <p className="font-bold text-[#92400E]">Normal</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+            <h4 className="font-semibold mb-2">Known Allergies</h4>
+            <p className="text-sm text-[#64748B]">No known allergies</p>
+          </div>
+          <div className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+            <h4 className="font-semibold mb-2">Medical Conditions</h4>
+            <p className="text-sm text-[#64748B]">None reported</p>
+          </div>
+          <div className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+            <h4 className="font-semibold mb-2">Regular Medications</h4>
+            <p className="text-sm text-[#64748B]">None</p>
+          </div>
+        </div>
+        <button className="mt-4 bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm">Update Medical Information</button>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#DC2626] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Phone className="text-[#DC2626]" size={20} />
+          Emergency Contacts
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-[#FEE2E2] rounded-lg">
+            <p className="font-semibold">Primary Contact</p>
+            <p className="text-sm">{user?.full_name || 'Parent User'} (Father)</p>
+            <p className="text-sm text-[#64748B]">+91 9876543210</p>
+          </div>
+          <div className="p-4 bg-[#FEF3C7] rounded-lg">
+            <p className="font-semibold">Secondary Contact</p>
+            <p className="text-sm">Mrs. Kumar (Mother)</p>
+            <p className="text-sm text-[#64748B]">+91 9876543211</p>
+          </div>
+          <div className="p-4 bg-[#DBEAFE] rounded-lg">
+            <p className="font-semibold">Emergency Contact</p>
+            <p className="text-sm">Mr. Sharma (Uncle)</p>
+            <p className="text-sm text-[#64748B]">+91 9876543212</p>
+          </div>
+          <div className="p-4 bg-[#D1FAE5] rounded-lg">
+            <p className="font-semibold">Family Doctor</p>
+            <p className="text-sm">Dr. Rajesh Gupta</p>
+            <p className="text-sm text-[#64748B]">+91 9876543213</p>
+          </div>
+        </div>
+        <button className="mt-4 border-2 border-[#DC2626] text-[#DC2626] px-4 py-2 rounded-lg font-semibold text-sm">Update Emergency Contacts</button>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <AlertCircle className="text-[#F59E0B]" size={20} />
+          Health Alerts
+        </h3>
+        <div className="space-y-3">
+          <div className="p-4 bg-[#D1FAE5] rounded-lg border-l-4 border-[#10B981]">
+            <p className="font-semibold text-[#065F46]">Health Checkup Completed</p>
+            <p className="text-sm text-[#64748B]">Annual health checkup completed on Nov 15, 2024. All reports normal.</p>
+          </div>
+          <div className="p-4 bg-[#DBEAFE] rounded-lg border-l-4 border-[#3B82F6]">
+            <p className="font-semibold text-[#1E40AF]">Vaccination Reminder</p>
+            <p className="text-sm text-[#64748B]">Next vaccination due: Booster dose (Feb 2025)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 12. Settings & Support
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Bell className="text-[#F59E0B]" size={20} />
+            Notification Preferences
+          </h3>
+          <div className="space-y-4">
+            {[
+              { name: 'Attendance Alerts', desc: 'Get notified about absence/late arrivals', enabled: true },
+              { name: 'Exam Results', desc: 'Receive marks and grade notifications', enabled: true },
+              { name: 'Fee Reminders', desc: 'Get fee payment due reminders', enabled: true },
+              { name: 'School Announcements', desc: 'Important school notices', enabled: true },
+              { name: 'Homework Alerts', desc: 'Pending homework notifications', enabled: false },
+            ].map((pref, idx) => (
+              <div key={idx} className="flex justify-between items-center p-3 bg-[#F8FAFC] rounded-lg">
+                <div>
+                  <p className="font-semibold text-sm">{pref.name}</p>
+                  <p className="text-xs text-[#64748B]">{pref.desc}</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" defaultChecked={pref.enabled} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-[#E2E8F0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4F46E5]"></div>
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Settings className="text-[#64748B]" size={20} />
+            Account Settings
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Email Address</label>
+              <input type="email" defaultValue="parent@email.com" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Phone Number</label>
+              <input type="tel" defaultValue="+91 9876543210" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+            </div>
+            <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm">Update Settings</button>
+            <button className="w-full border-2 border-[#DC2626] text-[#DC2626] px-4 py-2 rounded-lg font-semibold text-sm">Change Password</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <HelpCircle className="text-[#4F46E5]" size={20} />
+          Help & Support
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="p-4 bg-[#FEF3C7] rounded-lg">
+            <p className="font-semibold">School Office</p>
+            <p className="text-sm text-[#64748B]">For general queries</p>
+            <p className="text-sm font-semibold mt-2">+91 11-2345-6789</p>
+          </div>
+          <div className="p-4 bg-[#DBEAFE] rounded-lg">
+            <p className="font-semibold">Parent Help Desk</p>
+            <p className="text-sm text-[#64748B]">For portal related issues</p>
+            <p className="text-sm font-semibold mt-2">help@ajmschool.edu</p>
+          </div>
+        </div>
+        <div>
+          <h4 className="font-semibold mb-3">Submit a Query</h4>
+          <div className="space-y-3">
+            <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2">
+              <option>Select Query Type</option>
+              <option>Academic Query</option>
+              <option>Fee Related</option>
+              <option>Transport Issue</option>
+              <option>Technical Issue</option>
+              <option>Other</option>
+            </select>
+            <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-24" placeholder="Describe your query..."></textarea>
+            <button className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold">Submit Query</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4">Frequently Asked Questions</h3>
+        <div className="space-y-3">
+          {[
+            { q: 'How to pay fees online?', a: 'Go to Fees & Payments section, select the fee type, and click Pay Now to complete payment.' },
+            { q: 'How to apply for leave for my child?', a: 'Navigate to Requests & Approvals, fill the leave request form with dates and reason.' },
+            { q: 'How to contact my child\'s teacher?', a: 'Go to Communication section where you can view and reply to teacher messages.' },
+            { q: 'How to download report card?', a: 'Visit Academic Progress section and click Download Report Card button.' },
+          ].map((faq, idx) => (
+            <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+              <p className="font-semibold text-sm">{faq.q}</p>
+              <p className="text-sm text-[#64748B] mt-1">{faq.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626] flex justify-between items-center">
+        <div>
+          <p className="font-semibold text-[#991B1B]">Logout from Parent Portal</p>
+          <p className="text-sm text-[#64748B]">You will be redirected to the login page</p>
+        </div>
+        <button className="bg-[#DC2626] text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2">
+          <LogOut size={18} /> Logout
+        </button>
+      </div>
+    </div>
+  );
+
+  const modules = [
+    { id: 'profile', name: 'Profile', render: renderProfile },
+    { id: 'overview', name: 'Student Overview', render: renderOverview },
+    { id: 'attendance', name: 'Attendance', render: renderAttendance },
+    { id: 'academic', name: 'Academic Progress', render: renderAcademic },
+    { id: 'communication', name: 'Communication', render: renderCommunication },
+    { id: 'fees', name: 'Fees', render: renderFees },
+    { id: 'behavior', name: 'Behavior', render: renderBehavior },
+    { id: 'events', name: 'Events', render: renderEvents },
+    { id: 'requests', name: 'Requests', render: renderRequests },
+    { id: 'transport', name: 'Transport', render: renderTransport },
+    { id: 'health', name: 'Health', render: renderHealth },
+    { id: 'settings', name: 'Settings', render: renderSettings },
+  ];
+
+  const currentModule = modules.find(m => m.id === module) || modules[0];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE] rounded-2xl p-6 border-2 border-[#10B981]">
+        <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.full_name}!</h1>
+        <p className="text-base text-[#64748B]">Parent Portal - AJM International Institution</p>
+      </div>
+
+      <div>
+        {currentModule.render()}
+      </div>
+    </div>
+  );
+};
+
+export default ParentDashboard;
