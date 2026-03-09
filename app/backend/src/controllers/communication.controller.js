@@ -1,6 +1,8 @@
 import Announcement from '../models/Announcement.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
+import Student from '../models/Student.js';
+import Parent from '../models/Parent.js';
 
 // ── Announcements ─────────────────────────────────────────────────────────────
 
@@ -82,17 +84,47 @@ export const markMessageRead = async (req, res, next) => {
   }
 };
 
+// ── Class Contacts (for messaging parents) ───────────────────────────────────
+
+export const getClassContacts = async (req, res, next) => {
+  try {
+    const { classId } = req.params;
+    const students = await Student.find({ classId, status: 'active' })
+      .populate({ path: 'userId', select: 'name email phone' })
+      .populate({ path: 'classId', select: 'name' })
+      .populate({ path: 'parentId', populate: { path: 'userId', select: 'name email phone' } });
+
+    const contacts = students.map(s => ({
+      studentId: s._id,
+      studentName: s.userId?.name || 'Unknown',
+      studentEmail: s.userId?.email || '',
+      rollNumber: s.rollNumber || '',
+      className: s.classId?.name || '',
+      gender: s.gender || '',
+      parentName: s.parentId?.userId?.name || '',
+      parentEmail: s.parentId?.userId?.email || '',
+      parentPhone: s.parentId?.userId?.phone || s.parentContact || '',
+      parentUserId: s.parentId?.userId?._id || null,
+    }));
+
+    res.json({ success: true, data: contacts });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── Email / SMS / Circular (mocked — wire real provider when ready) ────────────
 
 export const sendEmail = async (req, res, next) => {
   try {
-    const { recipient_email, subject, message } = req.body;
-    if (!recipient_email || !subject || !message) {
-      return res.status(400).json({ success: false, message: 'recipient_email, subject and message are required' });
+    const { recipient_email, recipients, subject, message } = req.body;
+    const emails = recipients || (recipient_email ? [recipient_email] : []);
+    if (emails.length === 0 || !subject || !message) {
+      return res.status(400).json({ success: false, message: 'recipients, subject and message are required' });
     }
     // TODO: integrate email provider (e.g. Resend, Nodemailer)
-    console.log(`[EMAIL] To: ${recipient_email} | Subject: ${subject}`);
-    res.json({ success: true, message: 'Email sent successfully' });
+    emails.forEach(email => console.log(`[EMAIL] To: ${email} | Subject: ${subject}`));
+    res.json({ success: true, message: `Email sent to ${emails.length} recipient(s)`, data: { sent: emails.length } });
   } catch (err) {
     next(err);
   }
@@ -100,11 +132,25 @@ export const sendEmail = async (req, res, next) => {
 
 export const sendSms = async (req, res, next) => {
   try {
-    const { recipient, message } = req.body;
-    if (!recipient || !message) return res.status(400).json({ success: false, message: 'recipient and message are required' });
+    const { recipient, recipients, message } = req.body;
+    const phones = recipients || (recipient ? [recipient] : []);
+    if (phones.length === 0 || !message) return res.status(400).json({ success: false, message: 'recipients and message are required' });
     // TODO: integrate SMS provider (e.g. Twilio)
-    console.log(`[SMS] To: ${recipient} | Message: ${message}`);
-    res.json({ success: true, message: 'SMS sent successfully' });
+    phones.forEach(phone => console.log(`[SMS] To: ${phone} | Message: ${message}`));
+    res.json({ success: true, message: `SMS sent to ${phones.length} recipient(s)`, data: { sent: phones.length } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendWhatsApp = async (req, res, next) => {
+  try {
+    const { recipient, recipients, message } = req.body;
+    const phones = recipients || (recipient ? [recipient] : []);
+    if (phones.length === 0 || !message) return res.status(400).json({ success: false, message: 'recipients and message are required' });
+    // TODO: integrate WhatsApp Business API (e.g. Twilio WhatsApp, Meta Cloud API)
+    phones.forEach(phone => console.log(`[WHATSAPP] To: ${phone} | Message: ${message}`));
+    res.json({ success: true, message: `WhatsApp sent to ${phones.length} recipient(s)`, data: { sent: phones.length } });
   } catch (err) {
     next(err);
   }

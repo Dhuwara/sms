@@ -9,6 +9,7 @@ const studentSchema = new mongoose.Schema({
   gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
   address: { type: String },
   parentContact: { type: String },
+  studentType: { type: String, enum: ['dayScholar', 'hosteller'], default: 'dayScholar' },
   status: { type: String, enum: ['active', 'inactive', 'graduated', 'transferred'], default: 'active' },
 }, { timestamps: true });
 

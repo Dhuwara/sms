@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Edit, Trash2, Users, X, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, X, ChevronDown, Save, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 
@@ -53,13 +53,6 @@ const getAcademicYear = () => {
   return month >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
-const getClassSubjects = (classId, classList, subjectList) => {
-  if (!classId) return [];
-  const currentClass = classList.find((c) => c._id === classId);
-  if (!currentClass?.subjects?.length) return [];
-  return subjectList.filter((s) => currentClass.subjects.includes(s.name));
-};
-
 const getAvailableStudents = (studentList) =>
   studentList.filter((s) => s.status !== 'Graduated');
 
@@ -69,11 +62,43 @@ const getAssignedStudents = (mappingData, studentList) => {
   return studentList.filter((s) => ids.has(s._id.toString()));
 };
 
-const getUnassignedStudents = (mappingData, studentList) => {
-  if (!mappingData?.students) return getAvailableStudents(studentList);
-  const ids = new Set(mappingData.students.map((id) => id.toString()));
-  return getAvailableStudents(studentList).filter((s) => !ids.has(s._id.toString()));
+const getUnassignedStudents = (mappingData, studentList, globalAssignedIds) => {
+  const currentIds = new Set((mappingData?.students || []).map((id) => id.toString()));
+  const globalIds = new Set(globalAssignedIds || []);
+  return getAvailableStudents(studentList).filter((s) => {
+    const id = s._id.toString();
+    return !currentIds.has(id) && !globalIds.has(id);
+  });
 };
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const PERIOD_TYPES = [
+  { value: 'class', label: 'Class', rowBg: '', badge: 'bg-[#FEF3C7] text-[#92400E]' },
+  { value: 'break', label: 'Break', rowBg: 'bg-orange-50', badge: 'bg-orange-100 text-orange-800' },
+  { value: 'lunch', label: 'Lunch', rowBg: 'bg-red-50', badge: 'bg-red-100 text-red-800' },
+  { value: 'sports', label: 'Sports', rowBg: 'bg-green-50', badge: 'bg-green-100 text-green-800' },
+  { value: 'lab', label: 'Lab', rowBg: 'bg-blue-50', badge: 'bg-blue-100 text-blue-800' },
+  { value: 'assembly', label: 'Assembly', rowBg: 'bg-purple-50', badge: 'bg-purple-100 text-purple-800' },
+];
+
+const initScheduleDraft = (periods, existingSchedule) => {
+  const draft = {};
+  DAYS.forEach((day) => {
+    draft[day] = (periods || []).map((p, i) => {
+      const entry = existingSchedule?.[day]?.[i];
+      const saved = typeof entry === 'object' ? (entry?.subject || '') : (entry || '');
+      return saved || p.subject || '';
+    });
+  });
+  return draft;
+};
+
+const initDayDraft = (periods, tt, day) =>
+  (periods || []).map((_, i) => ({
+    subject: tt?.schedule?.[day]?.[i]?.subject || '',
+    teacher: tt?.schedule?.[day]?.[i]?.teacher?.toString() || '',
+  }));
 
 const Classes = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -106,6 +131,24 @@ const Classes = () => {
   const [mappingEditMode, setMappingEditMode] = useState(false);
   const [mappingSaving, setMappingSaving] = useState(false);
   const [students, setStudents] = useState([]);
+  const [globalAssignedStudentIds, setGlobalAssignedStudentIds] = useState([]);
+
+  // Timetable tab
+  const [ttTab, setTtTab] = useState('periods');
+  const [ttPeriodClassId, setTtPeriodClassId] = useState('');
+  const [periodConfig, setPeriodConfig] = useState(null);
+  const [periodDraft, setPeriodDraft] = useState([]);
+  const [ttEditMode, setTtEditMode] = useState(false);
+  const [ttClassId, setTtClassId] = useState('');
+  const [timetable, setTimetable] = useState(null);
+  const [scheduleDraft, setScheduleDraft] = useState({});
+  const [ttScheduleEditMode, setTtScheduleEditMode] = useState(false);
+  const [ttLoading, setTtLoading] = useState(false);
+  const [ttPeriodDay, setTtPeriodDay] = useState('Monday');
+  const [dayDraft, setDayDraft] = useState([]);
+  const [ttPeriodTimetable, setTtPeriodTimetable] = useState(null);
+  const [ttDaySaving, setTtDaySaving] = useState(false);
+  const [ttDayEditMode, setTtDayEditMode] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -113,6 +156,7 @@ const Classes = () => {
     fetchTeachers();
     fetchClassConfig();
     fetchStudents();
+    fetchGlobalAssignedStudents();
   }, []);
 
   const fetchStudents = async () => {
@@ -121,6 +165,15 @@ const Classes = () => {
       setStudents(res.data);
     } catch {
       console.error('Failed to load students');
+    }
+  };
+
+  const fetchGlobalAssignedStudents = async () => {
+    try {
+      const res = await api.get(`/api/classmapping/assigned-students/${getAcademicYear()}`);
+      setGlobalAssignedStudentIds(res.data);
+    } catch {
+      console.error('Failed to load assigned students');
     }
   };
 
@@ -325,17 +378,6 @@ const Classes = () => {
     }
   };
 
-  const handleClassTeacherChange = (teacherId) => {
-    setMappingData((prev) => ({ ...prev, classTeacher: teacherId }));
-  };
-
-  const handleSubjectTeacherChange = (subjectName, teacherId) => {
-    setMappingData((prev) => ({
-      ...prev,
-      subjectTeachers: { ...prev.subjectTeachers, [subjectName]: teacherId },
-    }));
-  };
-
   const handleStudentToggle = (studentId) => {
     setMappingData((prev) => {
       const current = prev?.students || [];
@@ -363,6 +405,7 @@ const Classes = () => {
       toast.success('Class mapping saved!');
       setMappingEditMode(false);
       fetchClasses();
+      fetchGlobalAssignedStudents();
     } catch {
       toast.error('Failed to save mapping');
     } finally {
@@ -372,9 +415,157 @@ const Classes = () => {
 
   const mappingClassInfo = classes.find((c) => c._id === mappingClassId);
 
-  const classSubjects = getClassSubjects(mappingClassId, classes, dbSubjects);
+  // ─── Timetable ───────────────────────────────────────────────────────────────
+
+  const handleTtPeriodClassChange = async (classId) => {
+    setTtPeriodClassId(classId);
+    setTtEditMode(false);
+    setTtDayEditMode(false);
+    if (!classId) { setPeriodConfig(null); setPeriodDraft([]); setTtPeriodTimetable(null); setDayDraft([]); return; }
+    const configRes = await api.get(`/api/timetable/periods/${classId}/${getAcademicYear()}`);
+    const ttRes = await api.get(`/api/timetable/${classId}/${getAcademicYear()}`);
+    const config = configRes.data;
+    const tt = ttRes.data;
+    setPeriodConfig(config);
+    setPeriodDraft(config.periods || []);
+    setTtPeriodTimetable(tt);
+    setDayDraft(initDayDraft(config.periods || [], tt, ttPeriodDay));
+  };
+
+  const handleAddPeriod = () => {
+    const classCount = periodDraft.filter((p) => p.type === 'class').length;
+    setPeriodDraft((prev) => [
+      ...prev,
+      { name: `Period ${classCount + 1}`, startTime: '09:00', endTime: '10:00', type: 'class', day: ttPeriodDay, subject: '', teacher: '' },
+    ]);
+  };
+
+  const handleRemovePeriod = (i) => setPeriodDraft((prev) => prev.filter((_, idx) => idx !== i));
+
+  const handlePeriodChange = (i, field, value) =>
+    setPeriodDraft((prev) => prev.map((p, idx) => {
+      if (idx !== i) return p;
+      const updated = { ...p, [field]: value };
+      if (field === 'subject') updated.teacher = '';
+      if (field === 'type' && value !== 'class' && value !== 'lab' && value !== 'sports') {
+        updated.subject = '';
+        updated.teacher = null;
+      }
+      return updated;
+    }));
+
+  const handleSavePeriodConfig = async () => {
+    setTtLoading(true);
+    try {
+      const res = await api.post('/api/timetable/periods', {
+        classId: ttPeriodClassId,
+        academicYear: getAcademicYear(),
+        periods: periodDraft,
+      });
+      setPeriodConfig(res.data);
+      setPeriodDraft(res.data.periods || []);
+      setDayDraft(initDayDraft(res.data.periods || [], ttPeriodTimetable, ttPeriodDay));
+      setTtEditMode(false);
+      toast.success('Period configuration saved!');
+    } catch {
+      toast.error('Failed to save period configuration');
+    } finally {
+      setTtLoading(false);
+    }
+  };
+
+  const handleTtPeriodDayChange = (day) => {
+    setTtPeriodDay(day);
+    setTtDayEditMode(false);
+    setDayDraft(initDayDraft(periodDraft, ttPeriodTimetable, day));
+  };
+
+  const handleDayDraftChange = (i, field, value) => {
+    setDayDraft((prev) => prev.map((entry, idx) => {
+      if (idx !== i) return entry;
+      const updated = { ...entry, [field]: value };
+      if (field === 'subject') updated.teacher = '';
+      return updated;
+    }));
+  };
+
+  const handleSaveDaySchedule = async () => {
+    setTtDaySaving(true);
+    try {
+      const daySchedule = (periodDraft || []).map((_, i) => ({
+        periodIndex: i,
+        subject: dayDraft[i]?.subject || '',
+        teacher: dayDraft[i]?.teacher || null,
+      }));
+      const newSchedule = { ...(ttPeriodTimetable?.schedule || {}), [ttPeriodDay]: daySchedule };
+      const res = await api.post('/api/timetable', {
+        classId: ttPeriodClassId,
+        academicYear: getAcademicYear(),
+        schedule: newSchedule,
+      });
+      setTtPeriodTimetable(res.data);
+      setTtDayEditMode(false);
+      toast.success(`${ttPeriodDay} schedule saved!`);
+    } catch {
+      toast.error('Failed to save schedule');
+    } finally {
+      setTtDaySaving(false);
+    }
+  };
+
+  const handleTtClassChange = async (classId) => {
+    setTtClassId(classId);
+    setTtScheduleEditMode(false);
+    if (!classId) { setPeriodConfig(null); setTimetable(null); setScheduleDraft({}); return; }
+    let config = null;
+    try {
+      const configRes = await api.get(`/api/timetable/periods/${classId}/${getAcademicYear()}`);
+      config = configRes.data;
+      setPeriodConfig(config);
+    } catch {
+      config = { periods: [] };
+      setPeriodConfig(config);
+    }
+    try {
+      const ttRes = await api.get(`/api/timetable/${classId}/${getAcademicYear()}`);
+      setTimetable(ttRes.data);
+      setScheduleDraft(initScheduleDraft(config?.periods || [], ttRes.data.schedule));
+    } catch {
+      setTimetable({ schedule: {} });
+      setScheduleDraft(initScheduleDraft(config?.periods || [], {}));
+    }
+  };
+
+  const handleScheduleChange = (day, i, value) => {
+    setScheduleDraft((prev) => {
+      const dayArr = [...(prev[day] || [])];
+      dayArr[i] = value;
+      return { ...prev, [day]: dayArr };
+    });
+  };
+
+  const handleSaveTimetable = async () => {
+    setTtLoading(true);
+    try {
+      const schedule = {};
+      DAYS.forEach((day) => {
+        schedule[day] = (periodConfig?.periods || []).map((_, i) => ({
+          periodIndex: i,
+          subject: scheduleDraft[day]?.[i] || '',
+        }));
+      });
+      await api.post('/api/timetable', { classId: ttClassId, academicYear: getAcademicYear(), schedule });
+      toast.success('Timetable saved!');
+      setTtScheduleEditMode(false);
+    } catch {
+      toast.error('Failed to save timetable');
+    } finally {
+      setTtLoading(false);
+    }
+  };
+
   const assignedStudents = getAssignedStudents(mappingData, students);
-  const unassignedStudents = getUnassignedStudents(mappingData, students);
+  const unassignedStudents = getUnassignedStudents(mappingData, students, globalAssignedStudentIds);
 
   let classSubmitLabel = selectedClass ? 'Update Class' : 'Add Class';
   if (classLoading) classSubmitLabel = 'Saving...';
@@ -424,11 +615,10 @@ const Classes = () => {
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`px-6 py-3 font-semibold transition-all ${
-              activeTab === key
+            className={`px-6 py-3 font-semibold transition-all ${activeTab === key
                 ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg'
                 : 'text-[#64748B] hover:text-[#0F172A]'
-            }`}
+              }`}
           >
             {label}
           </button>
@@ -512,8 +702,8 @@ const Classes = () => {
                     <tr key={subj._id} className="hover:bg-[#FFFBEB] transition-colors">
                       <td className="px-6 py-4 text-sm text-center text-[#64748B]">{index + 1}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{subj.name}</td>
-                      <td className="px-6 py-4 text-sm text-[#64748B]">{subj.code || '—'}</td>
-                      <td className="px-6 py-4 text-sm text-[#64748B]">{subj.description || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-[#64748B] uppercase">{subj.code || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-[#64748B] capitalize">{subj.description || '—'}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => handleEditSubject(subj)} className="p-2 text-[#F59E0B] hover:bg-[#FEF3C7] rounded-lg transition-colors">
@@ -535,34 +725,374 @@ const Classes = () => {
 
       {/* ── Timetable Tab ── */}
       {activeTab === 'timetable' && (
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h2 className="text-2xl font-bold mb-4 text-[#0F172A]">Weekly Timetable</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
-                <tr>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Day</th>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Period 1<br /><span className="text-xs font-normal">9:00-10:00</span></th>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Period 2<br /><span className="text-xs font-normal">10:00-11:00</span></th>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Period 3<br /><span className="text-xs font-normal">11:30-12:30</span></th>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Period 4<br /><span className="text-xs font-normal">12:30-1:30</span></th>
-                  <th className="px-4 py-3 text-left font-bold text-[#0F172A]">Period 5<br /><span className="text-xs font-normal">2:00-3:00</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, i) => (
-                  <tr key={day} className="border-b hover:bg-[#FFFBEB]">
-                    <td className="px-4 py-3 font-semibold text-[#0F172A]">{day}</td>
-                    <td className="px-4 py-3 text-[#64748B]">Math</td>
-                    <td className="px-4 py-3 text-[#64748B]">Science</td>
-                    <td className="px-4 py-3 text-[#64748B]">English</td>
-                    <td className="px-4 py-3 text-[#64748B]">Hindi</td>
-                    <td className="px-4 py-3 text-[#64748B]">{i === 4 ? 'Library' : 'Sports'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-4">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 border-b-2 border-[#FCD34D]">
+            {[{ key: 'periods', label: 'Period Setup' }, { key: 'schedule', label: 'Weekly Schedule' }].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTtTab(key)}
+                className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg transition-colors ${ttTab === key ? 'bg-[#FCD34D] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#FEF3C7] hover:text-[#0F172A]'
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+
+          {/* ── Period Setup ── */}
+          {ttTab === 'periods' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 shadow-sm flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <label htmlFor="tt-period-cls" className="text-sm font-medium text-[#0F172A]">Class:</label>
+                  <select
+                    id="tt-period-cls"
+                    value={ttPeriodClassId}
+                    onChange={(e) => handleTtPeriodClassChange(e.target.value)}
+                    className="h-9 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  >
+                    <option value="">Select Class</option>
+                    {classes.map((cls) => (
+                      <option key={cls._id} value={cls._id}>{cls.name} — Section {cls.section}</option>
+                    ))}
+                  </select>
+                </div>
+                {!ttEditMode && ttPeriodClassId && (
+                  <button
+                    type="button"
+                    onClick={() => setTtEditMode(true)}
+                    className="flex items-center gap-2 border-2 border-[#FCD34D] text-[#0F172A] hover:bg-[#FEF3C7] px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+                  >
+                    <Pencil size={13} />
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {ttPeriodClassId ? (
+                <div className="space-y-4">
+                  <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                          <tr>
+                            <th className="px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase w-12">S.No</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Period Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Start Time</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">End Time</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Day</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Teacher</th>
+                            {ttEditMode && <th className="px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase w-14">Del</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {periodDraft.length === 0 ? (
+                            <tr>
+                              <td colSpan={ttEditMode ? 9 : 8} className="px-4 py-10 text-center text-[#64748B]">
+                                {ttEditMode ? 'Click "+ Add Period" below to start.' : 'No periods configured. Click Edit to add.'}
+                              </td>
+                            </tr>
+                          ) : (
+                            periodDraft.map((p, i) => {
+                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                              const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
+                              const filteredTeachers = teachers.filter((t) => t.subjects?.includes(p.subject));
+                              return (
+                                <tr key={i} className={`${typeInfo.rowBg} transition-all`}>
+                                  <td className="px-4 py-3 text-sm text-center text-[#64748B]">{i + 1}</td>
+                                  <td className="px-4 py-3">
+                                    {ttEditMode ? (
+                                      <input type="text" value={p.name} onChange={(e) => handlePeriodChange(i, 'name', e.target.value)} className="w-full h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
+                                    ) : (
+                                      <span className="text-sm font-medium text-[#0F172A]">{p.name}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {ttEditMode ? (
+                                      <input type="time" value={p.startTime} onChange={(e) => handlePeriodChange(i, 'startTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
+                                    ) : (
+                                      <span className="text-sm text-[#64748B]">{p.startTime}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {ttEditMode ? (
+                                      <input type="time" value={p.endTime} onChange={(e) => handlePeriodChange(i, 'endTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
+                                    ) : (
+                                      <span className="text-sm text-[#64748B]">{p.endTime}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {ttEditMode ? (
+                                      <select value={p.day || 'Monday'} onChange={(e) => handlePeriodChange(i, 'day', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                        {DAYS.map((d) => <option key={d} value={d}>{d.slice(0, 3)}</option>)}
+                                      </select>
+                                    ) : (
+                                      <span className="text-sm text-[#64748B]">{p.day || 'Monday'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {ttEditMode ? (
+                                      <select value={p.type} onChange={(e) => handlePeriodChange(i, 'type', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                        {PERIOD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                      </select>
+                                    ) : (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
+                                      ttEditMode ? (
+                                        <select value={p.subject || ''} onChange={(e) => handlePeriodChange(i, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                          <option value="">Select Subject</option>
+                                          {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      ) : (
+                                        <span className="text-sm text-[#64748B]">{p.subject || '-'}</span>
+                                      )
+                                    ) : (
+                                      <span className="text-sm text-[#94A3B8]">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
+                                      ttEditMode ? (
+                                        <select value={p.teacher || ''} onChange={(e) => handlePeriodChange(i, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!p.subject}>
+                                          <option value="">{p.subject ? 'Select Teacher' : 'Select subject first'}</option>
+                                          {filteredTeachers.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                        </select>
+                                      ) : (
+                                        <span className="text-sm text-[#64748B]">{teachers.find((t) => t._id === p.teacher)?.name || '-'}</span>
+                                      )
+                                    ) : (
+                                      <span className="text-sm text-[#94A3B8]">—</span>
+                                    )}
+                                  </td>
+                                  {ttEditMode && (
+                                    <td className="px-4 py-3 text-center">
+                                      <button type="button" onClick={() => handleRemovePeriod(i)} className="text-[#DC2626] hover:text-red-700 p-1"><X size={15} /></button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {ttEditMode && (
+                      <div className="px-4 py-4 border-t-2 border-[#FCD34D] flex items-center justify-between flex-wrap gap-3">
+                        <button type="button" onClick={handleAddPeriod} className="flex items-center gap-2 border-2 border-dashed border-[#FCD34D] text-[#F59E0B] hover:bg-[#FEF3C7] px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                          <Plus size={15} />
+                          Add Period
+                        </button>
+                        <div className="flex items-center gap-3">
+                          <button type="button" onClick={() => { setPeriodDraft(periodConfig?.periods || []); setTtEditMode(false); }} className="border-2 border-gray-300 text-[#64748B] hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            Cancel
+                          </button>
+                          <button type="button" onClick={handleSavePeriodConfig} disabled={ttLoading} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+                            <Save size={14} />
+                            {ttLoading ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {periodDraft.length > 0 && !ttEditMode && (
+                    <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-4 pt-3 pb-0 border-b-2 border-[#FCD34D]">
+                        <div className="flex items-center gap-1 overflow-x-auto">
+                          {DAYS.map((day) => (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => handleTtPeriodDayChange(day)}
+                              className={`px-4 py-2 text-xs font-semibold rounded-t-lg whitespace-nowrap transition-colors ${ttPeriodDay === day ? 'bg-[#FCD34D] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#FEF3C7] hover:text-[#0F172A]'
+                                }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                        {!ttDayEditMode && (
+                          <button type="button" onClick={() => setTtDayEditMode(true)} className="flex items-center gap-1.5 border-2 border-[#FCD34D] text-[#0F172A] hover:bg-[#FEF3C7] px-3 py-1 rounded-lg text-xs font-semibold transition-colors mb-0.5 shrink-0">
+                            <Pencil size={11} />
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                            <tr>
+                              <th className="px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase w-12">S.No</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Period Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Time</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Type</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Teacher</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {periodDraft.filter((p) => (p.day || 'Monday') === ttPeriodDay).map((p) => {
+                              const actualIndex = periodDraft.indexOf(p);
+                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                              const needsAssignment = p.type === 'class' || p.type === 'lab';
+                              const entry = dayDraft[actualIndex] || { subject: '', teacher: '' };
+                              const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
+                              return (
+                                <tr key={actualIndex} className={`${typeInfo.rowBg} transition-all`}>
+                                  <td className="px-4 py-3 text-sm text-center text-[#64748B]">{actualIndex + 1}</td>
+                                  <td className="px-4 py-3 text-sm font-medium text-[#0F172A]">{p.name}</td>
+                                  <td className="px-4 py-3 text-sm text-[#64748B]">{p.startTime}–{p.endTime}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {needsAssignment && ttDayEditMode ? (
+                                      <select value={entry.subject} onChange={(e) => handleDayDraftChange(actualIndex, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                        <option value="">Select Subject</option>
+                                        {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                                      </select>
+                                    ) : (
+                                      <span className={`text-sm ${entry.subject ? 'text-[#0F172A]' : 'text-[#94A3B8]'}`}>{entry.subject || '—'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {needsAssignment && ttDayEditMode ? (
+                                      <select value={entry.teacher} onChange={(e) => handleDayDraftChange(actualIndex, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!entry.subject}>
+                                        <option value="">{entry.subject ? 'Select Teacher' : 'Select subject first'}</option>
+                                        {teachers.filter((t) => t.subjects?.includes(entry.subject)).map((t) => (
+                                          <option key={t._id} value={t._id}>{t.name}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <span className={`text-sm ${entry.teacher ? 'text-[#0F172A]' : 'text-[#94A3B8]'}`}>
+                                        {entry.teacher ? (teachers.find((t) => t._id?.toString() === entry.teacher)?.name || '—') : '—'}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {ttDayEditMode && (
+                        <div className="px-4 py-4 border-t-2 border-[#FCD34D] flex items-center justify-end gap-3">
+                          <button type="button" onClick={() => { setDayDraft(initDayDraft(periodDraft, ttPeriodTimetable, ttPeriodDay)); setTtDayEditMode(false); }} className="border-2 border-gray-300 text-[#64748B] hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            Cancel
+                          </button>
+                          <button type="button" onClick={handleSaveDaySchedule} disabled={ttDaySaving} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+                            <Save size={14} />
+                            {ttDaySaving ? 'Saving...' : `Save ${ttPeriodDay}`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-12 text-center text-[#64748B]">
+                  <p>Select a class to view or configure its period schedule</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Weekly Schedule ── */}
+          {ttTab === 'schedule' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 shadow-sm flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <label htmlFor="tt-cls" className="text-sm font-medium text-[#0F172A]">Class:</label>
+                  <select
+                    id="tt-cls"
+                    value={ttClassId}
+                    onChange={(e) => handleTtClassChange(e.target.value)}
+                    className="h-9 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  >
+                    <option value="">Select Class</option>
+                    {classes.map((cls) => (
+                      <option key={cls._id} value={cls._id}>{cls.name} — Section {cls.section}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {ttClassId && periodConfig?.periods?.length > 0 ? (
+                <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase min-w-28">Day</th>
+                          {periodConfig.periods.map((p, i) => {
+                            const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                            return (
+                              <th key={i} className={`px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase min-w-32 ${typeInfo.rowBg}`}>
+                                {p.name}
+                                <div className="text-[10px] font-normal text-[#64748B] mt-0.5">{p.startTime}–{p.endTime}</div>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {DAYS.map((day) => (
+                          <tr key={day} className="hover:bg-[#FFFBEB]">
+                            <td className="px-4 py-3 font-semibold text-sm text-[#0F172A]">{day}</td>
+                            {periodConfig.periods.map((p, i) => {
+                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                              if (p.type !== 'class' && p.type !== 'lab') {
+                                return (
+                                  <td key={i} className={`px-3 py-3 text-center text-xs font-semibold text-[#64748B] ${typeInfo.rowBg}`}>
+                                    {typeInfo.label}
+                                  </td>
+                                );
+                              }
+                              const entry = timetable?.schedule?.[day]?.[i];
+                              const subj = entry?.subject || '—';
+                              const teacherName = entry?.teacher
+                                ? (teachers.find((t) => t._id?.toString() === entry.teacher?.toString())?.name || '—')
+                                : '—';
+                              if (p.type === 'lab') {
+                                return (
+                                  <td key={i} className={`px-3 py-3 text-center text-xs ${typeInfo.rowBg}`}>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
+                                    {entry?.subject && <div className="text-[#0F172A] text-xs mt-1">{subj}</div>}
+                                    {entry?.subject && <div className="text-[#64748B] text-xs">{teacherName}</div>}
+                                  </td>
+                                );
+                              }
+                              return (
+                                <td key={i} className="px-3 py-3 text-center">
+                                  <div className="text-sm font-medium text-[#0F172A]">{subj}</div>
+                                  {entry?.subject && <div className="text-xs text-[#64748B] mt-0.5">{teacherName}</div>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : ttClassId ? (
+                <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-8 text-center text-[#64748B]">
+                  <p className="font-medium">No period configuration found for this class.</p>
+                  <p className="text-sm mt-1">Set up period times in the "Period Setup" tab first.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-12 text-center text-[#64748B]">
+                  <p>Select a class to view or edit its weekly schedule</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -593,11 +1123,10 @@ const Classes = () => {
                   type="button"
                   onClick={() => setMappingEditMode(!mappingEditMode)}
                   disabled={!mappingClassId}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                    mappingEditMode
+                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${mappingEditMode
                       ? 'bg-green-500 hover:bg-green-600 text-white'
                       : 'bg-[#4F46E5] hover:bg-[#4338CA] text-white'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {mappingEditMode ? 'View Mode' : 'Edit Mode'}
                 </button>
@@ -607,72 +1136,6 @@ const Classes = () => {
 
           {mappingClassId ? (
             <>
-              {/* Class Teacher */}
-              <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Class Teacher Assignment</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="m-teacher" className="block text-sm font-medium text-[#64748B] mb-2">Class Teacher</label>
-                    {mappingEditMode ? (
-                      <select
-                        id="m-teacher"
-                        value={mappingData?.classTeacher || ''}
-                        onChange={(e) => handleClassTeacherChange(e.target.value)}
-                        className="w-full px-4 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                      >
-                        <option value="">Select Class Teacher</option>
-                        {teachers.map((t) => (
-                          <option key={t._id} value={t._id}>{t.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 text-sm text-[#0F172A]">
-                        {teachers.find((t) => t._id?.toString() === mappingData?.classTeacher?.toString())?.name || 'Not assigned'}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="m-info" className="block text-sm font-medium text-[#64748B] mb-2">Class Information</label>
-                    <div id="m-info" className="px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 text-sm text-[#0F172A]">
-                      {mappingClassInfo?.name} — Section {mappingClassInfo?.section}
-                      {mappingClassInfo?.capacity ? ` • Capacity: ${mappingClassInfo.capacity}` : ''}
-                      {mappingClassInfo?.roomNumber ? ` • Room: ${mappingClassInfo.roomNumber}` : ''}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subject Teachers */}
-              {classSubjects.length > 0 && (
-                <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Subject Teachers Assignment</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {classSubjects.map((subject) => (
-                      <div key={subject.name}>
-                        <label htmlFor={`st-${subject.name}`} className="block text-sm font-medium text-[#64748B] mb-2">{subject.name}</label>
-                        {mappingEditMode ? (
-                          <select
-                            id={`st-${subject.name}`}
-                            value={mappingData?.subjectTeachers?.[subject.name] || ''}
-                            onChange={(e) => handleSubjectTeacherChange(subject.name, e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B] text-sm"
-                          >
-                            <option value="">Select Teacher</option>
-                            {teachers.map((t) => (
-                              <option key={t._id} value={t._id}>{t.name}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 text-sm text-[#0F172A]">
-                            {teachers.find((t) => t._id?.toString() === mappingData?.subjectTeachers?.[subject.name]?.toString())?.name || 'Not assigned'}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Student Assignment */}
               <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-[#0F172A] mb-4">
@@ -860,9 +1323,16 @@ const Classes = () => {
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   >
                     <option value="">Select Teacher</option>
-                    {teachers.map((t) => (
-                      <option key={t._id} value={t._id}>{t.name}</option>
-                    ))}
+                    {teachers
+                      .filter((t) => {
+                        const isAssignedToOtherClass = classes.some(
+                          (cls) => cls.classTeacher?._id === t._id && cls._id !== selectedClass?._id
+                        );
+                        return !isAssignedToOtherClass;
+                      })
+                      .map((t) => (
+                        <option key={t._id} value={t._id}>{t.name}</option>
+                      ))}
                   </select>
                 </div>
 
@@ -964,7 +1434,7 @@ const Classes = () => {
                   value={subjectForm.code}
                   onChange={(e) => { setSubjectForm({ ...subjectForm, code: e.target.value }); setSubjectErrors({ ...subjectErrors, code: '' }); }}
                   placeholder="e.g., MATH101"
-                  className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  className="uppercase w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                 />
                 {subjectErrors.code && <p className="text-red-500 text-xs mt-1">{subjectErrors.code}</p>}
               </div>

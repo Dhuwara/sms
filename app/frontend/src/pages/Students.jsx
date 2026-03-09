@@ -19,10 +19,11 @@ const Students = () => {
     gender: 'male',
     parent_contact: '',
     address: '',
-    class: '',
-    roll_no: '',
+    studentType: 'dayScholar',
+    password: '',
     parent_name: '',
     parent_email: '',
+    parent_password: '',
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
@@ -32,8 +33,6 @@ const Students = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
     if (!formData.dob) errors.dob = 'Date of birth is required';
-    if (!formData.roll_no.trim()) errors.roll_no = 'Roll number is required';
-    if (!formData.class.trim()) errors.class = 'Class & section is required';
     if (!formData.parent_contact.trim()) errors.parent_contact = 'Contact number is required';
     if (!formData.address.trim()) errors.address = 'Address is required';
     setFormErrors(errors);
@@ -88,7 +87,7 @@ const Students = () => {
         toast.success('Student added successfully');
       }
       setShowModal(false);
-      setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', class: '', roll_no: '', parent_name: '', parent_email: '', status: 'active' });
+      setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', status: 'active' });
       setFormErrors({});
       setIsEditing(false);
       setSelectedStudent(null);
@@ -108,10 +107,11 @@ const Students = () => {
       gender: student.gender || 'male',
       parent_contact: student.parent_contact || '',
       address: student.address || '',
-      class: student.class || '',
-      roll_no: student.roll_no || '',
+      studentType: student.studentType || 'dayScholar',
+      password: '',
       parent_name: student.parent_name || '',
       parent_email: student.parent_email || '',
+      parent_password: '',
       status: student.status || 'active'
     });
     setIsEditing(true);
@@ -156,7 +156,7 @@ const Students = () => {
           onClick={() => {
             setIsEditing(false);
             setSelectedStudent(null);
-            setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', class: '', roll_no: '', parent_name: '', parent_email: '', status: 'active' });
+            setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', status: 'active' });
             setFormErrors({});
             setShowModal(true);
           }}
@@ -327,26 +327,25 @@ const Students = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Roll Number *</label>
-                    <input
-                      type="text"
-                      value={formData.roll_no}
-                      onChange={(e) => { setFormData({ ...formData, roll_no: e.target.value }); setFormErrors({ ...formErrors, roll_no: '' }); }}
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Student Type *</label>
+                    <select
+                      value={formData.studentType}
+                      onChange={(e) => setFormData({ ...formData, studentType: e.target.value })}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                      placeholder="e.g., A001"
-                    />
-                    {formErrors.roll_no && <p className="text-red-500 text-xs mt-1">{formErrors.roll_no}</p>}
+                    >
+                      <option value="dayScholar">Day Scholar</option>
+                      <option value="hosteller">Hosteller</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Class & Section *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Password</label>
                     <input
-                      type="text"
-                      value={formData.class}
-                      onChange={(e) => { setFormData({ ...formData, class: e.target.value }); setFormErrors({ ...formErrors, class: '' }); }}
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                      placeholder="e.g., Grade 5-A"
+                      placeholder={isEditing ? 'Leave blank to keep current' : 'Default: Student@123'}
                     />
-                    {formErrors.class && <p className="text-red-500 text-xs mt-1">{formErrors.class}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Status *</label>
@@ -387,7 +386,7 @@ const Students = () => {
                     />
                     {formErrors.parent_contact && <p className="text-red-500 text-xs mt-1">{formErrors.parent_contact}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Email</label>
                     <input
                       type="email"
@@ -395,6 +394,16 @@ const Students = () => {
                       onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="parent@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Password</label>
+                    <input
+                      type="password"
+                      value={formData.parent_password}
+                      onChange={(e) => setFormData({ ...formData, parent_password: e.target.value })}
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      placeholder={isEditing ? 'Leave blank to keep current' : 'Default: Parent@123'}
                     />
                   </div>
                 </div>
@@ -460,7 +469,7 @@ const Students = () => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-[#0F172A]">{selectedStudent.name}</h3>
-                  <p className="text-[#64748B]">{selectedStudent.class} • Roll No: {selectedStudent.roll_no}</p>
+                  <p className="text-[#64748B]">{selectedStudent.class} • Roll No: {selectedStudent.roll_no || 'N/A'}</p>
                   <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getStatusColor(selectedStudent.status || 'active')}`}>
                     {(selectedStudent.status || 'active').charAt(0).toUpperCase() + (selectedStudent.status || 'active').slice(1)}
                   </span>
@@ -475,6 +484,10 @@ const Students = () => {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Gender</p>
                   <p className="text-base font-semibold text-[#0F172A] capitalize">{selectedStudent.gender}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-[#64748B] mb-1">Student Type</p>
+                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.studentType === 'hosteller' ? 'Hosteller' : 'Day Scholar'}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Parent Contact</p>

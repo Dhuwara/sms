@@ -39,6 +39,7 @@ export const getMyAttendance = async (req, res, next) => {
 export const getMySchedule = async (req, res, next) => {
   try {
     const student = await getStudentProfile(req.user.userId);
+    console.log(student,"studeennn")
     const subjects = await Subject.find({ classId: student.classId })
       .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } });
     res.json({ success: true, data: { class: student.classId, subjects } });
@@ -58,3 +59,9 @@ export const getMyFees = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getMyInfo = async(req,res,next)=>{
+  const student = await getStudentProfile(req.user.userId);
+  console.log(student,"studenenene")
+  res.json({ success: true, data: {student} });
+}

@@ -1,14 +1,76 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
+import {
   Home, Users, BookOpen, Calendar, GraduationCap, DollarSign, Library, Bus, Building, Mail, LogOut, Menu, X,
   User, FileText, ClipboardCheck, MessageSquare, FileQuestion, Book, Award, Settings,
-  CreditCard, Activity, Bell, Heart, CalendarDays, Briefcase
+  Activity, Bell, Heart, CalendarDays, UserCheck
 } from 'lucide-react';
+import api from '../utils/api';
 
 const Layout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const notifRef = useRef(null);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/api/notifications');
+      // interceptor unwraps { success, data } → data = { notifications, unreadCount }
+      const payload = res.data;
+      if (payload?.notifications) {
+        setNotifications(payload.notifications);
+        setUnreadCount(payload.unreadCount || 0);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleMarkRead = async (id) => {
+    try {
+      await api.put(`/api/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch { /* ignore */ }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.put('/api/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch { /* ignore */ }
+  };
+
+  const notifTypeColor = (type) => {
+    switch (type) {
+      case 'success': return 'bg-[#10B981]';
+      case 'warning': return 'bg-[#F59E0B]';
+      case 'error': return 'bg-[#EF4444]';
+      default: return 'bg-[#4F46E5]';
+    }
+  };
 
   // Admin navigation
   const adminNavigation = [
@@ -23,6 +85,9 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Transport', path: '/transport', icon: Bus },
     { name: 'Hostel', path: '/hostel', icon: Building },
     { name: 'Communication', path: '/communication', icon: Mail },
+    { name: 'Substitutions', path: '/substitutions', icon: UserCheck },
+    { name: 'Scholarships', path: '/scholarships', icon: Award },
+    { name: 'Payroll', path: '/payroll', icon: DollarSign },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
@@ -34,11 +99,9 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Classes', path: '/staff/classes', icon: Users },
     { name: 'Academic', path: '/staff/academic', icon: FileText },
     { name: 'Marks', path: '/staff/marks', icon: ClipboardCheck },
-    { name: 'Communication', path: '/staff/communication', icon: MessageSquare },
+    // { name: 'Communication', path: '/staff/communication', icon: MessageSquare },
     { name: 'Payroll', path: '/staff/payroll', icon: DollarSign },
-    { name: 'Leave & Requests', path: '/staff/leave', icon: FileQuestion },
     { name: 'Documents', path: '/staff/documents', icon: Book },
-    { name: 'Performance', path: '/staff/performance', icon: Award },
     { name: 'Settings', path: '/staff/settings', icon: Settings },
   ];
 
@@ -50,11 +113,11 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Subjects', path: '/student/subjects', icon: FileText },
     { name: 'Homework', path: '/student/homework', icon: ClipboardCheck },
     { name: 'Exams', path: '/student/exams', icon: GraduationCap },
-    { name: 'Communication', path: '/student/communication', icon: MessageSquare },
-    { name: 'Fees', path: '/student/fees', icon: DollarSign },
+    // { name: 'Communication', path: '/student/communication', icon: MessageSquare },
+    // { name: 'Fees', path: '/student/fees', icon: DollarSign },
     { name: 'Library', path: '/student/library', icon: Library },
     { name: 'Activities', path: '/student/activities', icon: Activity },
-    { name: 'Requests', path: '/student/requests', icon: FileQuestion },
+    // { name: 'Requests', path: '/student/requests', icon: FileQuestion },
     { name: 'Settings', path: '/student/settings', icon: Settings },
   ];
 
@@ -76,7 +139,7 @@ const Layout = ({ children, user, onLogout }) => {
 
   // Select navigation based on role
   const getNavigation = () => {
-    switch(user?.role) {
+    switch (user?.role) {
       case 'admin': return adminNavigation;
       case 'staff': return staffNavigation;
       case 'student': return studentNavigation;
@@ -102,17 +165,68 @@ const Layout = ({ children, user, onLogout }) => {
             </button>
           )}
           <h1 className="text-2xl font-semibold text-[#4F46E5]">
-            {user?.role === 'admin' ? 'Admin Portal' : 
-             user?.role === 'staff' ? 'Staff Portal' :
-             user?.role === 'student' ? 'Student Portal' :
-             user?.role === 'parent' ? 'Parent Portal' : 'School Management'}
+            {user?.role === 'admin' ? 'Admin Portal' :
+              user?.role === 'staff' ? 'Staff Portal' :
+                user?.role === 'student' ? 'Student Portal' :
+                  user?.role === 'parent' ? 'Parent Portal' : 'School Management'}
           </h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-[#0F172A]">{user?.full_name}</p>
+            <p className="text-sm font-medium text-[#0F172A]">{user?.name}</p>
             <p className="text-xs text-[#64748B] capitalize">{user?.role}</p>
           </div>
+
+          {/* Notification Bell */}
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setShowNotifDropdown(prev => !prev)}
+              className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors text-[#64748B]"
+              title="Notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                  <span className="font-semibold text-[#0F172A] text-sm">Notifications</span>
+                  {unreadCount > 0 && (
+                    <button onClick={handleMarkAllRead} className="text-xs text-[#4F46E5] hover:underline font-medium">
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-[#64748B]">No notifications</div>
+                  ) : (
+                    notifications.map(n => (
+                      <button
+                        key={n._id}
+                        onClick={() => { if (!n.read) handleMarkRead(n._id); }}
+                        className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3 items-start ${!n.read ? 'bg-[#EEF2FF]' : ''}`}
+                      >
+                        <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notifTypeColor(n.type)}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#0F172A] truncate">{n.title}</p>
+                          {n.message && <p className="text-xs text-[#64748B] mt-0.5 line-clamp-2">{n.message}</p>}
+                          <p className="text-[10px] text-[#94A3B8] mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                        </div>
+                        {!n.read && <span className="w-2 h-2 rounded-full bg-[#4F46E5] flex-shrink-0 mt-1.5" />}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             data-testid="logout-button"
             onClick={onLogout}
@@ -143,8 +257,8 @@ const Layout = ({ children, user, onLogout }) => {
                   onClick={() => setIsSidebarOpen(false)}
                   className={`
                     flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-all duration-200
-                    ${isActive 
-                      ? 'bg-[#4F46E5] text-white' 
+                    ${isActive
+                      ? 'bg-[#4F46E5] text-white'
                       : 'text-[#64748B] hover:bg-slate-100 hover:text-[#0F172A]'
                     }
                   `}

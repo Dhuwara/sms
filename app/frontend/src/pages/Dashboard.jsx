@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Users, BookOpen, GraduationCap, DollarSign, UserPlus, Calendar, Bell, MessageSquare, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { Users, BookOpen, GraduationCap, DollarSign, Calendar, Bell, TrendingUp, AlertCircle, CheckCircle, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Dashboard = ({ user }) => {
@@ -17,10 +17,16 @@ const Dashboard = ({ user }) => {
   });
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingLeaves, setPendingLeaves] = useState([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(null);
+
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
-  
+
   const [studentForm, setStudentForm] = useState({
     name: '',
     dob: '',
@@ -48,6 +54,7 @@ const Dashboard = ({ user }) => {
   useEffect(() => {
     fetchStats();
     fetchRecentActivities();
+    fetchPendingLeaves();
   }, []);
 
   const fetchStats = async () => {
@@ -70,6 +77,51 @@ const Dashboard = ({ user }) => {
       { id: 4, type: 'success', message: 'Mid-term exam results published', time: '1 day ago' },
       { id: 5, type: 'info', message: 'Parent-teacher meeting scheduled', time: '2 days ago' },
     ]);
+  };
+
+  const fetchPendingLeaves = async () => {
+    try {
+      const response = await api.get('/api/admin/leaves/pending');
+      setPendingLeaves(response?.data || []);
+    } catch (error) {
+      console.error('Failed to load pending leaves');
+    }
+  };
+
+  const handleApproveLeave = async (leaveId) => {
+    setActionLoading(leaveId);
+    try {
+      await api.put(`/api/admin/leaves/${leaveId}/action`, { action: 'approve' });
+      toast.success('Leave approved successfully');
+      fetchPendingLeaves();
+    } catch (error) {
+      toast.error('Failed to approve leave');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectLeave = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    setActionLoading(selectedLeave._id);
+    try {
+      await api.put(`/api/admin/leaves/${selectedLeave._id}/action`, {
+        action: 'reject',
+        rejectionReason: rejectionReason.trim(),
+      });
+      toast.success('Leave rejected');
+      setShowRejectModal(false);
+      setSelectedLeave(null);
+      setRejectionReason('');
+      fetchPendingLeaves();
+    } catch (error) {
+      toast.error('Failed to reject leave');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleAddStudent = async (e) => {
@@ -228,44 +280,61 @@ const Dashboard = ({ user }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Actions */}
+        {/* Leave Approvals */}
         <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-white shadow-sm">
           <h2 className="text-2xl font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
-            <Bell className="text-[#DC2626]" size={28} />
-            Quick Actions
+            <Calendar className="text-[#DC2626]" size={28} />
+            Leave Approvals
+            {pendingLeaves.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-[#FEE2E2] text-[#DC2626] rounded-full">
+                {pendingLeaves.length}
+              </span>
+            )}
           </h2>
-          <div className="space-y-3">
-            <button
-              onClick={() => setShowAddStudent(true)}
-              data-testid="quick-add-student"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] hover:shadow-md transition-all text-[#0F172A] font-semibold"
-            >
-              <UserPlus size={20} className="text-[#DC2626]" />
-              Add New Student
-            </button>
-            <button
-              onClick={() => setShowAddTeacher(true)}
-              data-testid="quick-add-teacher"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] hover:shadow-md transition-all text-[#0F172A] font-semibold"
-            >
-              <GraduationCap size={20} className="text-[#F59E0B]" />
-              Add New Teacher
-            </button>
-            <button
-              onClick={() => navigate('/attendance')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] hover:shadow-md transition-all text-[#0F172A] font-semibold"
-            >
-              <Calendar size={20} className="text-[#10B981]" />
-              Record Attendance
-            </button>
-            <button
-              onClick={() => setShowAnnouncement(true)}
-              data-testid="quick-announcement"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] hover:shadow-md transition-all text-[#0F172A] font-semibold"
-            >
-              <MessageSquare size={20} className="text-[#4F46E5]" />
-              Send Announcement
-            </button>
+          <div className="space-y-3 max-h-[320px] overflow-y-auto">
+            {pendingLeaves.length === 0 ? (
+              <p className="text-sm text-[#64748B] text-center py-4">No pending leave requests</p>
+            ) : (
+              pendingLeaves.map((leave) => (
+                <div
+                  key={leave._id}
+                  className="p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A] truncate">
+                        {leave.staffId?.userId?.name || 'Staff'}
+                      </p>
+                      <p className="text-xs text-[#64748B] mt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${leave.leaveType === 'casual' ? 'bg-[#FEF3C7] text-[#78350F]' : 'bg-[#FEE2E2] text-[#7F1D1D]'}`}>
+                          {leave.leaveType}
+                        </span>
+                        {' '}{new Date(leave.startDate).toLocaleDateString()} — {new Date(leave.endDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-[#64748B] mt-1 truncate">{leave.reason}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleApproveLeave(leave._id)}
+                        disabled={actionLoading === leave._id}
+                        className="p-1.5 rounded-lg bg-[#D1FAE5] hover:bg-[#A7F3D0] text-[#10B981] transition-colors disabled:opacity-50"
+                        title="Approve"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        onClick={() => { setSelectedLeave(leave); setShowRejectModal(true); setRejectionReason(''); }}
+                        disabled={actionLoading === leave._id}
+                        className="p-1.5 rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] text-[#DC2626] transition-colors disabled:opacity-50"
+                        title="Reject"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -536,6 +605,46 @@ const Dashboard = ({ user }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {showRejectModal && selectedLeave && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Reject Leave</h2>
+            <p className="text-sm text-[#64748B] mb-4">
+              Rejecting leave for <span className="font-semibold text-[#0F172A]">{selectedLeave.staffId?.userId?.name || 'Staff'}</span>
+              {' '}({selectedLeave.leaveType} — {new Date(selectedLeave.startDate).toLocaleDateString()} to {new Date(selectedLeave.endDate).toLocaleDateString()})
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[#0F172A] mb-2">Reason for Rejection *</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                rows="3"
+                placeholder="Enter reason for rejecting this leave..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowRejectModal(false); setSelectedLeave(null); setRejectionReason(''); }}
+                className="flex-1 bg-gray-200 text-[#0F172A] hover:bg-gray-300 h-10 px-4 py-2 rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectLeave}
+                disabled={actionLoading === selectedLeave._id}
+                className="flex-1 bg-[#DC2626] text-white hover:bg-[#B91C1C] h-10 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
+              >
+                {actionLoading === selectedLeave._id ? 'Rejecting...' : 'Reject Leave'}
+              </button>
+            </div>
           </div>
         </div>
       )}

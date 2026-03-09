@@ -107,7 +107,13 @@ const Login = () => {
               </button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-4 text-center">
+              <a href="/forgot-password" className="text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors">
+                Forgot password?
+              </a>
+            </div>
+
+            <div className="mt-4 text-center">
               <a href="/" className="text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors">
                 ← Back to Home
               </a>

@@ -9,23 +9,24 @@ const Library = () => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ title: '', author: '', copies: 1, category: '' });
   const [loading, setLoading] = useState(false);
-
-  const issueRecords = [
-    { student: 'Rahul Kumar', book: 'Mathematics for Class 5', issued: '2024-12-01', due: '2024-12-15', status: 'Active' },
-    { student: 'Priya Sharma', book: 'Science Experiments', issued: '2024-12-05', due: '2024-12-19', status: 'Active' },
-    { student: 'Amit Patel', book: 'English Grammar', issued: '2024-11-28', due: '2024-12-12', status: 'Overdue' },
-    { student: 'Sneha Reddy', book: 'Indian History', issued: '2024-12-10', due: '2024-12-24', status: 'Active' },
-    { student: 'Vikram Singh', book: 'Computer Basics', issued: '2024-12-08', due: '2024-12-22', status: 'Active' },
-  ];
+  const [issueRecords, setIssueRecords] = useState([]);
 
   const categories = ['Textbook', 'Reference', 'Technology', 'Fiction', 'Non-Fiction'];
-  const fines = [
-    { student: 'Amit Patel', book: 'English Grammar', days: 3, fine: 30, status: 'Unpaid' },
-    { student: 'Rahul Kumar', book: 'Mathematics', days: 1, fine: 10, status: 'Paid' },
-  ];
+
+  const fines = issueRecords
+    .filter(r => r.status === 'overdue' && r.fine > 0)
+    .map(r => ({
+      _id: r._id,
+      student: r.studentId?.userId?.name || 'Student',
+      book: r.bookId?.title || 'Book',
+      days: Math.ceil((Date.now() - new Date(r.dueDate)) / 86400000),
+      fine: r.fine || 0,
+      status: r.fineStatus === 'paid' ? 'Paid' : 'Unpaid',
+    }));
 
   useEffect(() => {
     fetchBooks();
+    fetchIssues();
   }, []);
 
   const fetchBooks = async () => {
@@ -35,6 +36,31 @@ const Library = () => {
     } catch (error) {
       toast.error('Failed to load books');
     }
+  };
+
+  const fetchIssues = async () => {
+    try {
+      const response = await api.get('/api/library/issues');
+      setIssueRecords(response.data || []);
+    } catch (error) {
+      console.error('Failed to load issues:', error);
+    }
+  };
+
+  const handleReturn = async (issueId) => {
+    try {
+      await api.put(`/api/library/issues/${issueId}/return`);
+      toast.success('Book returned successfully');
+      fetchIssues();
+      fetchBooks();
+    } catch (error) {
+      toast.error('Failed to return book');
+    }
+  };
+
+  const formatDate = (d) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const handleSubmit = async (e) => {
@@ -112,18 +138,26 @@ const Library = () => {
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Issued Date</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Due Date</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {issueRecords.map((record, i) => (
-                  <tr key={i} className="hover:bg-[#FFFBEB]">
-                    <td className="px-6 py-4 font-semibold text-[#0F172A]">{record.student}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{record.book}</td>
-                    <td className="px-6 py-4 text-sm">{record.issued}</td>
-                    <td className="px-6 py-4 text-sm">{record.due}</td>
-                    <td className="px-6 py-4"><span className={`px-3 py-1 text-xs font-semibold rounded-full ${record.status === 'Active' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>{record.status}</span></td>
+                {issueRecords.length > 0 ? issueRecords.map((record, i) => (
+                  <tr key={record._id || i} className="hover:bg-[#FFFBEB]">
+                    <td className="px-6 py-4 font-semibold text-[#0F172A]">{record.studentId?.userId?.name || 'Student'}</td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">{record.bookId?.title || 'Book'}</td>
+                    <td className="px-6 py-4 text-sm">{formatDate(record.issuedDate)}</td>
+                    <td className="px-6 py-4 text-sm">{formatDate(record.dueDate)}</td>
+                    <td className="px-6 py-4"><span className={`px-3 py-1 text-xs font-semibold rounded-full ${record.status === 'issued' ? 'bg-[#D1FAE5] text-[#065F46]' : record.status === 'overdue' ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#DBEAFE] text-[#1E40AF]'}`}>{record.status}</span></td>
+                    <td className="px-6 py-4">
+                      {record.status !== 'returned' && (
+                        <button onClick={() => handleReturn(record._id)} className="text-xs bg-[#4F46E5] text-white px-3 py-1 rounded font-semibold">Return</button>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-[#64748B]">No issue records found.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -160,8 +194,8 @@ const Library = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 bg-[#DBEAFE] rounded-xl"><p className="text-sm text-[#1E40AF]">Total Books</p><p className="text-4xl font-bold text-[#1E40AF]">{books.length}</p></div>
-            <div className="p-6 bg-[#D1FAE5] rounded-xl"><p className="text-sm text-[#065F46]">Books Issued</p><p className="text-4xl font-bold text-[#065F46]">{issueRecords.length}</p></div>
-            <div className="p-6 bg-[#FEE2E2] rounded-xl"><p className="text-sm text-[#991B1B]">Overdue</p><p className="text-4xl font-bold text-[#991B1B]">{issueRecords.filter(r => r.status === 'Overdue').length}</p></div>
+            <div className="p-6 bg-[#D1FAE5] rounded-xl"><p className="text-sm text-[#065F46]">Books Issued</p><p className="text-4xl font-bold text-[#065F46]">{issueRecords.filter(r => r.status === 'issued').length}</p></div>
+            <div className="p-6 bg-[#FEE2E2] rounded-xl"><p className="text-sm text-[#991B1B]">Overdue</p><p className="text-4xl font-bold text-[#991B1B]">{issueRecords.filter(r => r.status === 'overdue').length}</p></div>
           </div>
         </div>
       )}

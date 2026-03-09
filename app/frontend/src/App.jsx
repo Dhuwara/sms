@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuth } from './context/AuthContext';
@@ -19,6 +18,11 @@ import Settings from './pages/Settings';
 import StaffDashboard from './pages/Staff/StaffDashboard';
 import StudentDashboard from './pages/Student/StudentDashboard';
 import ParentDashboard from './pages/Parent/ParentDashboard';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Substitutions from './pages/Substitutions';
+import Scholarships from './pages/Scholarships';
+import Payroll from './pages/Payroll';
 import Layout from './components/Layout';
 
 const getDefaultPath = (role) => {
@@ -60,6 +64,8 @@ function App() {
             path="/login"
             element={user ? <Navigate to={getDefaultPath(user.role)} replace /> : <Login />}
           />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Admin Dashboard */}
           <Route path="/dashboard" element={
@@ -79,6 +85,9 @@ function App() {
           <Route path="/transport" element={<ProtectedRoute allowedRoles={['admin']}><Transport /></ProtectedRoute>} />
           <Route path="/hostel" element={<ProtectedRoute allowedRoles={['admin']}><Hostel /></ProtectedRoute>} />
           <Route path="/communication" element={<ProtectedRoute allowedRoles={['admin']}><Communication /></ProtectedRoute>} />
+          <Route path="/substitutions" element={<ProtectedRoute allowedRoles={['admin']}><Substitutions /></ProtectedRoute>} />
+          <Route path="/scholarships" element={<ProtectedRoute allowedRoles={['admin']}><Scholarships /></ProtectedRoute>} />
+          <Route path="/payroll" element={<ProtectedRoute allowedRoles={['admin']}><Payroll /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />
 
           {/* Staff routes */}
@@ -90,9 +99,7 @@ function App() {
           <Route path="/staff/marks" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="marks" /></ProtectedRoute>} />
           <Route path="/staff/communication" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="communication" /></ProtectedRoute>} />
           <Route path="/staff/payroll" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="payroll" /></ProtectedRoute>} />
-          <Route path="/staff/leave" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="leave" /></ProtectedRoute>} />
           <Route path="/staff/documents" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="documents" /></ProtectedRoute>} />
-          <Route path="/staff/performance" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="performance" /></ProtectedRoute>} />
           <Route path="/staff/settings" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="settings" /></ProtectedRoute>} />
 
           {/* Student routes */}

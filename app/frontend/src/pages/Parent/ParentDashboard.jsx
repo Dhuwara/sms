@@ -1,14 +1,88 @@
-import React from 'react';
-import { 
-  User, Calendar, BookOpen, FileText, ClipboardCheck, 
+import React, { useState, useEffect } from 'react';
+import {
+  User, Calendar, ClipboardCheck,
   MessageSquare, DollarSign, Award, Settings, Users,
   Clock, CheckCircle, XCircle, Bell, Mail, Download,
-  Star, HelpCircle, LogOut, ChevronRight, AlertCircle,
+  Star, HelpCircle, LogOut, AlertCircle,
   Bus, Heart, Shield, CalendarDays, Phone, MapPin,
-  CreditCard, Receipt, Activity, GraduationCap, Home
+  CreditCard, Receipt, GraduationCap
 } from 'lucide-react';
+import api from '../../utils/api';
 
 const ParentDashboard = ({ user, module = 'profile' }) => {
+  const [children, setChildren] = useState([]);
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [childAttendance, setChildAttendance] = useState({ records: [], summary: { total: 0, present: 0, absent: 0 } });
+  const [childGrades, setChildGrades] = useState([]);
+  const [childFees, setChildFees] = useState({ fees: [], summary: { totalDue: 0 } });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchChildren = async () => {
+      try {
+        const res = await api.get('/api/parent/children');
+        const kids = res.data || [];
+        setChildren(kids);
+        if (kids.length > 0 && !selectedChild) setSelectedChild(kids[0]);
+      } catch (err) {
+        console.error('Failed to load children:', err);
+      }
+    };
+    fetchChildren();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChild?._id) return;
+    const fetchChildData = async () => {
+      setLoading(true);
+      try {
+        if (module === 'attendance') {
+          const res = await api.get(`/api/parent/children/${selectedChild._id}/attendance`);
+          setChildAttendance(res.data);
+        }
+        if (module === 'academic') {
+          const res = await api.get(`/api/parent/children/${selectedChild._id}/grades`);
+          setChildGrades(res.data || []);
+        }
+        if (module === 'fees') {
+          const res = await api.get(`/api/parent/children/${selectedChild._id}/fees`);
+          setChildFees(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load child data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChildData();
+  }, [module, selectedChild]);
+
+  const formatDate = (d) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const getGradeBadge = (grade) => {
+    if (grade === 'A+' || grade === 'A') return 'bg-[#D1FAE5] text-[#065F46]';
+    if (grade === 'B+' || grade === 'B') return 'bg-[#FEF3C7] text-[#92400E]';
+    return 'bg-[#FEE2E2] text-[#991B1B]';
+  };
+
+  const childSelector = () => children.length > 1 ? (
+    <div className="mb-4">
+      <select
+        className="border-2 border-[#FCD34D] rounded-lg px-4 py-2 font-semibold"
+        value={selectedChild?._id || ''}
+        onChange={(e) => setSelectedChild(children.find(c => c._id === e.target.value))}
+      >
+        {children.map(c => (
+          <option key={c._id} value={c._id}>
+            {c.userId?.name || c.firstName + ' ' + c.lastName} — {c.classId?.name || ''} {c.classId?.section || ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : null;
 
   // 1. Parent Profile
   const renderProfile = () => (
@@ -25,7 +99,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
             <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">Active Account</span>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#64748B]">Relation</p>
@@ -42,7 +116,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
               <Mail className="text-[#64748B]" size={18} />
-              <span className="text-sm">parent@email.com</span>
+              <span className="text-sm">{user?.email || 'parent@email.com'}</span>
             </div>
             <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
               <Phone className="text-[#64748B]" size={18} />
@@ -58,26 +132,43 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <div className="border-t border-[#E2E8F0] pt-4 mt-4">
           <h4 className="font-semibold mb-3">Linked Student(s)</h4>
           <div className="space-y-3">
-            <div className="p-4 border-2 border-[#FCD34D] rounded-lg flex justify-between items-center bg-[#FFFBEB]">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#4F46E5] rounded-full flex items-center justify-center text-white font-bold">R</div>
-                <div>
-                  <p className="font-bold">Rahul Kumar</p>
-                  <p className="text-sm text-[#64748B]">Grade 10-A | Roll No: 15</p>
+            {children.length > 0 ? children.map((child, idx) => (
+              <div key={child._id} className={`p-4 rounded-lg flex justify-between items-center ${idx === 0 ? 'border-2 border-[#FCD34D] bg-[#FFFBEB]' : 'border-2 border-[#E2E8F0]'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 ${idx === 0 ? 'bg-[#4F46E5]' : 'bg-[#EC4899]'} rounded-full flex items-center justify-center text-white font-bold`}>
+                    {(child.userId?.name || child.firstName || '?').charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold">{child.userId?.name || `${child.firstName} ${child.lastName}`}</p>
+                    <p className="text-sm text-[#64748B]">{child.classId?.name || 'N/A'} {child.classId?.section || ''} | Roll No: {child.rollNumber || '—'}</p>
+                  </div>
                 </div>
+                <span className={`px-3 py-1 text-white text-xs rounded-full font-semibold ${idx === 0 ? 'bg-[#10B981]' : 'bg-[#64748B]'}`}>{idx === 0 ? 'Primary' : 'Sibling'}</span>
               </div>
-              <span className="px-3 py-1 bg-[#10B981] text-white text-xs rounded-full font-semibold">Primary</span>
-            </div>
-            <div className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#EC4899] rounded-full flex items-center justify-center text-white font-bold">P</div>
-                <div>
-                  <p className="font-bold">Priya Kumar</p>
-                  <p className="text-sm text-[#64748B]">Grade 7-B | Roll No: 8</p>
+            )) : (
+              <>
+                <div className="p-4 border-2 border-[#FCD34D] rounded-lg flex justify-between items-center bg-[#FFFBEB]">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#4F46E5] rounded-full flex items-center justify-center text-white font-bold">R</div>
+                    <div>
+                      <p className="font-bold">Rahul Kumar</p>
+                      <p className="text-sm text-[#64748B]">Grade 10-A | Roll No: 15</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-[#10B981] text-white text-xs rounded-full font-semibold">Primary</span>
                 </div>
-              </div>
-              <span className="px-3 py-1 bg-[#64748B] text-white text-xs rounded-full font-semibold">Sibling</span>
-            </div>
+                <div className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#EC4899] rounded-full flex items-center justify-center text-white font-bold">P</div>
+                    <div>
+                      <p className="font-bold">Priya Kumar</p>
+                      <p className="text-sm text-[#64748B]">Grade 7-B | Roll No: 8</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-[#64748B] text-white text-xs rounded-full font-semibold">Sibling</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -97,16 +188,23 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   );
 
   // 2. Student Overview
-  const renderOverview = () => (
+  const renderOverview = () => {
+    const child = selectedChild;
+    const childName = child?.userId?.name || child?.firstName ? `${child.firstName} ${child.lastName}` : 'Student';
+    const className = child?.classId?.name || 'N/A';
+    const section = child?.classId?.section || '';
+    const rollNumber = child?.rollNumber || '—';
+    return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Student Overview</h2>
-      
+      {childSelector()}
+
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <div className="flex items-center gap-6 mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-full flex items-center justify-center text-3xl font-bold text-white">R</div>
+          <div className="w-20 h-20 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-full flex items-center justify-center text-3xl font-bold text-white">{childName.charAt(0)}</div>
           <div>
-            <h3 className="text-2xl font-bold text-[#0F172A]">Rahul Kumar</h3>
-            <p className="text-[#64748B]">Student ID: STU-2024-001</p>
+            <h3 className="text-2xl font-bold text-[#0F172A]">{childName}</h3>
+            <p className="text-[#64748B]">Student ID: {child?.studentId || 'N/A'}</p>
             <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">Active Student</span>
           </div>
         </div>
@@ -114,19 +212,19 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="p-4 bg-[#DBEAFE] rounded-lg">
             <p className="text-sm text-[#64748B]">Class</p>
-            <p className="font-bold text-[#0F172A]">Grade 10</p>
+            <p className="font-bold text-[#0F172A]">{className}</p>
           </div>
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#64748B]">Section</p>
-            <p className="font-bold text-[#0F172A]">Section A</p>
+            <p className="font-bold text-[#0F172A]">{section || 'N/A'}</p>
           </div>
           <div className="p-4 bg-[#FEF3C7] rounded-lg">
             <p className="text-sm text-[#64748B]">Roll Number</p>
-            <p className="font-bold text-[#0F172A]">15</p>
+            <p className="font-bold text-[#0F172A]">{rollNumber}</p>
           </div>
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
             <p className="text-sm text-[#64748B]">Academic Year</p>
-            <p className="font-bold text-[#0F172A]">2024-25</p>
+            <p className="font-bold text-[#0F172A]">{(() => { const now = new Date(); const y = now.getFullYear(); const m = now.getMonth()+1; return m >= 6 ? `${y}-${y+1}` : `${y-1}-${y}`; })()}</p>
           </div>
         </div>
 
@@ -135,19 +233,19 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-3 bg-[#F8FAFC] rounded-lg">
               <p className="text-sm text-[#64748B]">Date of Birth</p>
-              <p className="font-semibold">15 March 2010</p>
+              <p className="font-semibold">{child?.dateOfBirth ? formatDate(child.dateOfBirth) : '—'}</p>
             </div>
             <div className="p-3 bg-[#F8FAFC] rounded-lg">
               <p className="text-sm text-[#64748B]">Blood Group</p>
-              <p className="font-semibold">O+</p>
+              <p className="font-semibold">{child?.bloodGroup || '—'}</p>
             </div>
             <div className="p-3 bg-[#F8FAFC] rounded-lg">
               <p className="text-sm text-[#64748B]">Admission Date</p>
-              <p className="font-semibold">01 April 2020</p>
+              <p className="font-semibold">{child?.admissionDate ? formatDate(child.admissionDate) : '—'}</p>
             </div>
             <div className="p-3 bg-[#F8FAFC] rounded-lg">
               <p className="text-sm text-[#64748B]">House</p>
-              <p className="font-semibold">Blue House</p>
+              <p className="font-semibold">{child?.house || '—'}</p>
             </div>
           </div>
         </div>
@@ -161,68 +259,67 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <div className="space-y-3">
           <div className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
             <div>
-              <p className="font-bold">Mrs. Sunita Sharma</p>
-              <p className="text-sm text-[#64748B]">Class Teacher - Grade 10-A</p>
+              <p className="font-bold">Class Teacher</p>
+              <p className="text-sm text-[#64748B]">{className} {section}</p>
             </div>
             <button className="text-[#4F46E5] text-sm font-semibold">Message</button>
           </div>
-          {[
-            { name: 'Mr. Rajesh Sharma', subject: 'Mathematics' },
-            { name: 'Ms. Priya Verma', subject: 'English' },
-            { name: 'Mrs. Anita Gupta', subject: 'Science' },
-            { name: 'Mr. Vikram Patel', subject: 'Social Studies' },
-          ].map((teacher, idx) => (
-            <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-sm">{teacher.name}</p>
-                <p className="text-xs text-[#64748B]">{teacher.subject}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
           <p className="text-sm text-[#64748B]">Attendance</p>
-          <p className="text-3xl font-bold text-[#065F46]">95.2%</p>
+          <p className="text-3xl font-bold text-[#065F46]">—</p>
           <p className="text-xs text-[#10B981]">This Month</p>
         </div>
         <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
           <p className="text-sm text-[#64748B]">Class Rank</p>
-          <p className="text-3xl font-bold text-[#1E40AF]">5th</p>
-          <p className="text-xs text-[#3B82F6]">Out of 35</p>
+          <p className="text-3xl font-bold text-[#1E40AF]">—</p>
+          <p className="text-xs text-[#3B82F6]">Out of —</p>
         </div>
         <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
           <p className="text-sm text-[#64748B]">Overall Grade</p>
-          <p className="text-3xl font-bold text-[#92400E]">A</p>
+          <p className="text-3xl font-bold text-[#92400E]">—</p>
           <p className="text-xs text-[#F59E0B]">Last Exam</p>
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   // 3. Attendance Monitoring
-  const renderAttendance = () => (
+  const renderAttendance = () => {
+    const { records, summary } = childAttendance;
+    const total = summary?.total || 0;
+    const present = summary?.present || 0;
+    const absent = summary?.absent || (total - present);
+    const pct = total > 0 ? ((present / total) * 100).toFixed(1) : '0.0';
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayRecord = records.find(r => r.date?.split('T')[0] === todayStr);
+    const recentAbsent = records.filter(r => r.status === 'absent').slice(0, 3);
+
+    return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Attendance Monitoring</h2>
-      
+      {childSelector()}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
           <p className="text-sm text-[#64748B]">Present Days</p>
-          <p className="text-3xl font-bold text-[#065F46]">156</p>
+          <p className="text-3xl font-bold text-[#065F46]">{present}</p>
         </div>
         <div className="p-6 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626]">
           <p className="text-sm text-[#64748B]">Absent Days</p>
-          <p className="text-3xl font-bold text-[#991B1B]">8</p>
+          <p className="text-3xl font-bold text-[#991B1B]">{absent}</p>
         </div>
         <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
-          <p className="text-sm text-[#64748B]">Late Arrivals</p>
-          <p className="text-3xl font-bold text-[#92400E]">4</p>
+          <p className="text-sm text-[#64748B]">Total Days</p>
+          <p className="text-3xl font-bold text-[#92400E]">{total}</p>
         </div>
         <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
           <p className="text-sm text-[#64748B]">Attendance %</p>
-          <p className="text-3xl font-bold text-[#1E40AF]">95.2%</p>
+          <p className="text-3xl font-bold text-[#1E40AF]">{pct}%</p>
         </div>
       </div>
 
@@ -231,123 +328,107 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           <Calendar className="text-[#F59E0B]" size={20} />
           Today's Attendance Status
         </h3>
-        <div className="p-4 bg-[#D1FAE5] rounded-lg flex items-center gap-4">
-          <CheckCircle className="text-[#10B981]" size={32} />
-          <div>
-            <p className="font-bold text-lg text-[#065F46]">Present</p>
-            <p className="text-sm text-[#64748B]">December 24, 2024 - Marked at 8:45 AM</p>
+        {todayRecord ? (
+          <div className={`p-4 rounded-lg flex items-center gap-4 ${todayRecord.status === 'present' ? 'bg-[#D1FAE5]' : 'bg-[#FEE2E2]'}`}>
+            {todayRecord.status === 'present' ? <CheckCircle className="text-[#10B981]" size={32} /> : <XCircle className="text-[#DC2626]" size={32} />}
+            <div>
+              <p className={`font-bold text-lg ${todayRecord.status === 'present' ? 'text-[#065F46]' : 'text-[#991B1B]'}`}>{todayRecord.status === 'present' ? 'Present' : 'Absent'}</p>
+              <p className="text-sm text-[#64748B]">{formatDate(todayRecord.date)}</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-4 bg-[#F8FAFC] rounded-lg flex items-center gap-4">
+            <Clock className="text-[#64748B]" size={32} />
+            <div>
+              <p className="font-bold text-lg text-[#64748B]">Not Marked Yet</p>
+              <p className="text-sm text-[#64748B]">Today's attendance has not been recorded</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4">Monthly Attendance Report - December 2024</h3>
-        <div className="grid grid-cols-7 gap-2 text-center text-sm">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="font-semibold text-[#64748B] py-2">{day}</div>
-          ))}
-          {[...Array(31)].map((_, i) => {
-            const status = i < 24 ? (i === 7 || i === 14 || i === 21 ? 'holiday' : i === 10 ? 'absent' : 'present') : 'future';
-            return (
-              <div key={i} className={`p-2 rounded ${
-                status === 'present' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                status === 'absent' ? 'bg-[#FEE2E2] text-[#991B1B]' :
-                status === 'holiday' ? 'bg-[#E2E8F0] text-[#64748B]' :
-                'bg-[#F8FAFC] text-[#94A3B8]'
-              }`}>
-                {i + 1}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4 flex gap-4 text-sm">
-          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#D1FAE5] rounded"></span> Present</span>
-          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#FEE2E2] rounded"></span> Absent</span>
-          <span className="flex items-center gap-2"><span className="w-4 h-4 bg-[#E2E8F0] rounded"></span> Holiday</span>
-        </div>
+        <h3 className="font-bold mb-4">Recent Attendance Records</h3>
+        {records.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-linear-to-r from-[#DBEAFE] to-[#D1FAE5]">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold text-sm">Date</th>
+                  <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.slice(0, 15).map((rec, idx) => (
+                  <tr key={idx} className="border-b border-[#E2E8F0]">
+                    <td className="px-4 py-3 text-sm">{formatDate(rec.date)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        rec.status === 'present' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'
+                      }`}>{rec.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-[#64748B] text-center py-8">No attendance records found.</p>
+        )}
       </div>
 
+      {recentAbsent.length > 0 && (
       <div className="bg-white rounded-xl border-2 border-[#DC2626] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <AlertCircle className="text-[#DC2626]" size={20} />
           Absence Notifications
         </h3>
         <div className="space-y-3">
-          <div className="p-4 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold text-[#991B1B]">Absent on December 11, 2024</p>
-                <p className="text-sm text-[#64748B]">Reason: Sick Leave (Informed)</p>
-              </div>
-              <span className="text-xs text-[#64748B]">2 weeks ago</span>
-            </div>
-          </div>
-          <div className="p-4 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold text-[#92400E]">Late Arrival on December 16, 2024</p>
-                <p className="text-sm text-[#64748B]">Arrived at 9:10 AM (10 minutes late)</p>
-              </div>
-              <span className="text-xs text-[#64748B]">1 week ago</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // 4. Academic Progress
-  const renderAcademic = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Academic Progress</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
-          <p className="text-sm text-[#64748B]">Overall Grade</p>
-          <p className="text-2xl font-bold text-[#065F46]">A</p>
-        </div>
-        <div className="p-4 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
-          <p className="text-sm text-[#64748B]">Class Rank</p>
-          <p className="text-2xl font-bold text-[#1E40AF]">5 / 35</p>
-        </div>
-        <div className="p-4 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
-          <p className="text-sm text-[#64748B]">Pending Homework</p>
-          <p className="text-2xl font-bold text-[#92400E]">2</p>
-        </div>
-        <div className="p-4 bg-[#EDE9FE] rounded-xl border-2 border-[#7C3AED]">
-          <p className="text-sm text-[#64748B]">Upcoming Exams</p>
-          <p className="text-2xl font-bold text-[#5B21B6]">5</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4">Subjects & Syllabus Progress</h3>
-        <div className="space-y-4">
-          {[
-            { subject: 'Mathematics', teacher: 'Mr. Sharma', progress: 80, grade: 'A+' },
-            { subject: 'Science', teacher: 'Mrs. Gupta', progress: 75, grade: 'A' },
-            { subject: 'English', teacher: 'Ms. Verma', progress: 85, grade: 'A' },
-            { subject: 'Social Studies', teacher: 'Mr. Patel', progress: 70, grade: 'B+' },
-            { subject: 'Hindi', teacher: 'Mrs. Singh', progress: 78, grade: 'A' },
-          ].map((item, idx) => (
-            <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
-              <div className="flex justify-between items-center mb-2">
+          {recentAbsent.map((rec, idx) => (
+            <div key={idx} className="p-4 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
+              <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-bold">{item.subject}</p>
-                  <p className="text-sm text-[#64748B]">{item.teacher}</p>
+                  <p className="font-semibold text-[#991B1B]">Absent on {formatDate(rec.date)}</p>
+                  <p className="text-sm text-[#64748B]">Reason: {rec.reason || 'Not specified'}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                  item.grade.startsWith('A') ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#92400E]'
-                }`}>{item.grade}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2 bg-[#E2E8F0] rounded-full">
-                  <div className={`h-2 rounded-full ${item.progress >= 80 ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} style={{ width: `${item.progress}%` }}></div>
-                </div>
-                <span className="text-sm font-semibold">{item.progress}%</span>
               </div>
             </div>
           ))}
+        </div>
+      </div>
+      )}
+    </div>
+    );
+  };
+
+  // 4. Academic Progress
+  const renderAcademic = () => {
+    const grades = childGrades;
+    const totalMarks = grades.reduce((sum, g) => sum + (g.marks || 0), 0);
+    const totalMax = grades.reduce((sum, g) => sum + (g.totalMarks || 100), 0);
+    const pct = totalMax > 0 ? ((totalMarks / totalMax) * 100).toFixed(1) : '0.0';
+
+    return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Academic Progress</h2>
+      {childSelector()}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
+          <p className="text-sm text-[#64748B]">Subjects</p>
+          <p className="text-2xl font-bold text-[#065F46]">{grades.length}</p>
+        </div>
+        <div className="p-4 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <p className="text-sm text-[#64748B]">Total Marks</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">{totalMarks} / {totalMax}</p>
+        </div>
+        <div className="p-4 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
+          <p className="text-sm text-[#64748B]">Percentage</p>
+          <p className="text-2xl font-bold text-[#92400E]">{pct}%</p>
+        </div>
+        <div className="p-4 bg-[#EDE9FE] rounded-xl border-2 border-[#7C3AED]">
+          <p className="text-sm text-[#64748B]">Grade Records</p>
+          <p className="text-2xl font-bold text-[#5B21B6]">{grades.length}</p>
         </div>
       </div>
 
@@ -358,27 +439,9 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
             Homework & Assignments
           </h3>
           <div className="space-y-3">
-            {[
-              { title: 'Quadratic Equations - Exercise 5.3', subject: 'Mathematics', due: 'Dec 24', status: 'Due Today' },
-              { title: 'Essay Writing', subject: 'English', due: 'Dec 26', status: 'Pending' },
-              { title: 'Science Lab Report', subject: 'Science', due: 'Dec 20', status: 'Submitted' },
-            ].map((hw, idx) => (
-              <div key={idx} className={`p-3 border-2 rounded-lg ${
-                hw.status === 'Due Today' ? 'border-[#DC2626] bg-[#FEF2F2]' : 
-                hw.status === 'Submitted' ? 'border-[#10B981] bg-[#F0FDF4]' : 'border-[#E2E8F0]'
-              }`}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold text-sm">{hw.title}</p>
-                    <p className="text-xs text-[#64748B]">{hw.subject} • Due: {hw.due}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    hw.status === 'Due Today' ? 'bg-[#DC2626] text-white' :
-                    hw.status === 'Submitted' ? 'bg-[#10B981] text-white' : 'bg-[#F59E0B] text-white'
-                  }`}>{hw.status}</span>
-                </div>
-              </div>
-            ))}
+            <div className="p-4 text-center text-[#64748B]">
+              <p>Homework module coming soon</p>
+            </div>
           </div>
         </div>
 
@@ -388,16 +451,9 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
             Test & Exam Schedules
           </h3>
           <div className="space-y-3">
-            {[
-              { name: 'Mid-Term - Mathematics', date: 'Dec 26', time: '9:00 AM' },
-              { name: 'Mid-Term - English', date: 'Dec 27', time: '9:00 AM' },
-              { name: 'Mid-Term - Science', date: 'Dec 28', time: '9:00 AM' },
-            ].map((exam, idx) => (
-              <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg">
-                <p className="font-semibold text-sm">{exam.name}</p>
-                <p className="text-xs text-[#64748B]">{exam.date} • {exam.time}</p>
-              </div>
-            ))}
+            <div className="p-4 text-center text-[#64748B]">
+              <p>Exam schedules coming soon</p>
+            </div>
           </div>
         </div>
       </div>
@@ -411,52 +467,47 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE]">
+            <thead className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Subject</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Marks</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Grade</th>
-                <th className="px-4 py-3 text-left font-bold text-sm">Remarks</th>
+                <th className="px-4 py-3 text-left font-bold text-sm">Term</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                { subject: 'Mathematics', marks: '92/100', grade: 'A+', remarks: 'Excellent' },
-                { subject: 'English', marks: '85/100', grade: 'A', remarks: 'Very Good' },
-                { subject: 'Science', marks: '88/100', grade: 'A', remarks: 'Excellent' },
-                { subject: 'Social Studies', marks: '78/100', grade: 'B+', remarks: 'Good' },
-                { subject: 'Hindi', marks: '82/100', grade: 'A', remarks: 'Very Good' },
-              ].map((result, idx) => (
+              {grades.length > 0 ? grades.map((g, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
-                  <td className="px-4 py-3 text-sm font-semibold">{result.subject}</td>
-                  <td className="px-4 py-3 text-sm">{result.marks}</td>
+                  <td className="px-4 py-3 text-sm font-semibold">{g.subjectId?.name || 'Subject'}</td>
+                  <td className="px-4 py-3 text-sm">{g.marks || 0}/{g.totalMarks || 100}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      result.grade === 'A+' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                      result.grade === 'A' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
-                      'bg-[#FEF3C7] text-[#92400E]'
-                    }`}>{result.grade}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getGradeBadge(g.grade || '')}`}>{g.grade || '—'}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-[#64748B]">{result.remarks}</td>
+                  <td className="px-4 py-3 text-sm text-[#64748B]">{g.term || '—'}</td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-[#64748B]">No grade records found.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
+        {grades.length > 0 && (
         <div className="mt-4 p-4 bg-[#D1FAE5] rounded-lg">
-          <p className="font-bold text-[#065F46]">Total: 425/500 | Percentage: 85% | Overall Grade: A</p>
+          <p className="font-bold text-[#065F46]">Total: {totalMarks}/{totalMax} | Percentage: {pct}%</p>
         </div>
+        )}
       </div>
     </div>
-  );
+    );
+  };
 
   // 5. Communication
   const renderCommunication = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Communication</h2>
-      
+
       {/* Communication Channels - WhatsApp, Email, SMS */}
-      <div className="bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] rounded-xl p-6 text-white">
+      <div className="bg-linear-to-r from-[#4F46E5] to-[#7C3AED] rounded-xl p-6 text-white">
         <h3 className="font-bold text-xl mb-4">Contact School via Multiple Channels</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
@@ -520,7 +571,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
                 <div className="flex items-center gap-2">
                   <p className="font-semibold">{msg.teacher}</p>
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                    msg.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' : 
+                    msg.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' :
                     msg.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
                     'bg-[#4F46E5]/20 text-[#4F46E5]'
                   }`}>{msg.via}</span>
@@ -557,7 +608,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
                 <div className="flex items-center gap-2">
                   <p className="font-semibold">{notice.title}</p>
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                    notice.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' : 
+                    notice.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' :
                     notice.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
                     'bg-[#4F46E5]/20 text-[#4F46E5]'
                   }`}>via {notice.via}</span>
@@ -653,25 +704,32 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   );
 
   // 6. Fees & Payments
-  const renderFees = () => (
+  const renderFees = () => {
+    const { fees, summary } = childFees;
+    const totalDue = summary?.totalDue || 0;
+    const totalPaid = fees.filter(f => f.status === 'paid').reduce((sum, f) => sum + (f.amount || 0), 0);
+    const totalFees = totalPaid + totalDue;
+
+    return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Fees & Payments</h2>
-      
+      {childSelector()}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
           <p className="text-sm text-[#64748B]">Total Fees</p>
-          <p className="text-2xl font-bold text-[#065F46]">₹85,000</p>
-          <p className="text-xs text-[#10B981]">Academic Year 2024-25</p>
+          <p className="text-2xl font-bold text-[#065F46]">₹{totalFees.toLocaleString()}</p>
+          <p className="text-xs text-[#10B981]">Academic Year</p>
         </div>
         <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
           <p className="text-sm text-[#64748B]">Paid Amount</p>
-          <p className="text-2xl font-bold text-[#1E40AF]">₹60,000</p>
-          <p className="text-xs text-[#3B82F6]">70.5% Complete</p>
+          <p className="text-2xl font-bold text-[#1E40AF]">₹{totalPaid.toLocaleString()}</p>
+          <p className="text-xs text-[#3B82F6]">{totalFees > 0 ? ((totalPaid / totalFees) * 100).toFixed(1) : 0}% Complete</p>
         </div>
         <div className="p-6 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626]">
           <p className="text-sm text-[#64748B]">Pending Amount</p>
-          <p className="text-2xl font-bold text-[#991B1B]">₹25,000</p>
-          <p className="text-xs text-[#DC2626]">Due: Jan 15, 2025</p>
+          <p className="text-2xl font-bold text-[#991B1B]">₹{totalDue.toLocaleString()}</p>
+          <p className="text-xs text-[#DC2626]">Due</p>
         </div>
       </div>
 
@@ -679,7 +737,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <h3 className="font-bold mb-4">Fee Structure</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+            <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Fee Type</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Amount</th>
@@ -688,25 +746,20 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
               </tr>
             </thead>
             <tbody>
-              {[
-                { type: 'Tuition Fee (Q1)', amount: '₹20,000', due: 'Apr 15, 2024', status: 'Paid' },
-                { type: 'Tuition Fee (Q2)', amount: '₹20,000', due: 'Jul 15, 2024', status: 'Paid' },
-                { type: 'Tuition Fee (Q3)', amount: '₹20,000', due: 'Oct 15, 2024', status: 'Paid' },
-                { type: 'Tuition Fee (Q4)', amount: '₹20,000', due: 'Jan 15, 2025', status: 'Pending' },
-                { type: 'Lab Fee', amount: '₹3,000', due: 'Apr 15, 2024', status: 'Paid' },
-                { type: 'Library Fee', amount: '₹2,000', due: 'Jan 15, 2025', status: 'Pending' },
-              ].map((fee, idx) => (
+              {fees.length > 0 ? fees.map((fee, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
-                  <td className="px-4 py-3 text-sm">{fee.type}</td>
-                  <td className="px-4 py-3 text-sm font-semibold">{fee.amount}</td>
-                  <td className="px-4 py-3 text-sm">{fee.due}</td>
+                  <td className="px-4 py-3 text-sm">{fee.feeType || fee.type || 'Fee'}</td>
+                  <td className="px-4 py-3 text-sm font-semibold">₹{(fee.amount || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm">{fee.dueDate ? formatDate(fee.dueDate) : '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      fee.status === 'Paid' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'
-                    }`}>{fee.status}</span>
+                      fee.status === 'paid' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'
+                    }`}>{fee.status === 'paid' ? 'Paid' : 'Pending'}</span>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-[#64748B]">No fee records found.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -720,15 +773,16 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           </h3>
           <div className="p-4 bg-[#FEE2E2] rounded-lg mb-4">
             <p className="text-sm text-[#64748B]">Amount Due</p>
-            <p className="text-2xl font-bold text-[#991B1B]">₹25,000</p>
+            <p className="text-2xl font-bold text-[#991B1B]">₹{totalDue.toLocaleString()}</p>
           </div>
           <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2 mb-4">
             <option>Select Fee Type</option>
-            <option>Tuition Fee (Q4) - ₹20,000</option>
-            <option>Library Fee - ₹2,000</option>
-            <option>Pay All Pending - ₹25,000</option>
+            {fees.filter(f => f.status !== 'paid').map((f, idx) => (
+              <option key={idx}>{f.feeType || f.type || 'Fee'} - ₹{(f.amount || 0).toLocaleString()}</option>
+            ))}
+            {totalDue > 0 && <option>Pay All Pending - ₹{totalDue.toLocaleString()}</option>}
           </select>
-          
+
           {/* Payment Methods */}
           <div className="mb-4">
             <p className="text-sm font-semibold text-[#64748B] mb-3">Choose Payment Method</p>
@@ -742,7 +796,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
                 </div>
                 <span className="text-sm font-semibold text-[#3B82F6]">Razorpay</span>
               </button>
-              
+
               {/* UPI */}
               <button className="p-3 border-2 border-[#10B981] rounded-lg hover:bg-[#ECFDF5] transition-all flex flex-col items-center gap-2 group">
                 <div className="w-10 h-10 bg-[#10B981] rounded-lg flex items-center justify-center">
@@ -750,7 +804,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
                 </div>
                 <span className="text-sm font-semibold text-[#10B981]">UPI Payment</span>
               </button>
-              
+
               {/* Card */}
               <button className="p-3 border-2 border-[#7C3AED] rounded-lg hover:bg-[#F5F3FF] transition-all flex flex-col items-center gap-2 group">
                 <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center">
@@ -758,7 +812,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
                 </div>
                 <span className="text-sm font-semibold text-[#7C3AED]">Debit/Credit Card</span>
               </button>
-              
+
               {/* QR Scanner */}
               <button className="p-3 border-2 border-[#F59E0B] rounded-lg hover:bg-[#FFFBEB] transition-all flex flex-col items-center gap-2 group">
                 <div className="w-10 h-10 bg-[#F59E0B] rounded-lg flex items-center justify-center">
@@ -770,15 +824,15 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
               </button>
             </div>
           </div>
-          
+
           <button className="w-full bg-[#4F46E5] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-[#4338CA] transition-colors">
             <CreditCard size={18} /> Proceed to Pay
           </button>
-          
+
           {/* Payment Info */}
           <div className="mt-4 p-3 bg-[#F1F5F9] rounded-lg">
             <p className="text-xs text-[#64748B] text-center">
-              🔒 Secure payment powered by Razorpay. All transactions are encrypted.
+              Secure payment powered by Razorpay. All transactions are encrypted.
             </p>
           </div>
         </div>
@@ -789,24 +843,22 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
             Receipts & Invoices
           </h3>
           <div className="space-y-3">
-            {[
-              { id: 'REC-2024-003', amount: '₹20,000', date: 'Oct 15, 2024' },
-              { id: 'REC-2024-002', amount: '₹20,000', date: 'Jul 15, 2024' },
-              { id: 'REC-2024-001', amount: '₹23,000', date: 'Apr 15, 2024' },
-            ].map((receipt, idx) => (
+            {fees.filter(f => f.status === 'paid').length > 0 ? fees.filter(f => f.status === 'paid').map((receipt, idx) => (
               <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
                 <div>
-                  <p className="font-semibold text-sm">{receipt.id}</p>
-                  <p className="text-xs text-[#64748B]">{receipt.date}</p>
+                  <p className="font-semibold text-sm">{receipt.feeType || receipt.type || 'Fee'}</p>
+                  <p className="text-xs text-[#64748B]">{receipt.paidDate ? formatDate(receipt.paidDate) : formatDate(receipt.dueDate)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-[#10B981]">{receipt.amount}</span>
+                  <span className="font-bold text-[#10B981]">₹{(receipt.amount || 0).toLocaleString()}</span>
                   <button className="text-[#4F46E5]"><Download size={18} /></button>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-center text-[#64748B] py-4">No paid receipts yet.</p>
+            )}
           </div>
-          
+
           {/* QR Code for Payment */}
           <div className="mt-6 p-4 border-2 border-dashed border-[#FCD34D] rounded-lg text-center">
             <h4 className="font-semibold mb-3">Scan to Pay via UPI</h4>
@@ -820,13 +872,14 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   // 7. Behavior & Discipline
   const renderBehavior = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Behavior & Discipline</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
           <Star className="text-[#10B981] mb-2" size={32} />
@@ -874,7 +927,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <h3 className="font-bold mb-4">Behavior Reports</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE]">
+            <thead className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Category</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Rating</th>
@@ -922,7 +975,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const renderEvents = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">School Events & Activities</h2>
-      
+
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <CalendarDays className="text-[#4F46E5]" size={20} />
@@ -1020,7 +1073,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const renderRequests = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Requests & Approvals</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4">Leave Request for Child</h3>
@@ -1088,7 +1141,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <h3 className="font-bold mb-4">Request History</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+            <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Request ID</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Type</th>
@@ -1130,7 +1183,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const renderTransport = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Transport</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
           <Bus className="text-[#3B82F6] mb-2" size={32} />
@@ -1153,7 +1206,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <h3 className="font-bold mb-4">Bus Route & Timings</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#DBEAFE] to-[#D1FAE5]">
+            <thead className="bg-linear-to-r from-[#DBEAFE] to-[#D1FAE5]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Stop</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Location</th>
@@ -1243,7 +1296,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const renderHealth = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Health & Safety</h2>
-      
+
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <Heart className="text-[#DC2626]" size={20} />
@@ -1252,7 +1305,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
             <p className="text-sm text-[#64748B]">Blood Group</p>
-            <p className="font-bold text-[#991B1B]">O+</p>
+            <p className="font-bold text-[#991B1B]">{selectedChild?.bloodGroup || 'O+'}</p>
           </div>
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#64748B]">Height</p>
@@ -1337,7 +1390,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const renderSettings = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4 flex items-center gap-2">
@@ -1374,7 +1427,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Email Address</label>
-              <input type="email" defaultValue="parent@email.com" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+              <input type="email" defaultValue={user?.email || 'parent@email.com'} className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Phone Number</label>
@@ -1468,10 +1521,16 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-[#D1FAE5] to-[#DBEAFE] rounded-2xl p-6 border-2 border-[#10B981]">
+      <div className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE] rounded-2xl p-6 border-2 border-[#10B981]">
         <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.full_name}!</h1>
         <p className="text-base text-[#64748B]">Parent Portal - AJM International Institution</p>
       </div>
+
+      {loading && (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
+        </div>
+      )}
 
       <div>
         {currentModule.render()}

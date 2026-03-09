@@ -5,6 +5,7 @@ import {
   getClasses, createClass, updateClass, deleteClass,
   getSubjects, createSubject, updateSubject, deleteSubject,
   getAttendanceReport, getFeeReport,
+  getPendingLeaves, adminApproveRejectLeave,
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -29,5 +30,8 @@ router.delete('/subjects/:id', deleteSubject);
 
 router.get('/reports/attendance', getAttendanceReport);
 router.get('/reports/fees', getFeeReport);
+
+router.get('/leaves/pending', getPendingLeaves);
+router.put('/leaves/:leaveId/action', adminApproveRejectLeave);
 
 export default router;

@@ -9,25 +9,11 @@ const Transport = () => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ route_number: '', driver: '' });
   const [loading, setLoading] = useState(false);
-
-  const studentAssignments = [
-    { student: 'Rahul Kumar', route: 'R-101', stop: 'Sector 5', pickup: '7:30 AM', drop: '3:00 PM' },
-    { student: 'Priya Sharma', route: 'R-102', stop: 'Mall Road', pickup: '7:45 AM', drop: '3:15 PM' },
-    { student: 'Amit Patel', route: 'R-103', stop: 'City Center', pickup: '8:00 AM', drop: '3:30 PM' },
-    { student: 'Sneha Reddy', route: 'R-104', stop: 'Park Street', pickup: '7:40 AM', drop: '3:10 PM' },
-    { student: 'Vikram Singh', route: 'R-105', stop: 'Station Road', pickup: '7:50 AM', drop: '3:20 PM' },
-  ];
-
-  const transportFees = [
-    { route: 'R-101', distance: '5 km', monthly: 3000, students: 35 },
-    { route: 'R-102', distance: '7 km', monthly: 3500, students: 30 },
-    { route: 'R-103', distance: '10 km', monthly: 4000, students: 28 },
-    { route: 'R-104', distance: '6 km', monthly: 3200, students: 32 },
-    { route: 'R-105', distance: '8 km', monthly: 3800, students: 29 },
-  ];
+  const [assignments, setAssignments] = useState([]);
 
   useEffect(() => {
     fetchRoutes();
+    fetchAssignments();
   }, []);
 
   const fetchRoutes = async () => {
@@ -36,6 +22,15 @@ const Transport = () => {
       setRoutes(response.data);
     } catch (error) {
       toast.error('Failed to load transport routes');
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      const response = await api.get('/api/transport/assignments');
+      setAssignments(response.data || []);
+    } catch (error) {
+      console.error('Failed to load assignments:', error);
     }
   };
 
@@ -106,15 +101,17 @@ const Transport = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {studentAssignments.map((assign, i) => (
-                  <tr key={i} className="hover:bg-[#FFFBEB]">
-                    <td className="px-6 py-4 font-semibold text-[#0F172A]">{assign.student}</td>
-                    <td className="px-6 py-4"><span className="inline-flex px-3 py-1 bg-[#FEF3C7] text-[#92400E] rounded-full text-xs font-semibold">{assign.route}</span></td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{assign.stop}</td>
-                    <td className="px-6 py-4 text-sm">{assign.pickup}</td>
-                    <td className="px-6 py-4 text-sm">{assign.drop}</td>
+                {assignments.length > 0 ? assignments.map((assign, i) => (
+                  <tr key={assign._id || i} className="hover:bg-[#FFFBEB]">
+                    <td className="px-6 py-4 font-semibold text-[#0F172A]">{assign.studentId?.userId?.name || 'Student'}</td>
+                    <td className="px-6 py-4"><span className="inline-flex px-3 py-1 bg-[#FEF3C7] text-[#92400E] rounded-full text-xs font-semibold">{assign.routeId?.routeNumber || assign.routeId?.route_number || '—'}</span></td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">{assign.pickupPoint || '—'}</td>
+                    <td className="px-6 py-4 text-sm">{assign.pickupTime || '—'}</td>
+                    <td className="px-6 py-4 text-sm">{assign.dropTime || '—'}</td>
                   </tr>
-                ))}
+                )) : (
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-[#64748B]">No assignments found.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -142,15 +139,20 @@ const Transport = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {transportFees.map((fee, i) => (
-                    <tr key={i} className="hover:bg-[#FFFBEB]">
-                      <td className="px-6 py-4 font-semibold text-[#0F172A]">{fee.route}</td>
-                      <td className="px-6 py-4 text-sm">{fee.distance}</td>
-                      <td className="px-6 py-4 font-semibold text-[#0F172A]">₹{fee.monthly}</td>
-                      <td className="px-6 py-4 text-sm">{fee.students}</td>
-                      <td className="px-6 py-4 font-bold text-[#10B981]">₹{(fee.monthly * fee.students).toLocaleString()}</td>
+                  {routes.length > 0 ? routes.map((route, i) => {
+                    const routeAssignments = assignments.filter(a => a.routeId?._id === route._id);
+                    return (
+                    <tr key={route._id || i} className="hover:bg-[#FFFBEB]">
+                      <td className="px-6 py-4 font-semibold text-[#0F172A]">{route.route_number || route.routeNumber}</td>
+                      <td className="px-6 py-4 text-sm">{route.distance || '—'}</td>
+                      <td className="px-6 py-4 font-semibold text-[#0F172A]">₹{route.fee || 0}</td>
+                      <td className="px-6 py-4 text-sm">{routeAssignments.length}</td>
+                      <td className="px-6 py-4 font-bold text-[#10B981]">₹{((route.fee || 0) * routeAssignments.length).toLocaleString()}</td>
                     </tr>
-                  ))}
+                    );
+                  }) : (
+                    <tr><td colSpan={5} className="px-6 py-8 text-center text-[#64748B]">No routes found.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

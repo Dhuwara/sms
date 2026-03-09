@@ -1,4 +1,5 @@
 import Class from '../models/Class.js';
+import Staff from '../models/Staff.js';
 
 const toFlat = (cls) => ({
   _id: cls._id,
@@ -41,6 +42,9 @@ export const createClass = async (req, res, next) => {
       roomNumber: roomNumber || '',
       subjects: subjects || [],
     });
+    if (staffId) {
+      await Staff.findByIdAndUpdate(staffId, { $addToSet: { classesAssigned: cls._id } });
+    }
     const populated = await populateClass(Class.findById(cls._id));
     res.status(201).json({ success: true, data: toFlat(populated) });
   } catch (err) {
@@ -60,6 +64,18 @@ export const updateClass = async (req, res, next) => {
     if (roomNumber !== undefined) update.roomNumber = roomNumber;
     if (subjects !== undefined) update.subjects = subjects;
 
+    if (staffId !== undefined) {
+      const old = await Class.findById(req.params.id).select('staffId');
+      const oldStaffId = old?.staffId?.toString();
+      const newStaffId = staffId || null;
+      if (oldStaffId && oldStaffId !== newStaffId?.toString()) {
+        await Staff.findByIdAndUpdate(oldStaffId, { $pull: { classesAssigned: old._id } });
+      }
+      if (newStaffId && newStaffId.toString() !== oldStaffId) {
+        await Staff.findByIdAndUpdate(newStaffId, { $addToSet: { classesAssigned: req.params.id } });
+      }
+    }
+
     const cls = await populateClass(
       Class.findByIdAndUpdate(req.params.id, update, { new: true })
     );
@@ -74,6 +90,9 @@ export const deleteClass = async (req, res, next) => {
   try {
     const cls = await Class.findByIdAndDelete(req.params.id);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    if (cls.staffId) {
+      await Staff.findByIdAndUpdate(cls.staffId, { $pull: { classesAssigned: cls._id } });
+    }
     res.json({ success: true, message: 'Class deleted' });
   } catch (err) {
     next(err);

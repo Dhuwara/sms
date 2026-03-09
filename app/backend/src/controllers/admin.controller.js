@@ -7,6 +7,7 @@ import Class from '../models/Class.js';
 import Subject from '../models/Subject.js';
 import Attendance from '../models/Attendance.js';
 import FeeRecord from '../models/FeeRecord.js';
+import Leave from '../models/Leave.js';
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,47 @@ export const getFeeReport = async (req, res, next) => {
       { $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$amount' } } },
     ]);
     res.json({ success: true, data: report });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Leave Approvals ────────────────────────────────────────────────────────
+
+export const getPendingLeaves = async (req, res, next) => {
+  try {
+    const leaves = await Leave.find({ status: 'pending' })
+      .populate({ path: 'staffId', populate: { path: 'userId', select: 'name email' } })
+      .sort({ appliedOn: -1 });
+    res.json({ success: true, data: leaves });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const adminApproveRejectLeave = async (req, res, next) => {
+  try {
+    const { leaveId } = req.params;
+    const { action, rejectionReason } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action' });
+    }
+
+    if (action === 'reject' && !rejectionReason) {
+      return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+    }
+
+    const leave = await Leave.findById(leaveId);
+    if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+
+    leave.status = action === 'approve' ? 'approved' : 'rejected';
+    if (action === 'reject') {
+      leave.rejectionReason = rejectionReason;
+    }
+
+    await leave.save();
+    res.json({ success: true, data: leave });
   } catch (err) {
     next(err);
   }

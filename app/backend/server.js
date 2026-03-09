@@ -27,6 +27,15 @@ import communicationRoutes from './src/routes/communication.routes.js';
 import counterRoutes from './src/routes/counter.routes.js';
 import classConfigRoutes from './src/routes/classConfig.routes.js';
 import classMappingRoutes from './src/routes/classMapping.routes.js';
+import timetableRoutes from './src/routes/timetable.routes.js';
+import homeworkRoutes from './src/routes/homework.routes.js';
+import payrollRoutes from './src/routes/payroll.routes.js';
+import documentRoutes from './src/routes/document.routes.js';
+import lessonPlanRoutes from './src/routes/lessonPlan.routes.js';
+import studyMaterialRoutes from './src/routes/studyMaterial.routes.js';
+import notificationRoutes from './src/routes/notification.routes.js';
+import substitutionRoutes from './src/routes/substitution.routes.js';
+import scholarshipRoutes from './src/routes/scholarship.routes.js';
 
 const app = express();
 
@@ -65,6 +74,15 @@ app.use('/api/communication', communicationRoutes);
 app.use('/api/counter', counterRoutes);
 app.use('/api/class-config', classConfigRoutes);
 app.use('/api/classmapping', classMappingRoutes);
+app.use('/api/timetable', timetableRoutes);
+app.use('/api/homework', homeworkRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/lesson-plans', lessonPlanRoutes);
+app.use('/api/study-materials', studyMaterialRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/substitutions', substitutionRoutes);
+app.use('/api/scholarships', scholarshipRoutes);
 
 app.use(errorHandler);
 
