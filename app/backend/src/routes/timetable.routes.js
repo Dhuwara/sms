@@ -3,7 +3,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import { getPeriodConfig, savePeriodConfig, getTimetable, saveTimetable } from '../controllers/timetable.controller.js';
 
 const router = Router();
-router.use(protect, authorize('admin', 'staff'));
+router.use(protect, authorize('admin', 'staff', 'student'));
 
 // /periods must be declared before /:classId to avoid param conflict
 router.get('/periods/:classId/:academicYear', getPeriodConfig);

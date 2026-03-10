@@ -2,9 +2,11 @@ import PeriodConfig from '../models/PeriodConfig.js';
 import Timetable from '../models/Timetable.js';
 
 export const getPeriodConfig = async (req, res, next) => {
+  console.log("hitsspretioddd")
   try {
     const { classId, academicYear } = req.params;
     const config = await PeriodConfig.findOne({ classId, academicYear });
+    console.log(config,"conifffff")
     res.json({ success: true, data: config || { classId, academicYear, periods: [] } });
   } catch (err) {
     next(err);

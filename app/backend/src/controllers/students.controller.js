@@ -66,6 +66,7 @@ export const createStudent = async (req, res, next) => {
     if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
 
     const rollNumber = await generateNextId('rollNumber');
+    console.log(rollNumber,"rllll")
     const email = `${name.toLowerCase().replaceAll(/\s+/g, '.')}${Date.now()}@student.school.com`;
     const passwordHash = await bcrypt.hash(password || 'Student@123', 12);
     const user = await User.create({ name, email, passwordHash, role: 'student' });

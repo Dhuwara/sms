@@ -85,6 +85,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Transport', path: '/transport', icon: Bus },
     { name: 'Hostel', path: '/hostel', icon: Building },
     { name: 'Communication', path: '/communication', icon: Mail },
+    { name: 'Calendar Events', path: '/calendar-events', icon: CalendarDays },
     { name: 'Substitutions', path: '/substitutions', icon: UserCheck },
     { name: 'Scholarships', path: '/scholarships', icon: Award },
     { name: 'Payroll', path: '/payroll', icon: DollarSign },
@@ -96,7 +97,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Profile', path: '/staff/profile', icon: User },
     { name: 'Attendance', path: '/staff/attendance', icon: Calendar },
     { name: 'Timetable', path: '/staff/timetable', icon: BookOpen },
-    { name: 'Classes', path: '/staff/classes', icon: Users },
+    { name: 'Class', path: '/staff/classes', icon: Users },
     { name: 'Academic', path: '/staff/academic', icon: FileText },
     { name: 'Marks', path: '/staff/marks', icon: ClipboardCheck },
     // { name: 'Communication', path: '/staff/communication', icon: MessageSquare },
@@ -128,12 +129,8 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Attendance', path: '/parent/attendance', icon: Calendar },
     { name: 'Academic Progress', path: '/parent/academic', icon: GraduationCap },
     { name: 'Communication', path: '/parent/communication', icon: MessageSquare },
-    { name: 'Fees', path: '/parent/fees', icon: DollarSign },
-    { name: 'Behavior', path: '/parent/behavior', icon: Award },
-    { name: 'Events', path: '/parent/events', icon: CalendarDays },
-    { name: 'Requests', path: '/parent/requests', icon: FileQuestion },
+   
     { name: 'Transport', path: '/parent/transport', icon: Bus },
-    { name: 'Health', path: '/parent/health', icon: Heart },
     { name: 'Settings', path: '/parent/settings', icon: Settings },
   ];
 
@@ -212,13 +209,13 @@ const Layout = ({ children, user, onLogout }) => {
                         onClick={() => { if (!n.read) handleMarkRead(n._id); }}
                         className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3 items-start ${!n.read ? 'bg-[#EEF2FF]' : ''}`}
                       >
-                        <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notifTypeColor(n.type)}`} />
+                        <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${notifTypeColor(n.type)}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[#0F172A] truncate">{n.title}</p>
                           {n.message && <p className="text-xs text-[#64748B] mt-0.5 line-clamp-2">{n.message}</p>}
                           <p className="text-[10px] text-[#94A3B8] mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                         </div>
-                        {!n.read && <span className="w-2 h-2 rounded-full bg-[#4F46E5] flex-shrink-0 mt-1.5" />}
+                        {!n.read && <span className="w-2 h-2 rounded-full bg-[#4F46E5] shrink-0 mt-1.5" />}
                       </button>
                     ))
                   )}

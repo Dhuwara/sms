@@ -9,7 +9,7 @@ import {
 } from '../controllers/attendance.controller.js';
 
 const router = Router();
-router.use(protect, authorize('admin', 'staff'));
+router.use(protect, authorize('admin', 'staff','student'));
 
 // Specific routes before generic :id routes
 router.get('/class/:classId', getClassStudents);

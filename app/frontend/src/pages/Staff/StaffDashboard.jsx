@@ -5,7 +5,7 @@ import {
   User, Calendar, BookOpen, Users, FileText, ClipboardCheck,
   MessageSquare, DollarSign, FileQuestion, Book, Award, Settings,
   Clock, CheckCircle, XCircle, Bell, Mail, Download, Upload,
-  Star, HelpCircle, LogOut, ChevronRight, Building, Briefcase, Check
+  Star, HelpCircle, LogOut, ChevronRight, Building, Briefcase, Check, CalendarDays
 } from 'lucide-react';
 
 const StaffDashboard = ({ user, module = 'profile' }) => {
@@ -20,6 +20,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [classDetail, SetClassDetail] = useState(null);
   const [selectedClassForStudents, setSelectedClassForStudents] = useState('');
   const [classStudents, setClassStudents] = useState([]);
+  const [schoolEvents, setSchoolEvents] = useState([]);
 
   // Attendance & Leave State
   const [todayAttendance, setTodayAttendance] = useState(null);
@@ -77,7 +78,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [studyMaterialForm, setStudyMaterialForm] = useState({ title: '', subject: '', description: '', file: null });
   const [studyMaterialSubmitting, setStudyMaterialSubmitting] = useState(false);
   const [showHomeworkModal, setShowHomeworkModal] = useState(false);
-  const [homeworkForm, setHomeworkForm] = useState({ title: '', description: '', subject: '', dueDate: '', files: [] });
+  const [homeworkForm, setHomeworkForm] = useState({ title: '', description: '', subject: '', dueDate: '', files: [], classId: '' });
   const [homeworkSubmitting, setHomeworkSubmitting] = useState(false);
   const [classSubjects, setClassSubjects] = useState([]);
 
@@ -92,6 +93,50 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [marksSaving, setMarksSaving] = useState(false);
   const [marksLoaded, setMarksLoaded] = useState(false);
   const [marksAnalysis, setMarksAnalysis] = useState(null);
+
+  // Real-time performance analysis calculation
+  const calculatePerformanceAnalysis = (entries, students, maxScore, exam) => {
+    const validEntries = Object.entries(entries).filter(([_, marks]) => marks && marks.trim() !== '');
+    
+    if (validEntries.length === 0) {
+      setMarksAnalysis(null);
+      return;
+    }
+
+    const values = validEntries.map(([_, marks]) => parseFloat(marks)).filter(m => !isNaN(m));
+    
+    if (values.length === 0) {
+      setMarksAnalysis(null);
+      return;
+    }
+
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const highest = Math.max(...values);
+    const lowest = Math.min(...values);
+    const highestStudentId = validEntries.find(([_, marks]) => parseFloat(marks) === highest)?.[0];
+    const highestStudent = students.find(s => s._id === highestStudentId);
+    const passCount = values.filter(m => (m / maxScore) * 100 >= 35).length;
+    const gradeDist = {};
+    values.forEach(m => {
+      const g = marksCalcGrade(m, maxScore);
+      gradeDist[g] = (gradeDist[g] || 0) + 1;
+    });
+
+    setMarksAnalysis({
+      avg: avg.toFixed(1),
+      avgPct: ((avg / maxScore) * 100).toFixed(1),
+      highest,
+      highestStudentName: highestStudent?.name || '—',
+      lowest,
+      passCount,
+      total: values.length,
+      passRate: ((passCount / values.length) * 100).toFixed(0),
+      maxScore,
+      gradeDist,
+      subject: exam?.subject || '',
+      examType: exam?.examType || '',
+    });
+  };
 
   // Request tracking to prevent duplicate simultaneous requests
   const fetchingRef = useRef({
@@ -117,7 +162,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   useEffect(() => {
     if (module === 'attendance') {
-      console.log('Attendance module loaded, fetching data...');
       // Reset request tracking flags to allow fresh fetch
       fetchingRef.current = { ...fetchingRef.current, today: false, history: false, balance: false, leaves: false, staff: false };
 
@@ -131,7 +175,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   useEffect(() => {
     if (module === 'timetable') {
-      console.log('Timetable module loaded, fetching data...');
       // Reset request tracking flags
       fetchingRef.current = { ...fetchingRef.current, timetable: false, substitutions: false, examDuties: false };
 
@@ -172,6 +215,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (module === 'communication') {
       fetchCommClasses();
       fetchAnnouncements();
+      fetchSchoolEvents();
     }
   }, [module]);
 
@@ -214,15 +258,22 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchStudents();
   }, [selectedClassForStudents]);
 
+  // Fetch homework for selected class when in Classes module
+  useEffect(() => {
+    if (module === 'classes' && selectedClassForStudents) {
+      fetchClassHomework(selectedClassForStudents);
+    }
+  }, [module, selectedClassForStudents]);
+
   const fetchStaffData = async () => {
     if (!user?.id) return;
     try {
       const response = await api.get(`/api/staff/profile/${user.id}`);
       const classResponse = await api.get(`/api/staff/classes/`);
-      console.log(classResponse, "response")
       SetClassDetail(classResponse.data);
       setStaffData(response.data);
       setContactForm({ contact: response.data?.contact || '' });
+      
     } catch (error) {
       console.error('Error fetching staff data:', error);
       toast.error('Failed to load staff data');
@@ -290,7 +341,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       const response = await api.get('/api/staff/my-attendance/today');
       // Handle different response formats
       const attendanceData = response.data?.data || response.data || null;
-      console.log('Today Attendance Data:', attendanceData);
       setTodayAttendance(attendanceData);
     } catch (error) {
       console.error('Error fetching today attendance:', error);
@@ -305,7 +355,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.history = true;
     try {
       const response = await api.get('/api/staff/my-attendance/history');
-      console.log(response, "reponseee")
       setAttendanceHistory(response?.data || []);
     } catch (error) {
       console.error('Error fetching attendance history:', error);
@@ -334,7 +383,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.leaves = true;
     try {
       const response = await api.get('/api/staff/my-leaves');
-      console.log(response, "pepeepp")
       setMyLeaves(response?.data || []);
     } catch (error) {
       console.error('Error fetching leaves:', error);
@@ -505,7 +553,8 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   const handleCreateHomework = async (e) => {
     e.preventDefault();
-    if (!homeworkForm.title || !homeworkForm.subject || !homeworkForm.dueDate || !selectedAcademicClass) {
+    const targetClassId = homeworkForm.classId || selectedAcademicClass;
+    if (!homeworkForm.title || !homeworkForm.subject || !homeworkForm.dueDate || !targetClassId) {
       toast.error('Title, subject, class, and due date are required');
       return;
     }
@@ -514,20 +563,27 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       const fd = new FormData();
       fd.append('title', homeworkForm.title);
       fd.append('description', homeworkForm.description);
-      fd.append('classId', selectedAcademicClass);
+      fd.append('classId', targetClassId);
       fd.append('subject', homeworkForm.subject);
       fd.append('dueDate', homeworkForm.dueDate);
       for (const file of homeworkForm.files) fd.append('files', file);
       await api.post('/api/homework', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Homework assigned');
       setShowHomeworkModal(false);
-      setHomeworkForm({ title: '', description: '', subject: '', dueDate: '', files: [] });
-      fetchClassHomework(selectedAcademicClass);
+      setHomeworkForm({ title: '', description: '', subject: '', dueDate: '', files: [], classId: '' });
+      fetchClassHomework(targetClassId);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create homework');
     } finally {
       setHomeworkSubmitting(false);
     }
+  };
+
+  const handleOpenHomeworkForClass = (cls) => {
+    setSelectedClassForStudents(cls._id);
+    setHomeworkForm(prev => ({ ...prev, classId: cls._id }));
+    fetchClassSubjects(cls._id);
+    setShowHomeworkModal(true);
   };
 
   const handleDeleteHomework = async (id) => {
@@ -1659,31 +1715,80 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   );
 
   // 4. Class & Student Management
-  const renderClassManagement = () => (
+  const renderClassManagement = () => {
+    const classesForStaff = (classDetail || []).filter(c => c.staffId === staffData?._id);
+    const selectedClassObj = classesForStaff.find(c => c._id === selectedClassForStudents);
+    const classesHomework = module === 'classes' && selectedClassForStudents ? classHomework : [];
+
+    return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Class & Student Management</h2>
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4">My Assigned Classes</h3>
+        <p className="text-sm text-[#64748B] mb-4">Select a class to view students and assign homework</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {classDetail?.map((cls, idx) => (
-            <div key={idx} className="p-4 border-2 border-[#FCD34D] rounded-lg hover:bg-[#FFFBEB] transition-colors cursor-pointer">
+          {classDetail?.map((cls, idx) => {
+            const isSelected = selectedClassForStudents === cls._id;
+            return (
+            <div
+              key={idx}
+              onClick={() => setSelectedClassForStudents(cls._id)}
+              className={`p-4 border-2 rounded-lg transition-colors cursor-pointer ${isSelected ? 'border-[#4F46E5] bg-[#EEF2FF]' : 'border-[#FCD34D] hover:bg-[#FFFBEB]'}`}
+            >
               <div className="flex justify-between items-start mb-2">
-                <h4 className="font-bold text-lg">{cls.name}</h4>
+                <h4 className="font-bold text-lg">{cls.name} {cls.section}</h4>
               </div>
-              <p className="text-sm text-[#64748B]">{cls.students} Students</p>
-              <div className="mt-3 flex gap-2">
+              <p className="text-sm text-[#64748B]">{cls.students ?? '—'} Students</p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => handleOpenMarkAttendance(cls._id)}
-                  className="text-xs bg-[#10B981] text-white px-3 py-1 rounded font-semibold hover:bg-[#059669] transition-colors"
+                  onClick={(e) => { e.stopPropagation(); handleOpenMarkAttendance(cls._id); }}
+                  className="cursor-pointer text-xs bg-[#10B981] text-white px-3 py-1 rounded font-semibold hover:bg-[#059669] transition-colors"
                 >
                   Mark Attendance
                 </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleOpenHomeworkForClass(cls); }}
+                  className="cursor-pointer text-xs bg-[#4F46E5] text-white px-3 py-1 rounded font-semibold hover:bg-[#4338CA] transition-colors"
+                >
+                  Set Homework
+                </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      {selectedClassObj && (
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <ClipboardCheck className="text-[#DC2626]" size={20} />
+          Homework & Assignments — {selectedClassObj.name} {selectedClassObj.section}
+        </h3>
+        <div className="space-y-3 mb-4 max-h-[200px] overflow-y-auto pr-1">
+          {classesHomework.length > 0 ? classesHomework.map((hw) => (
+            <div key={hw._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center bg-white hover:border-[#CBD5E1] transition-colors">
+              <div>
+                <p className="font-semibold text-sm">{hw.title}</p>
+                <p className="text-xs text-[#64748B]">Due: {formatDate(hw.dueDate)} • {hw.submissionCount || 0} submissions</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleDeleteHomework(hw._id)} className="text-red-400 hover:text-red-600"><XCircle size={16} /></button>
+              </div>
+            </div>
+          )) : (
+            <p className="text-sm text-[#64748B] text-center py-4">No homework assigned yet. Use &quot;Set Homework&quot; on a class card above.</p>
+          )}
+        </div>
+        <button
+          onClick={() => handleOpenHomeworkForClass(selectedClassObj)}
+          className="w-full bg-[#10B981] text-white py-2 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-[#059669] transition-colors"
+        >
+          <Upload size={18} /> Add Assignment
+        </button>
+      </div>
+      )}
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <div className="flex justify-between items-center mb-4">
@@ -1746,6 +1851,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
     </div>
   );
+  };
 
   // 5. Academic Management
   const renderAcademic = () => {
@@ -1873,7 +1979,10 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
               )}
             </div>
             <button
-              onClick={() => setShowHomeworkModal(true)}
+              onClick={() => {
+                setHomeworkForm(prev => ({ ...prev, classId: selectedAcademicClass }));
+                setShowHomeworkModal(true);
+              }}
               disabled={!selectedAcademicClass}
               className="w-full bg-[#10B981] text-white py-2 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1982,51 +2091,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
             </div>
           </div>
         )}
-
-        {/* Homework Modal */}
-        {showHomeworkModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-[#0F172A] mb-4">Assign Homework — {selectedClassObj?.name} {selectedClassObj?.section}</h2>
-              <form onSubmit={handleCreateHomework} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Title</label>
-                  <input type="text" required value={homeworkForm.title} onChange={(ev) => setHomeworkForm({ ...homeworkForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Subject</label>
-                  {classSubjects.length > 0 ? (
-                    <select required value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
-                      <option value="">Select subject</option>
-                      {classSubjects.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" required placeholder="e.g. Mathematics" value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Description (optional)</label>
-                  <textarea value={homeworkForm.description} onChange={(ev) => setHomeworkForm({ ...homeworkForm, description: ev.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Due Date</label>
-                  <input type="date" required value={homeworkForm.dueDate} onChange={(ev) => setHomeworkForm({ ...homeworkForm, dueDate: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Attachments (optional, max 5 files, 20MB each)</label>
-                  <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(ev) => setHomeworkForm({ ...homeworkForm, files: Array.from(ev.target.files) })} className="w-full border-2 border-[#E2E8F0] rounded-lg px-3 py-2 text-sm" />
-                  {homeworkForm.files.length > 0 && (
-                    <p className="text-xs text-[#10B981] mt-1">{homeworkForm.files.length} file(s) selected</p>
-                  )}
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setShowHomeworkModal(false)} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
-                  <button type="submit" disabled={homeworkSubmitting} className="flex-1 h-10 bg-[#10B981] text-white rounded-lg font-medium disabled:opacity-50">{homeworkSubmitting ? 'Saving...' : 'Assign'}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -2096,6 +2160,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       ]);
       const students = studentsRes.data || [];
       const results = resultsRes.data || [];
+      const selectedExam = marksExams.find(e => e._id === marksExamId);
+      const maxScore = selectedExam?.maxScore || 100;
+      
       setMarksStudents(students);
       // Pre-fill entries from existing results
       const entries = {};
@@ -2105,6 +2172,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       });
       setMarksEntries(entries);
       setMarksLoaded(true);
+      
+      // Calculate performance analysis for existing marks
+      calculatePerformanceAnalysis(entries, students, maxScore, selectedExam);
     } catch {
       toast.error('Failed to load students');
     } finally {
@@ -2132,33 +2202,8 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       await api.post(`/api/exams/${marksExamId}/results/bulk`, { results });
       toast.success(`Saved marks for ${results.length} student(s)`);
 
-      // Compute performance analysis
-      const scored = results;
-      const values = scored.map(r => r.marks);
-      const avg = values.reduce((a, b) => a + b, 0) / values.length;
-      const highest = Math.max(...values);
-      const lowest = Math.min(...values);
-      const highestStudent = marksStudents.find(s => marksEntries[s._id] === String(highest));
-      const passCount = values.filter(m => (m / maxScore) * 100 >= 35).length;
-      const gradeDist = {};
-      values.forEach(m => {
-        const g = marksCalcGrade(m, maxScore);
-        gradeDist[g] = (gradeDist[g] || 0) + 1;
-      });
-      setMarksAnalysis({
-        avg: avg.toFixed(1),
-        avgPct: ((avg / maxScore) * 100).toFixed(1),
-        highest,
-        highestStudentName: highestStudent?.name || '—',
-        lowest,
-        passCount,
-        total: values.length,
-        passRate: ((passCount / values.length) * 100).toFixed(0),
-        maxScore,
-        gradeDist,
-        subject: selectedExam?.subject || '',
-        examType: selectedExam?.examType || '',
-      });
+      // Use the unified performance analysis function
+      calculatePerformanceAnalysis(marksEntries, marksStudents, maxScore, selectedExam);
     } catch {
       toast.error('Failed to save marks');
     } finally {
@@ -2266,7 +2311,11 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                             max={maxScore}
                             value={raw ?? ''}
                             placeholder="—"
-                            onChange={e => setMarksEntries(prev => ({ ...prev, [student._id]: e.target.value }))}
+                            onChange={e => {
+                              const newEntries = { ...marksEntries, [student._id]: e.target.value };
+                              setMarksEntries(newEntries);
+                              calculatePerformanceAnalysis(newEntries, marksStudents, maxScore, selectedExam);
+                            }}
                             className="w-24 h-9 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
                           />
                         </td>
@@ -2303,7 +2352,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           </div>
         )}
 
-        {/* Performance Analysis — shown after save */}
+        {/* Performance Analysis — shown in real-time as marks are entered */}
         {marksAnalysis && (
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
             <h3 className="font-bold text-[#0F172A] mb-4">
@@ -2370,8 +2419,39 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     try {
       const res = await api.get(`/api/communication/class-contacts/${classId}`);
       setCommContacts(res.data || []);
-      console.log(res,"Resssss")
     } catch { setCommContacts([]); }
+  };
+
+  const fetchSchoolEvents = async () => {
+    try {
+      const res = await api.get('/api/school-events/user-events');
+      setSchoolEvents(res.data || []);
+    } catch { /* ignore */ }
+  };
+
+  const getEventStyle = (eventType, priority) => {
+    const eventColors = {
+      holiday: { bg: 'bg-[#E0E7FF]', border: 'border-[#6366F1]', text: 'text-[#4338CA]' },
+      exam: { bg: 'bg-[#FEE2E2]', border: 'border-[#DC2626]', text: 'text-[#991B1B]' },
+      sports: { bg: 'bg-[#D1FAE5]', border: 'border-[#10B981]', text: 'text-[#065F46]' },
+      cultural: { bg: 'bg-[#FED7AA]', border: 'border-[#FB923C]', text: 'text-[#C2410C]' },
+      academic: { bg: 'bg-[#DBEAFE]', border: 'border-[#3B82F6]', text: 'text-[#1E40AF]' },
+      meeting: { bg: 'bg-[#F3F4F6]', border: 'border-[#6B7280]', text: 'text-[#374151]' },
+      other: { bg: 'bg-[#FEF3C7]', border: 'border-[#F59E0B]', text: 'text-[#92400E]' }
+    };
+    
+    const baseStyle = eventColors[eventType] || eventColors.other;
+    
+    if (priority === 'high') {
+      return {
+        ...baseStyle,
+        bg: 'bg-[#FEE2E2]',
+        border: 'border-[#DC2626]',
+        text: 'text-[#991B1B]'
+      };
+    }
+    
+    return baseStyle;
   };
 
   const handleCommClassChange = (classId) => {
@@ -2508,22 +2588,51 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
           <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
             <h3 className="font-bold mb-4 flex items-center gap-2">
-              <Mail className="text-[#4F46E5]" size={20} />
-              Notices & Announcements
+              <CalendarDays className="text-[#10B981]" size={20} />
+              School Events
             </h3>
             <div className="space-y-3">
-              {commAnnouncements.length === 0 ? (
-                <p className="text-sm text-[#64748B] text-center py-4">No announcements</p>
-              ) : (
-                commAnnouncements.slice(0, 5).map((notice, idx) => (
-                  <div key={notice._id || idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center hover:bg-[#F8FAFC] cursor-pointer">
-                    <div>
-                      <p className="font-semibold text-sm">{notice.title}</p>
-                      <p className="text-xs text-[#64748B]">{new Date(notice.createdAt).toLocaleDateString()}</p>
+              {schoolEvents.length > 0 ? schoolEvents.map((event, idx) => {
+                const style = getEventStyle(event.eventType, event.priority);
+                return (
+                  <div key={idx} className={`p-4 rounded-lg border-l-4 ${style.bg} ${style.border}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className={`font-semibold ${style.text}`}>{event.title}</h4>
+                        <p className="text-sm text-[#64748B] mt-1">{event.description}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-[#64748B]">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {new Date(event.startDate).toLocaleDateString()}
+                            {event.endDate && ` - ${new Date(event.endDate).toLocaleDateString()}`}
+                          </span>
+                          {event.location && (
+                            <span className="flex items-center gap-1">
+                              <FileText size={12} />
+                              {event.location}
+                            </span>
+                          )}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+                            {event.eventType}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                        event.status === 'upcoming' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                        event.status === 'ongoing' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                        event.status === 'completed' ? 'bg-[#F1F5F9] text-[#64748B]' :
+                        'bg-[#FEE2E2] text-[#991B1B]'
+                      }`}>
+                        {event.status}
+                      </span>
                     </div>
-                    <ChevronRight className="text-[#64748B]" size={18} />
                   </div>
-                ))
+                );
+              }) : (
+                <div className="p-8 text-center text-[#64748B]">
+                  <CalendarDays className="mx-auto mb-2 text-gray-400" size={32} />
+                  <p className="text-sm">No school events scheduled</p>
+                </div>
               )}
             </div>
           </div>
@@ -3005,7 +3114,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   // 12. Settings & Support
   const renderSettings = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
+        <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
@@ -3016,15 +3125,36 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Display Name</label>
-              <input type="text" defaultValue={user?.full_name || 'Staff User'} className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+              <input 
+                type="text" 
+                defaultValue={ user?.name || 'Staff User'} 
+                placeholder={loading ? 'Loading...' : 'Enter display name'}
+                disabled={loading}
+                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Email Address</label>
-              <input type="email" defaultValue="staff@ajmschool.edu" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+              <input 
+                type="email" 
+                defaultValue={ user?.email || 'staff@ajmschool.edu'} 
+                placeholder={loading ? 'Loading...' : 'Enter email address'}
+                disabled={loading}
+                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Phone Number</label>
-              <input type="tel" defaultValue="+91 9876543210" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
+              <input 
+                type="tel" 
+                defaultValue={staffData?.contact } 
+                placeholder={loading ? 'Loading...' : 'Enter phone number'}
+                disabled={loading}
+                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
+              />
+              {!loading && !staffData?.contact && (
+                <p className="text-xs text-[#64748B] mt-1">Contact information not available in profile</p>
+              )}
             </div>
             <button className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold">Update Profile</button>
           </div>
@@ -3165,6 +3295,54 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
       )}
+
+      {showHomeworkModal && (() => {
+        const hwClassId = homeworkForm.classId || selectedAcademicClass;
+        const hwClassObj = (staffData?.classesAssigned || classDetail || []).find(c => c._id === hwClassId);
+        return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-[#0F172A] mb-4">Assign Homework — {hwClassObj?.name || ''} {hwClassObj?.section || ''}</h2>
+            <form onSubmit={handleCreateHomework} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Title</label>
+                <input type="text" required value={homeworkForm.title} onChange={(ev) => setHomeworkForm({ ...homeworkForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Subject</label>
+                {classSubjects.length > 0 ? (
+                  <select required value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
+                    <option value="">Select subject</option>
+                    {classSubjects.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <input type="text" required placeholder="e.g. Mathematics" value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Description (optional)</label>
+                <textarea value={homeworkForm.description} onChange={(ev) => setHomeworkForm({ ...homeworkForm, description: ev.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Due Date</label>
+                <input type="date" required value={homeworkForm.dueDate} onChange={(ev) => setHomeworkForm({ ...homeworkForm, dueDate: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Attachments (optional, max 5 files, 20MB each)</label>
+                <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(ev) => setHomeworkForm({ ...homeworkForm, files: Array.from(ev.target.files) })} className="w-full border-2 border-[#E2E8F0] rounded-lg px-3 py-2 text-sm" />
+                {homeworkForm.files.length > 0 && (
+                  <p className="text-xs text-[#10B981] mt-1">{homeworkForm.files.length} file(s) selected</p>
+                )}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowHomeworkModal(false)} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
+                <button type="submit" disabled={homeworkSubmitting} className="flex-1 h-10 bg-[#10B981] text-white rounded-lg font-medium disabled:opacity-50">{homeworkSubmitting ? 'Saving...' : 'Assign'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        );
+      })()}
 
       {showMarkAttendanceModal && (
         <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">

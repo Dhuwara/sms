@@ -437,7 +437,6 @@ const Students = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  data-testid="submit-student-button"
                   className="flex-1 bg-[#DC2626] text-white hover:bg-[#B91C1C] h-10 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Saving...' : isEditing ? 'Update Student' : 'Add Student'}

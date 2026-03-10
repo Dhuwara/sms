@@ -6,6 +6,7 @@ import FeeRecord from '../models/FeeRecord.js';
 
 const getStudentProfile = async (userId) => {
   const student = await Student.findOne({ userId }).populate('classId');
+  console.log(userId, "studenttttt");
   if (!student) throw Object.assign(new Error('Student profile not found'), { status: 404 });
   return student;
 };

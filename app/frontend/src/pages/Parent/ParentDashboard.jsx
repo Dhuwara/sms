@@ -10,6 +10,7 @@ import {
 import api from '../../utils/api';
 
 const ParentDashboard = ({ user, module = 'profile' }) => {
+  console.log(user,"userrr")
   const [children, setChildren] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
   const [childAttendance, setChildAttendance] = useState({ records: [], summary: { total: 0, present: 0, absent: 0 } });
@@ -91,11 +92,10 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <div className="flex items-center gap-6 mb-6">
           <div className="w-24 h-24 bg-gradient-to-br from-[#D1FAE5] to-[#DBEAFE] rounded-full flex items-center justify-center text-4xl font-bold text-[#10B981]">
-            {user?.full_name?.charAt(0) || 'P'}
+            {user?.name?.charAt(0) || 'P'}
           </div>
           <div>
-            <h3 className="text-2xl font-bold text-[#0F172A]">{user?.full_name || 'Parent User'}</h3>
-            <p className="text-[#64748B]">Parent ID: PRT-2024-001</p>
+            <h3 className="text-2xl font-bold text-[#0F172A]">{user?.name || 'Parent User'}</h3>
             <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">Active Account</span>
           </div>
         </div>
@@ -190,13 +190,15 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   // 2. Student Overview
   const renderOverview = () => {
     const child = selectedChild;
-    const childName = child?.userId?.name || child?.firstName ? `${child.firstName} ${child.lastName}` : 'Student';
+    console.log(child,"childdd")
+    const childName = child?.userId?.name ||  'Student';
+    console.log(childName,"childName")
     const className = child?.classId?.name || 'N/A';
     const section = child?.classId?.section || '';
     const rollNumber = child?.rollNumber || '—';
     return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Student Overview</h2>
+      <h2 className="text-2xl font-bold text-[#0F172A]"Parent Profile>Student Overview</h2>
       {childSelector()}
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
@@ -1234,7 +1236,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <User className="text-[#4F46E5]" size={20} />
@@ -1265,29 +1267,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <DollarSign className="text-[#10B981]" size={20} />
-            Transport Fee Status
-          </h3>
-          <div className="space-y-4">
-            <div className="p-4 bg-[#D1FAE5] rounded-lg">
-              <p className="text-sm text-[#64748B]">Annual Transport Fee</p>
-              <p className="text-2xl font-bold text-[#065F46]">₹24,000</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-[#F8FAFC] rounded-lg">
-                <p className="text-sm text-[#64748B]">Paid</p>
-                <p className="font-bold text-[#10B981]">₹18,000</p>
-              </div>
-              <div className="p-3 bg-[#F8FAFC] rounded-lg">
-                <p className="text-sm text-[#64748B]">Pending</p>
-                <p className="font-bold text-[#DC2626]">₹6,000</p>
-              </div>
-            </div>
-            <button className="w-full bg-[#4F46E5] text-white py-2 rounded-lg font-semibold">Pay Transport Fee</button>
-          </div>
-        </div>
+        
       </div>
     </div>
   );
@@ -1391,33 +1371,8 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Bell className="text-[#F59E0B]" size={20} />
-            Notification Preferences
-          </h3>
-          <div className="space-y-4">
-            {[
-              { name: 'Attendance Alerts', desc: 'Get notified about absence/late arrivals', enabled: true },
-              { name: 'Exam Results', desc: 'Receive marks and grade notifications', enabled: true },
-              { name: 'Fee Reminders', desc: 'Get fee payment due reminders', enabled: true },
-              { name: 'School Announcements', desc: 'Important school notices', enabled: true },
-              { name: 'Homework Alerts', desc: 'Pending homework notifications', enabled: false },
-            ].map((pref, idx) => (
-              <div key={idx} className="flex justify-between items-center p-3 bg-[#F8FAFC] rounded-lg">
-                <div>
-                  <p className="font-semibold text-sm">{pref.name}</p>
-                  <p className="text-xs text-[#64748B]">{pref.desc}</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" defaultChecked={pref.enabled} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-[#E2E8F0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4F46E5]"></div>
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+        
 
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4 flex items-center gap-2">
@@ -1439,66 +1394,11 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <HelpCircle className="text-[#4F46E5]" size={20} />
-          Help & Support
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="p-4 bg-[#FEF3C7] rounded-lg">
-            <p className="font-semibold">School Office</p>
-            <p className="text-sm text-[#64748B]">For general queries</p>
-            <p className="text-sm font-semibold mt-2">+91 11-2345-6789</p>
-          </div>
-          <div className="p-4 bg-[#DBEAFE] rounded-lg">
-            <p className="font-semibold">Parent Help Desk</p>
-            <p className="text-sm text-[#64748B]">For portal related issues</p>
-            <p className="text-sm font-semibold mt-2">help@ajmschool.edu</p>
-          </div>
-        </div>
-        <div>
-          <h4 className="font-semibold mb-3">Submit a Query</h4>
-          <div className="space-y-3">
-            <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2">
-              <option>Select Query Type</option>
-              <option>Academic Query</option>
-              <option>Fee Related</option>
-              <option>Transport Issue</option>
-              <option>Technical Issue</option>
-              <option>Other</option>
-            </select>
-            <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-24" placeholder="Describe your query..."></textarea>
-            <button className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold">Submit Query</button>
-          </div>
-        </div>
-      </div>
+      
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4">Frequently Asked Questions</h3>
-        <div className="space-y-3">
-          {[
-            { q: 'How to pay fees online?', a: 'Go to Fees & Payments section, select the fee type, and click Pay Now to complete payment.' },
-            { q: 'How to apply for leave for my child?', a: 'Navigate to Requests & Approvals, fill the leave request form with dates and reason.' },
-            { q: 'How to contact my child\'s teacher?', a: 'Go to Communication section where you can view and reply to teacher messages.' },
-            { q: 'How to download report card?', a: 'Visit Academic Progress section and click Download Report Card button.' },
-          ].map((faq, idx) => (
-            <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
-              <p className="font-semibold text-sm">{faq.q}</p>
-              <p className="text-sm text-[#64748B] mt-1">{faq.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+     
 
-      <div className="p-4 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626] flex justify-between items-center">
-        <div>
-          <p className="font-semibold text-[#991B1B]">Logout from Parent Portal</p>
-          <p className="text-sm text-[#64748B]">You will be redirected to the login page</p>
-        </div>
-        <button className="bg-[#DC2626] text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2">
-          <LogOut size={18} /> Logout
-        </button>
-      </div>
+     
     </div>
   );
 

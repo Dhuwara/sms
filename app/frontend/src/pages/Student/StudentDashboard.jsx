@@ -4,12 +4,11 @@ import {
   MessageSquare, DollarSign, Library, Settings,
   Clock, CheckCircle, XCircle, Bell, Mail, Download,
   HelpCircle, Receipt, Trophy, FileQuestion,
-  AlertCircle, GraduationCap, Calculator
+  AlertCircle, GraduationCap, Calculator, CalendarDays
 } from 'lucide-react';
 import api from '../../utils/api';
 
 const StudentDashboard = ({ user, module = 'profile' }) => {
-  console.log(user, "userrr")
   const [attendanceData, setAttendanceData] = useState({ records: [], summary: { total: 0, present: 0, absent: 0, late: 0 } });
   const [scheduleData, setScheduleData] = useState({ class: null, subjects: [] });
   const [timetableData, setTimetableData] = useState(null);
@@ -21,6 +20,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   const [messages, setMessages] = useState([]);
   const [homeworkData, setHomeworkData] = useState([]);
   const [scholarships, setScholarships] = useState([]);
+  const [schoolEvents, setSchoolEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null)
 
@@ -36,31 +36,42 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       setLoading(true);
       try {
         if (module === 'profile' || module === 'timetable' || module === 'subjects') {
-          console.log("hitssinside")
+          console.log(user,"hitssinside")
           const schedRes = await api.get("/api/student/me/schedule");
           const userData = await api.get("api/student/me/info");
 
-          console.log(schedRes, "schendnd")
           setScheduleData(schedRes.data);
           setUserInfo(userData.data.student)
           if (schedRes.data?.class?._id) {
             try {
+              console.log("beforeee")
               const pcRes = await api.get(`/api/timetable/periods/${schedRes.data.class._id}/${getAcademicYear()}`);
+              console.log("Afterrr")
+              console.log("Period config response:", pcRes)
               setPeriodConfig(pcRes.data);
               const ttRes = await api.get(`/api/timetable/${schedRes.data.class._id}/${getAcademicYear()}`);
+              console.log("Timetable response:", ttRes)
               setTimetableData(ttRes.data);
-            } catch { /* no timetable yet */ }
+            } catch (error) {
+              console.error('Error fetching timetable:', error);
+              console.error('Error response:', error.response);
+              console.error('Error status:', error.response?.status);
+            }
           }
         }
         if (module === 'attendance') {
-          const attRes = await api.get('/api/student/attendance');
+          const attRes = await api.get('/api/student/me/attendance');
+          console.log(attRes,"resspspspssp")
           setAttendanceData(attRes.data);
         }
+        
         if (module === 'exams') {
+          console.log("hotsssserererer")
           const [examsRes, resultsRes] = await Promise.all([
             api.get('/api/exams'),
             api.get('/api/exams/my-results'),
           ]);
+          console.log(examsRes.data,"examReaarr")
           setExams(examsRes.data);
           setExamResults(resultsRes.data);
         }
@@ -78,12 +89,14 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         }
         if (module === 'communication') {
           try {
-            const [annRes, msgRes] = await Promise.all([
+            const [annRes, msgRes, eventsRes] = await Promise.all([
               api.get('/api/communication/announcements'),
               api.get('/api/communication/messages'),
+              api.get('/api/school-events/user-events'),
             ]);
             setAnnouncements(annRes.data || []);
             setMessages(msgRes.data || []);
+            setSchoolEvents(eventsRes.data || []);
           } catch { /* no messages yet */ }
         }
       } catch (err) {
@@ -108,11 +121,60 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${ampm}`;
   };
 
+  const handleDownloadFile = async (homeworkId, filename, originalName) => {
+    try {
+      console.log('Downloading file:', { homeworkId, filename, originalName });
+      const response = await api.get(`/api/homework/${homeworkId}/attachments/${filename}`, {
+        responseType: 'blob'
+      });
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = originalName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      console.error('Error response:', error.response);
+      alert(`Failed to download file: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
   const getGradeBadge = (grade) => {
     if (grade === 'A+') return 'bg-[#D1FAE5] text-[#065F46]';
     if (grade === 'A') return 'bg-[#DBEAFE] text-[#1E40AF]';
     if (grade === 'B+' || grade === 'B') return 'bg-[#FEF3C7] text-[#92400E]';
     return 'bg-[#FEE2E2] text-[#991B1B]';
+  };
+
+  const getEventStyle = (eventType, priority) => {
+    const eventColors = {
+      holiday: { bg: 'bg-[#E0E7FF]', border: 'border-[#6366F1]', text: 'text-[#4338CA]' },
+      exam: { bg: 'bg-[#FEE2E2]', border: 'border-[#DC2626]', text: 'text-[#991B1B]' },
+      sports: { bg: 'bg-[#D1FAE5]', border: 'border-[#10B981]', text: 'text-[#065F46]' },
+      cultural: { bg: 'bg-[#FED7AA]', border: 'border-[#FB923C]', text: 'text-[#C2410C]' },
+      academic: { bg: 'bg-[#DBEAFE]', border: 'border-[#3B82F6]', text: 'text-[#1E40AF]' },
+      meeting: { bg: 'bg-[#F3F4F6]', border: 'border-[#6B7280]', text: 'text-[#374151]' },
+      other: { bg: 'bg-[#FEF3C7]', border: 'border-[#F59E0B]', text: 'text-[#92400E]' }
+    };
+    
+    const baseStyle = eventColors[eventType] || eventColors.other;
+    
+    if (priority === 'high') {
+      return {
+        ...baseStyle,
+        bg: 'bg-[#FEE2E2]',
+        border: 'border-[#DC2626]',
+        text: 'text-[#991B1B]'
+      };
+    }
+    
+    return baseStyle;
   };
 
   const classInfo = scheduleData?.class;
@@ -226,6 +288,15 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     const { records, summary } = attendanceData;
     const percentage = summary.total > 0 ? ((summary.present / summary.total) * 100).toFixed(1) : '0.0';
     const todayRecord = records.find(r => new Date(r.date).toDateString() === new Date().toDateString());
+    
+    // Determine attendance status and colors
+    const attendanceStatus = parseFloat(percentage) >= 75 ? 'good' : parseFloat(percentage) >= 60 ? 'warning' : 'critical';
+    const attendanceColors = {
+      good: { bg: 'bg-[#D1FAE5]', border: 'border-[#10B981]', text: 'text-[#065F46]', subtext: 'text-[#10B981]' },
+      warning: { bg: 'bg-[#FEF3C7]', border: 'border-[#F59E0B]', text: 'text-[#92400E]', subtext: 'text-[#F59E0B]' },
+      critical: { bg: 'bg-[#FEE2E2]', border: 'border-[#DC2626]', text: 'text-[#991B1B]', subtext: 'text-[#DC2626]' }
+    };
+    const colors = attendanceColors[attendanceStatus];
 
     return (
       <div className="space-y-6">
@@ -247,10 +318,10 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
             <p className="text-3xl font-bold text-[#92400E]">{summary.late}</p>
             <p className="text-xs text-[#F59E0B]">Days</p>
           </div>
-          <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
+          <div className={`p-6 ${colors.bg} rounded-xl border-2 ${colors.border}`}>
             <p className="text-sm text-[#64748B]">Attendance %</p>
-            <p className="text-3xl font-bold text-[#1E40AF]">{percentage}%</p>
-            <p className="text-xs text-[#3B82F6]">Overall</p>
+            <p className={`text-3xl font-bold ${colors.text}`}>{percentage}%</p>
+            <p className={`text-xs ${colors.subtext}`}>{attendanceStatus === 'good' ? 'Excellent' : attendanceStatus === 'warning' ? 'Needs Improvement' : 'Critical'}</p>
           </div>
         </div>
 
@@ -327,10 +398,23 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
               Attendance Alerts
             </h3>
             <div className="space-y-3">
-              {parseFloat(percentage) < 75 && (
+              {parseFloat(percentage) < 75 ? (
                 <div className="p-3 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
-                  <p className="font-semibold text-sm">Low Attendance Warning</p>
-                  <p className="text-xs text-[#64748B]">Attendance below 75% may affect exam eligibility</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <XCircle className="text-[#DC2626]" size={16} />
+                    <p className="font-semibold text-sm text-[#991B1B]">Low Attendance Warning</p>
+                  </div>
+                  <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which is below the required 75%. This may affect your exam eligibility.</p>
+                  <p className="text-xs text-[#64748B] mt-1">Please improve your attendance to avoid academic consequences.</p>
+                </div>
+              ) : (
+                <div className="p-3 bg-[#D1FAE5] rounded-lg border-l-4 border-[#10B981]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="text-[#10B981]" size={16} />
+                    <p className="font-semibold text-sm text-[#065F46]">Good Attendance</p>
+                  </div>
+                  <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which meets the required 75%. Keep up the good work!</p>
+                  <p className="text-xs text-[#64748B] mt-1">Maintaining good attendance is important for academic success.</p>
                 </div>
               )}
               <div className="p-3 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
@@ -398,7 +482,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        {/* <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <GraduationCap className="text-[#DC2626]" size={20} />
             Upcoming Exams
@@ -434,7 +518,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           ) : (
             <p className="text-center text-[#64748B] py-4">No exam schedule available</p>
           )}
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
@@ -582,11 +666,12 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                <thead className="bg-[#FEF3C7]">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Title</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Due Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Files</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Grade</th>
                   </tr>
@@ -604,8 +689,27 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                     return (
                       <tr key={hw._id || i} className="hover:bg-[#FFFBEB]">
                         <td className="px-6 py-4 font-semibold text-[#0F172A]">{hw.title}</td>
-                        <td className="px-6 py-4 text-sm text-[#64748B]">{hw.subjectId?.name || '—'}</td>
+                        <td className="px-6 py-4 text-sm text-[#64748B]">{hw.subjectId?.name || hw.subject || '—'}</td>
                         <td className="px-6 py-4 text-sm">{formatDate(hw.dueDate)}</td>
+                        <td className="px-6 py-4">
+                          {hw.attachments && hw.attachments.length > 0 ? (
+                            <div className="space-y-1">
+                              {hw.attachments.map((file, fileIndex) => (
+                                <button
+                                  key={fileIndex}
+                                  onClick={() => handleDownloadFile(hw._id, file.filename, file.originalName)}
+                                  className="flex items-center gap-2 text-sm text-[#4F46E5] hover:text-[#6366F1] hover:underline"
+                                  title={`Download ${file.originalName}`}
+                                >
+                                  <Download size={14} />
+                                  <span className="truncate max-w-30">{file.originalName}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-[#94A3B8]">No files</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusClass}`}>{statusLabel}</span>
                         </td>
@@ -834,11 +938,52 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
 
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4 flex items-center gap-2">
-            <FileText className="text-[#10B981]" size={20} />
-            Notices & Circulars
+            <CalendarDays className="text-[#10B981]" size={20} />
+            School Events
           </h3>
-          <div className="p-8 text-center text-[#64748B]">
-            <p className="text-sm">Notices will appear here</p>
+          <div className="space-y-3">
+            {schoolEvents.length > 0 ? schoolEvents.map((event, idx) => {
+              const style = getEventStyle(event.eventType, event.priority);
+              return (
+                <div key={idx} className={`p-4 rounded-lg border-l-4 ${style.bg} ${style.border}`}>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className={`font-semibold ${style.text}`}>{event.title}</h4>
+                      <p className="text-sm text-[#64748B] mt-1">{event.description}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-[#64748B]">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} />
+                          {formatDate(event.startDate)}
+                          {event.endDate && ` - ${formatDate(event.endDate)}`}
+                        </span>
+                        {event.location && (
+                          <span className="flex items-center gap-1">
+                            <FileText size={12} />
+                            {event.location}
+                          </span>
+                        )}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+                          {event.eventType}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      event.status === 'upcoming' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                      event.status === 'ongoing' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                      event.status === 'completed' ? 'bg-[#F1F5F9] text-[#64748B]' :
+                      'bg-[#FEE2E2] text-[#991B1B]'
+                    }`}>
+                      {event.status}
+                    </span>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="p-8 text-center text-[#64748B]">
+                <CalendarDays className="mx-auto mb-2 text-gray-400" size={32} />
+                <p className="text-sm">No school events scheduled</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

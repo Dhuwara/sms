@@ -15,6 +15,12 @@ const Dashboard = ({ user }) => {
     present_today: 0,
     absent_today: 0,
   });
+  const [todayAttendance, setTodayAttendance] = useState({
+    present: 0,
+    absent: 0,
+    total: 0,
+    percentage: 0
+  });
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingLeaves, setPendingLeaves] = useState([]);
@@ -55,6 +61,7 @@ const Dashboard = ({ user }) => {
     fetchStats();
     fetchRecentActivities();
     fetchPendingLeaves();
+    fetchAttendance();
   }, []);
 
   const fetchStats = async () => {
@@ -85,6 +92,58 @@ const Dashboard = ({ user }) => {
       setPendingLeaves(response?.data || []);
     } catch (error) {
       console.error('Failed to load pending leaves');
+    }
+  };
+
+  const fetchAttendance = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch attendance for today across all classes
+      const response = await api.get(`/api/attendance`);
+      
+      if (response.data && response.data.length > 0) {
+        const attendanceRecords = response.data;
+        
+        // Count present and absent students
+        const presentCount = attendanceRecords.filter(record => record.status === 'present').length;
+        const absentCount = attendanceRecords.filter(record => record.status === 'absent').length;
+        const totalCount = attendanceRecords.length;
+        
+        // Calculate attendance percentage
+        const percentage = totalCount > 0 ? ((presentCount / totalCount) * 100).toFixed(1) : 0;
+        
+        setTodayAttendance({
+          present: presentCount,
+          absent: absentCount,
+          total: totalCount,
+          percentage: parseFloat(percentage)
+        });
+        
+        // Also update the stats object
+        setStats(prev => ({
+          ...prev,
+          present_today: presentCount,
+          absent_today: absentCount
+        }));
+      } else {
+        // No attendance records for today
+        setTodayAttendance({
+          present: 0,
+          absent: 0,
+          total: 0,
+          percentage: 0
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load attendance:', error);
+      // Set default values on error
+      setTodayAttendance({
+        present: 0,
+        absent: 0,
+        total: 0,
+        percentage: 0
+      });
     }
   };
 
@@ -240,17 +299,22 @@ const Dashboard = ({ user }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#064E3B] font-medium">Present</p>
-            <p className="text-3xl font-bold text-[#10B981]">142</p>
+            <p className="text-3xl font-bold text-[#10B981]">{todayAttendance.present}</p>
           </div>
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
             <p className="text-sm text-[#7F1D1D] font-medium">Absent</p>
-            <p className="text-3xl font-bold text-[#DC2626]">8</p>
+            <p className="text-3xl font-bold text-[#DC2626]">{todayAttendance.absent}</p>
           </div>
           <div className="p-4 bg-[#FEF3C7] rounded-lg">
             <p className="text-sm text-[#78350F] font-medium">Attendance Rate</p>
-            <p className="text-3xl font-bold text-[#F59E0B]">94.7%</p>
+            <p className="text-3xl font-bold text-[#F59E0B]">{todayAttendance.percentage}%</p>
           </div>
         </div>
+        {todayAttendance.total === 0 && (
+          <div className="mt-4 p-3 bg-[#FEF3C7] rounded-lg">
+            <p className="text-sm text-[#78350F]">No attendance records found for today. Attendance may not have been marked yet.</p>
+          </div>
+        )}
       </div>
 
       {/* Fee Collection Summary */}
@@ -279,7 +343,7 @@ const Dashboard = ({ user }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Leave Approvals */}
         <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-white shadow-sm">
           <h2 className="text-2xl font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
@@ -339,7 +403,7 @@ const Dashboard = ({ user }) => {
         </div>
 
         {/* Recent Activities */}
-        <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-white shadow-sm">
+        {/* <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-white shadow-sm">
           <h2 className="text-2xl font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
             <AlertCircle className="text-[#F59E0B]" size={28} />
             Recent Activities & Alerts
@@ -362,7 +426,7 @@ const Dashboard = ({ user }) => {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Add Student Modal */}

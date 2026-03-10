@@ -23,6 +23,7 @@ import ResetPassword from './pages/ResetPassword';
 import Substitutions from './pages/Substitutions';
 import Scholarships from './pages/Scholarships';
 import Payroll from './pages/Payroll';
+import AdminCalendarEvents from './pages/Admin/AdminCalendarEvents';
 import Layout from './components/Layout';
 
 const getDefaultPath = (role) => {
@@ -88,6 +89,7 @@ function App() {
           <Route path="/substitutions" element={<ProtectedRoute allowedRoles={['admin']}><Substitutions /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute allowedRoles={['admin']}><Scholarships /></ProtectedRoute>} />
           <Route path="/payroll" element={<ProtectedRoute allowedRoles={['admin']}><Payroll /></ProtectedRoute>} />
+          <Route path="/calendar-events" element={<ProtectedRoute allowedRoles={['admin']}><AdminCalendarEvents /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />
 
           {/* Staff routes */}

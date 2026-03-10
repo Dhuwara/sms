@@ -349,7 +349,6 @@ export const getStaffAttendanceHistory = async (req, res, next) => {
       staffId: staff._id,
       date: { $gte: sevenDaysAgo, $lte: today }
     }).sort({ date: -1 });
-    console.log(records, "recortddddd")
     res.json({ success: true, data: records });
   } catch (err) {
     next(err);
@@ -451,6 +450,7 @@ export const getLeaveBalance = async (req, res, next) => {
 };
 
 export const getStaffTimetable = async (req, res, next) => {
+  console.log(req.user.userId,"useriodidididdii")
   try {
     const staff = await getStaffProfile(req.user.userId);
     const currentYear = new Date().getFullYear();
@@ -483,8 +483,7 @@ export const getStaffTimetable = async (req, res, next) => {
           }));
         }
       });
-
-      return {
+      return {  
         classId: config.classId._id,
         className: config.classId.name,
         section: config.classId.section,
@@ -492,6 +491,7 @@ export const getStaffTimetable = async (req, res, next) => {
         periods: config.periods || []
       };
     });
+      console.log(result,"Resulttlttltl")
 
     res.json({ success: true, data: result });
   } catch (err) {

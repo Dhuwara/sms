@@ -82,17 +82,27 @@ export const deleteHomework = async (req, res, next) => {
 // GET /api/homework/:id/attachments/:filename — download attachment
 export const downloadAttachment = async (req, res, next) => {
   try {
+    console.log('Download request:', { id: req.params.id, filename: req.params.filename });
+    
     const homework = await Homework.findById(req.params.id);
     if (!homework) return res.status(404).json({ success: false, message: 'Homework not found' });
+
+    console.log('Homework attachments:', homework.attachments);
 
     const att = homework.attachments.find(a => a.filename === req.params.filename);
     if (!att) return res.status(404).json({ success: false, message: 'Attachment not found' });
 
     const filePath = path.join(UPLOAD_DIR, att.filename);
+    console.log('Looking for file at:', filePath);
+    console.log('Upload directory:', UPLOAD_DIR);
+    console.log('File exists:', fs.existsSync(filePath));
+
     if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found on server' });
 
     res.download(filePath, att.originalName);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const getSubmissions = async (req, res, next) => {
