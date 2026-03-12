@@ -19,8 +19,10 @@ const toFlat = (s) => ({
   status: s.status,
   studentType: s.studentType,
   parent_contact: s.parentContact,
+  parent_occupation: s.parentOccupation,
   parent_name: s.parentId?.userId?.name || '',
   parent_email: s.parentId?.userId?.email || '',
+  bloodGroup: s.bloodGroup,
   createdAt: s.createdAt,
 });
 
@@ -62,7 +64,7 @@ export const getStudents = async (req, res, next) => {
 
 export const createStudent = async (req, res, next) => {
   try {
-    const { name, dob, gender, parent_contact, address, classId, parent_name, parent_email, password, parent_password, status, studentType } = req.body;
+    const { name, dob, gender, parent_contact, parent_occupation, address, classId, parent_name, parent_email, password, parent_password, status, studentType, bloodGroup } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
 
     const rollNumber = await generateNextId('rollNumber');
@@ -79,7 +81,9 @@ export const createStudent = async (req, res, next) => {
       gender: gender || 'male',
       address,
       parentContact: parent_contact,
+      parentOccupation: parent_occupation,
       studentType: studentType || 'dayScholar',
+      bloodGroup: bloodGroup || 'Unknown',
       status: status || 'active',
     });
 
@@ -113,7 +117,7 @@ export const createStudent = async (req, res, next) => {
 
 export const updateStudent = async (req, res, next) => {
   try {
-    const { name, dob, gender, parent_contact, address, classId, password, status, studentType } = req.body;
+    const { name, dob, gender, parent_contact, parent_occupation, address, classId, password, status, studentType, bloodGroup } = req.body;
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
@@ -128,8 +132,10 @@ export const updateStudent = async (req, res, next) => {
       ...(gender && { gender }),
       ...(address !== undefined && { address }),
       ...(parent_contact !== undefined && { parentContact: parent_contact }),
+      ...(parent_occupation !== undefined && { parentOccupation: parent_occupation }),
       ...(status && { status }),
       ...(studentType && { studentType }),
+      ...(bloodGroup && { bloodGroup }),
     });
 
     const updated = await Student.findById(req.params.id)

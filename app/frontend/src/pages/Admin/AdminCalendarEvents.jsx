@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CalendarDays, Plus, Edit2, Trash2, X, Upload, FileText, MapPin, Clock, Users, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../../utils/api';
 import { toast } from 'sonner';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const AdminCalendarEvents = () => {
   const [events, setEvents] = useState([]);
@@ -10,14 +11,12 @@ const AdminCalendarEvents = () => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, onConfirm: null });
   
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
     eventType: 'other',
     startDate: '',
-    endDate: '',
-    location: '',
     targetAudience: ['all'],
     specificClasses: [],
     priority: 'medium'
@@ -53,11 +52,8 @@ const AdminCalendarEvents = () => {
   const resetForm = () => {
     setFormData({
       title: '',
-      description: '',
       eventType: 'other',
       startDate: '',
-      endDate: '',
-      location: '',
       targetAudience: ['all'],
       specificClasses: [],
       priority: 'medium'
@@ -73,11 +69,8 @@ const AdminCalendarEvents = () => {
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
       formDataToSend.append('eventType', formData.eventType);
       formDataToSend.append('startDate', formData.startDate);
-      if (formData.endDate) formDataToSend.append('endDate', formData.endDate);
-      if (formData.location) formDataToSend.append('location', formData.location);
       formDataToSend.append('targetAudience', JSON.stringify(formData.targetAudience));
       formDataToSend.append('specificClasses', JSON.stringify(formData.specificClasses));
       formDataToSend.append('priority', formData.priority);
@@ -112,11 +105,8 @@ const AdminCalendarEvents = () => {
     setEditingEvent(event);
     setFormData({
       title: event.title,
-      description: event.description,
       eventType: event.eventType,
-      startDate: new Date(event.startDate).toISOString().slice(0, 16),
-      endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
-      location: event.location || '',
+      startDate: new Date(event.startDate).toISOString().split('T')[0],
       targetAudience: event.targetAudience,
       specificClasses: event.specificClasses?.map(c => c._id) || [],
       priority: event.priority
@@ -124,16 +114,20 @@ const AdminCalendarEvents = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (eventId) => {
-    if (!confirm('Are you sure you want to delete this event?')) return;
-
-    try {
-      await api.delete(`/api/school-events/${eventId}`);
-      toast.success('Event deleted successfully');
-      fetchEvents();
-    } catch (error) {
-      toast.error('Failed to delete event');
-    }
+  const handleDelete = (eventId) => {
+    setConfirmDialog({
+      isOpen: true,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/api/school-events/${eventId}`);
+          toast.success('Event deleted successfully');
+          fetchEvents();
+        } catch (error) {
+          toast.error('Failed to delete event');
+        }
+      }
+    });
   };
 
   const getEventStyle = (eventType, priority) => {
@@ -165,9 +159,7 @@ const AdminCalendarEvents = () => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   };
 
@@ -233,23 +225,18 @@ const AdminCalendarEvents = () => {
                         )}
                       </div>
                       
-                      <p className="text-sm text-[#64748B] mb-3">{event.description}</p>
-                      
                       <div className="flex flex-wrap items-center gap-4 text-xs text-[#64748B]">
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
                           {formatDate(event.startDate)}
-                          {event.endDate && ` - ${formatDate(event.endDate)}`}
                         </span>
-                        {event.location && (
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} />
-                            {event.location}
-                          </span>
-                        )}
                         <span className="flex items-center gap-1">
                           <Users size={12} />
                           {event.targetAudience.join(', ')}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Edit2 size={12} />
+                          By {event.createdBy?.name || 'Admin'}
                         </span>
                         {event.attachments && event.attachments.length > 0 && (
                           <span className="flex items-center gap-1">
@@ -319,16 +306,6 @@ const AdminCalendarEvents = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 h-24"
-                  placeholder="Enter event description"
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Event Type *</label>
@@ -362,38 +339,17 @@ const AdminCalendarEvents = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Start Date & Time *</label>
+                  <label className="block text-sm font-medium mb-2">Date *</label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     required
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">End Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Location</label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2"
-                  placeholder="Enter event location"
-                />
               </div>
 
               <div>
@@ -441,26 +397,28 @@ const AdminCalendarEvents = () => {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Attachments (Max 3 files, 10MB each)</label>
-                <input
-                  type="file"
-                  multiple
-                  onChange={(e) => setFiles(Array.from(e.target.files))}
-                  className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2"
-                  accept="*/*"
-                />
-                {files.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {files.map((file, index) => (
-                      <div key={index} className="text-xs text-[#64748B] flex items-center gap-2">
-                        <FileText size={12} />
-                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {formData.eventType !== 'holiday' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Attachments <span className="text-[#64748B] font-normal">(Optional — Max 3 files, 10MB each)</span></label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => setFiles(Array.from(e.target.files))}
+                    className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2"
+                    accept="*/*"
+                  />
+                  {files.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {files.map((file, index) => (
+                        <div key={index} className="text-xs text-[#64748B] flex items-center gap-2">
+                          <FileText size={12} />
+                          {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <button
@@ -482,6 +440,16 @@ const AdminCalendarEvents = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title="Delete Event"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

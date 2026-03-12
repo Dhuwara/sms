@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, GraduationCap, Users, Calendar, DollarSign, BookOpen, MessageSquare, BarChart, Shield, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -35,7 +36,7 @@ const LandingPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert('Thank you! We will contact you soon.');
+    toast.success('Thank you! We will contact you soon.');
     setFormData({ name: '', email: '', message: '' });
   };
 

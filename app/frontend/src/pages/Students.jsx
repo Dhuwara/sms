@@ -24,6 +24,8 @@ const Students = () => {
     parent_name: '',
     parent_email: '',
     parent_password: '',
+    parent_occupation: '',
+    bloodGroup: 'Unknown',
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ const Students = () => {
         toast.success('Student added successfully');
       }
       setShowModal(false);
-      setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', status: 'active' });
+      setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
       setFormErrors({});
       setIsEditing(false);
       setSelectedStudent(null);
@@ -112,6 +114,8 @@ const Students = () => {
       parent_name: student.parent_name || '',
       parent_email: student.parent_email || '',
       parent_password: '',
+      parent_occupation: student.parent_occupation || '',
+      bloodGroup: student.bloodGroup || 'Unknown',
       status: student.status || 'active'
     });
     setIsEditing(true);
@@ -156,7 +160,7 @@ const Students = () => {
           onClick={() => {
             setIsEditing(false);
             setSelectedStudent(null);
-            setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', status: 'active' });
+            setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
             setFormErrors({});
             setShowModal(true);
           }}
@@ -327,6 +331,24 @@ const Students = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Blood Group *</label>
+                    <select
+                      value={formData.bloodGroup}
+                      onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                    >
+                      <option value="Unknown">Unknown</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Student Type *</label>
                     <select
                       value={formData.studentType}
@@ -385,6 +407,16 @@ const Students = () => {
                       placeholder="+91 XXXXX XXXXX"
                     />
                     {formErrors.parent_contact && <p className="text-red-500 text-xs mt-1">{formErrors.parent_contact}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Occupation</label>
+                    <input
+                      type="text"
+                      value={formData.parent_occupation}
+                      onChange={(e) => setFormData({ ...formData, parent_occupation: e.target.value })}
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      placeholder="e.g. Engineer, Teacher, Business"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Email</label>
@@ -485,6 +517,10 @@ const Students = () => {
                   <p className="text-base font-semibold text-[#0F172A] capitalize">{selectedStudent.gender}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-[#64748B] mb-1">Blood Group</p>
+                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.bloodGroup || 'Unknown'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Student Type</p>
                   <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.studentType === 'hosteller' ? 'Hosteller' : 'Day Scholar'}</p>
                 </div>
@@ -495,6 +531,10 @@ const Students = () => {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Parent Name</p>
                   <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.parent_name || 'Not provided'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-[#64748B] mb-1">Parent Occupation</p>
+                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.parent_occupation || 'Not provided'}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg md:col-span-2">
                   <p className="text-sm text-[#64748B] mb-1">Address</p>

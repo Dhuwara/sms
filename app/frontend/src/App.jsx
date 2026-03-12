@@ -108,7 +108,7 @@ function App() {
           <Route path="/student/profile" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="profile" /></ProtectedRoute>} />
           <Route path="/student/attendance" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="attendance" /></ProtectedRoute>} />
           <Route path="/student/timetable" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="timetable" /></ProtectedRoute>} />
-          <Route path="/student/subjects" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="subjects" /></ProtectedRoute>} />
+          <Route path="/student/online-classes" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="online-classes" /></ProtectedRoute>} />
           <Route path="/student/homework" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="homework" /></ProtectedRoute>} />
           <Route path="/student/exams" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="exams" /></ProtectedRoute>} />
           <Route path="/student/communication" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard user={user} module="communication" /></ProtectedRoute>} />

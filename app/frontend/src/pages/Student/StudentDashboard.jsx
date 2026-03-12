@@ -4,8 +4,9 @@ import {
   MessageSquare, DollarSign, Library, Settings,
   Clock, CheckCircle, XCircle, Bell, Mail, Download,
   HelpCircle, Receipt, Trophy, FileQuestion,
-  AlertCircle, GraduationCap, Calculator, CalendarDays
+  AlertCircle, GraduationCap, Calculator, CalendarDays, X, Lock, Video
 } from 'lucide-react';
+import { toast } from 'sonner';
 import api from '../../utils/api';
 
 const StudentDashboard = ({ user, module = 'profile' }) => {
@@ -19,10 +20,33 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [messages, setMessages] = useState([]);
   const [homeworkData, setHomeworkData] = useState([]);
+  const [lessonPlansData, setLessonPlansData] = useState([]);
+  const [studyMaterialsData, setStudyMaterialsData] = useState([]);
+  const [onlineClasses, setOnlineClasses] = useState([]);
   const [scholarships, setScholarships] = useState([]);
   const [schoolEvents, setSchoolEvents] = useState([]);
+  const [studentLeaves, setStudentLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [userInfo, setUserInfo] = useState(null)
+  const [userInfo, setUserInfo] = useState(null);
+
+  // Password Change State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Leave Request State
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({
+    startDate: '',
+    endDate: '',
+    reason: '',
+    leaveType: 'casual'
+  });
+  const [leaveLoading, setLeaveLoading] = useState(false);
 
   const getAcademicYear = () => {
     const now = new Date();
@@ -35,8 +59,8 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (module === 'profile' || module === 'timetable' || module === 'subjects') {
-          console.log(user,"hitssinside")
+        if (module === 'profile' || module === 'timetable' || module === 'online-classes') {
+          console.log(user, "hitssinside")
           const schedRes = await api.get("/api/student/me/schedule");
           const userData = await api.get("api/student/me/info");
 
@@ -58,20 +82,37 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
               console.error('Error status:', error.response?.status);
             }
           }
+          // Fetch school events for Holiday Calendar + School Events panels
+          try {
+            const eventsRes = await api.get('/api/school-events/user-events');
+
+            setSchoolEvents(eventsRes?.data || []);
+          } catch { /* events optional */ }
+        }
+        if (module === 'online-classes') {
+          try {
+            const ocRes = await api.get('/api/online-classes/my-classes');
+            setOnlineClasses(ocRes.data?.data || ocRes.data || []);
+          } catch (e) {
+            console.error('Online classes fetch error:', e);
+          }
         }
         if (module === 'attendance') {
-          const attRes = await api.get('/api/student/me/attendance');
-          console.log(attRes,"resspspspssp")
+          const [attRes, leaveRes] = await Promise.all([
+            api.get('/api/student/me/attendance'),
+            api.get('/api/student-leaves/my-leaves')
+          ]);
           setAttendanceData(attRes.data);
+          setStudentLeaves(leaveRes?.data || []);
         }
-        
+
         if (module === 'exams') {
           console.log("hotsssserererer")
           const [examsRes, resultsRes] = await Promise.all([
             api.get('/api/exams'),
             api.get('/api/exams/my-results'),
           ]);
-          console.log(examsRes.data,"examReaarr")
+          console.log(examsRes.data, "examReaarr")
           setExams(examsRes.data);
           setExamResults(resultsRes.data);
         }
@@ -80,8 +121,26 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           setFeesData(feesRes.data);
         }
         if (module === 'homework') {
-          const hwRes = await api.get('/api/homework/my-homework');
-          setHomeworkData(hwRes.data);
+          // Fetch homework
+          try {
+            const hwRes = await api.get('/api/homework/my-homework');
+            console.log(hwRes.data, "hwRes.data");
+            setHomeworkData(hwRes.data?.data || hwRes.data || []);
+          } catch (e) { console.error('Homework fetch error:', e); }
+
+          // Fetch lesson plans
+          try {
+            const lpRes = await api.get('/api/lesson-plans/my-plans');
+            console.log(lpRes.data, "lpRes.data");
+            setLessonPlansData(lpRes.data || []);
+          } catch (e) { console.error('Lesson plans fetch error:', e); }
+
+          // Fetch study materials
+          try {
+            const smRes = await api.get('/api/study-materials/my-materials');
+            console.log(smRes.data, "smRes.data");
+            setStudyMaterialsData(smRes?.data || []);
+          } catch (e) { console.error('Study materials fetch error:', e); }
         }
         if (module === 'activities') {
           const schRes = await api.get('/api/scholarships/my');
@@ -127,7 +186,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       const response = await api.get(`/api/homework/${homeworkId}/attachments/${filename}`, {
         responseType: 'blob'
       });
-      
+
       // Create a blob URL and trigger download
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
@@ -141,7 +200,93 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     } catch (error) {
       console.error('Error downloading file:', error);
       console.error('Error response:', error.response);
-      alert(`Failed to download file: ${error.response?.data?.message || error.message}`);
+      toast.error(`Failed to download file: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
+  const handleDownloadLessonPlan = async (planId, originalName) => {
+    try {
+      const response = await api.get(`/api/lesson-plans/${planId}/download`, { responseType: 'blob' });
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = originalName || 'lesson-plan';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error('Failed to download lesson plan');
+    }
+  };
+
+  const handleDownloadStudyMaterial = async (materialId, originalName) => {
+    try {
+      const response = await api.get(`/api/study-materials/${materialId}/download`, { responseType: 'blob' });
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = originalName || 'study-material';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error('Failed to download study material');
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("New passwords do not match!");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const response = await api.post('/api/auth/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+
+      if (response.data.success) {
+        toast.success("Password changed successfully!");
+        setIsPasswordModalOpen(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      toast.error(error.response?.data?.message || "Failed to change password");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleLeaveSubmit = async (e) => {
+    e.preventDefault();
+    setLeaveLoading(true);
+    try {
+      console.log(leaveForm, "leaveForm")
+      await api.post('/api/student-leaves/apply', leaveForm);
+      toast.success("Leave application submitted successfully!");
+      setIsLeaveModalOpen(false);
+      setLeaveForm({ startDate: '', endDate: '', reason: '', leaveType: 'casual' });
+
+      // Refresh leaves
+      const res = await api.get('/api/student-leaves/my-leaves');
+      setStudentLeaves(res.data?.data || []);
+    } catch (error) {
+      console.error('Leave application error:', error);
+      toast.error(error.response?.data?.message || "Failed to submit leave application");
+    } finally {
+      setLeaveLoading(false);
     }
   };
 
@@ -162,9 +307,9 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       meeting: { bg: 'bg-[#F3F4F6]', border: 'border-[#6B7280]', text: 'text-[#374151]' },
       other: { bg: 'bg-[#FEF3C7]', border: 'border-[#F59E0B]', text: 'text-[#92400E]' }
     };
-    
+
     const baseStyle = eventColors[eventType] || eventColors.other;
-    
+
     if (priority === 'high') {
       return {
         ...baseStyle,
@@ -173,7 +318,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         text: 'text-[#991B1B]'
       };
     }
-    
+
     return baseStyle;
   };
 
@@ -275,7 +420,10 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
 
         <div className="border-t border-[#E2E8F0] pt-4 mt-4">
           <h4 className="font-semibold mb-3">Security Settings</h4>
-          <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors">
+          <button
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors"
+          >
             Change Password
           </button>
         </div>
@@ -288,7 +436,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     const { records, summary } = attendanceData;
     const percentage = summary.total > 0 ? ((summary.present / summary.total) * 100).toFixed(1) : '0.0';
     const todayRecord = records.find(r => new Date(r.date).toDateString() === new Date().toDateString());
-    
+
     // Determine attendance status and colors
     const attendanceStatus = parseFloat(percentage) >= 75 ? 'good' : parseFloat(percentage) >= 60 ? 'warning' : 'critical';
     const attendanceColors = {
@@ -365,8 +513,8 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                     <td className="px-4 py-3 text-sm">{formatDate(r.date)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${r.status === 'present' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                          r.status === 'late' ? 'bg-[#FEF3C7] text-[#92400E]' :
-                            'bg-[#FEE2E2] text-[#991B1B]'
+                        r.status === 'late' ? 'bg-[#FEF3C7] text-[#92400E]' :
+                          'bg-[#FEE2E2] text-[#991B1B]'
                         }`}>{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</span>
                     </td>
                   </tr>
@@ -379,48 +527,109 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4">Leave Request</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" className="border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
-                <input type="date" className="border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
-              </div>
-              <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 h-20" placeholder="Reason for leave..."></textarea>
-              <button className="w-full bg-[#4F46E5] text-white py-2 rounded-lg font-semibold">Submit Leave Request</button>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold">My Leave Requests</h3>
+              <button
+                onClick={() => setIsLeaveModalOpen(true)}
+                className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors"
+              >
+                Apply for Leave
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#FFFBEB]">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-[#92400E]">Type</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-[#92400E]">Dates</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-[#92400E]">Parent Approval</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-[#92400E]">Staff Approval</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold text-[#92400E]">Overall Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#FEF3C7]">
+                  {studentLeaves.map((leave) => (
+                    <tr key={leave._id}>
+                      <td className="px-4 py-3 text-sm font-medium capitalize">{leave.leaveType}</td>
+                      <td className="px-4 py-3 text-xs text-[#64748B]">
+                        {formatDate(leave.startDate)} to {formatDate(leave.endDate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${leave.parentApproval.status === 'approved' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                          leave.parentApproval.status === 'denied' ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                            'bg-[#F3F4F6] text-[#64748B]'
+                          }`}>
+                          {leave.parentApproval.status}
+                        </span>
+                        {leave.parentApproval.reason && (
+                          <p className="text-[10px] text-[#991B1B] mt-0.5 italic">" {leave.parentApproval.reason} "</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${leave.staffApproval.status === 'approved' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                          leave.staffApproval.status === 'denied' ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                            'bg-[#F3F4F6] text-[#64748B]'
+                          }`}>
+                          {leave.staffApproval.status}
+                        </span>
+                        {leave.staffApproval.reason && (
+                          <p className="text-[10px] text-[#991B1B] mt-0.5 italic">" {leave.staffApproval.reason} "</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${leave.status === 'approved' ? 'bg-[#D1FAE5] text-[#065F46]' :
+                          leave.status === 'denied' ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                            'bg-[#FEF3C7] text-[#92400E]'
+                          }`}>
+                          {leave.status.replace('_', ' ').charAt(0).toUpperCase() + leave.status.replace('_', ' ').slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {studentLeaves.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-[#64748B]">
+                        No leave requests submitted yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
 
-          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <AlertCircle className="text-[#DC2626]" size={20} />
-              Attendance Alerts
-            </h3>
-            <div className="space-y-3">
-              {parseFloat(percentage) < 75 ? (
-                <div className="p-3 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <XCircle className="text-[#DC2626]" size={16} />
-                    <p className="font-semibold text-sm text-[#991B1B]">Low Attendance Warning</p>
-                  </div>
-                  <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which is below the required 75%. This may affect your exam eligibility.</p>
-                  <p className="text-xs text-[#64748B] mt-1">Please improve your attendance to avoid academic consequences.</p>
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <AlertCircle className="text-[#DC2626]" size={20} />
+            Attendance Alerts
+          </h3>
+          <div className="space-y-3">
+            {parseFloat(percentage) < 75 ? (
+              <div className="p-3 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
+                <div className="flex items-center gap-2 mb-1">
+                  <XCircle className="text-[#DC2626]" size={16} />
+                  <p className="font-semibold text-sm text-[#991B1B]">Low Attendance Warning</p>
                 </div>
-              ) : (
-                <div className="p-3 bg-[#D1FAE5] rounded-lg border-l-4 border-[#10B981]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CheckCircle className="text-[#10B981]" size={16} />
-                    <p className="font-semibold text-sm text-[#065F46]">Good Attendance</p>
-                  </div>
-                  <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which meets the required 75%. Keep up the good work!</p>
-                  <p className="text-xs text-[#64748B] mt-1">Maintaining good attendance is important for academic success.</p>
-                </div>
-              )}
-              <div className="p-3 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
-                <p className="font-semibold text-sm">Attendance Summary</p>
-                <p className="text-xs text-[#64748B]">{summary.present} present, {summary.absent} absent, {summary.late} late out of {summary.total} days</p>
+                <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which is below the required 75%. This may affect your exam eligibility.</p>
+                <p className="text-xs text-[#64748B] mt-1">Please improve your attendance to avoid academic consequences.</p>
               </div>
+            ) : (
+              <div className="p-3 bg-[#D1FAE5] rounded-lg border-l-4 border-[#10B981]">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="text-[#10B981]" size={16} />
+                  <p className="font-semibold text-sm text-[#065F46]">Good Attendance</p>
+                </div>
+                <p className="text-xs text-[#64748B]">Your attendance is {percentage}%, which meets the required 75%. Keep up the good work!</p>
+                <p className="text-xs text-[#64748B] mt-1">Maintaining good attendance is important for academic success.</p>
+              </div>
+            )}
+            <div className="p-3 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
+              <p className="font-semibold text-sm">Attendance Summary</p>
+              <p className="text-xs text-[#64748B]">{summary.present} present, {summary.absent} absent, {summary.late} late out of {summary.total} days</p>
             </div>
           </div>
         </div>
@@ -521,104 +730,112 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         </div> */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Holiday Calendar — shows admin events with eventType = holiday */}
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
             <h3 className="font-bold mb-4">Holiday Calendar</h3>
             <div className="space-y-3">
-              {[
-                { date: 'Jan 1', name: 'New Year', type: 'Public Holiday' },
-                { date: 'Jan 14', name: 'Makar Sankranti', type: 'Regional Holiday' },
-                { date: 'Jan 26', name: 'Republic Day', type: 'National Holiday' },
-                { date: 'Aug 15', name: 'Independence Day', type: 'National Holiday' },
-              ].map((holiday, idx) => (
-                <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold">{holiday.name}</p>
-                    <p className="text-xs text-[#64748B]">{holiday.type}</p>
+              {schoolEvents.filter(e => e.eventType === 'holiday').length > 0 ? (
+                schoolEvents.filter(e => e.eventType === 'holiday').map((event) => (
+                  <div key={event._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold">{event.title}</p>
+                      <p className="text-xs text-[#64748B] capitalize">{event.priority} priority</p>
+                    </div>
+                    <span className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-sm font-semibold whitespace-nowrap">
+                      {formatDate(event.startDate)}
+                    </span>
                   </div>
-                  <span className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-sm font-semibold">{holiday.date}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-[#64748B] text-center py-4">No holidays scheduled</p>
+              )}
             </div>
           </div>
 
+          {/* School Events — shows non-holiday admin events */}
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
             <h3 className="font-bold mb-4">School Events</h3>
             <div className="space-y-3">
-              {[
-                { name: 'Annual Day Celebration', date: 'Jan 15', type: 'Cultural' },
-                { name: 'Science Exhibition', date: 'Jan 20', type: 'Academic' },
-                { name: 'Sports Day', date: 'Feb 5', type: 'Sports' },
-                { name: 'Parent-Teacher Meeting', date: 'Feb 10', type: 'Meeting' },
-              ].map((event, idx) => (
-                <div key={idx} className="p-3 border-l-4 border-[#4F46E5] bg-[#F8FAFC] rounded-r-lg">
-                  <p className="font-semibold">{event.name}</p>
-                  <p className="text-xs text-[#64748B]">{event.date} - {event.type}</p>
-                </div>
-              ))}
+              {schoolEvents.filter(e => e.eventType !== 'holiday').length > 0 ? (
+                schoolEvents.filter(e => e.eventType !== 'holiday').map((event) => {
+                  const typeColors = {
+                    exam: { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]' },
+                    sports: { bg: 'bg-[#D1FAE5]', text: 'text-[#065F46]' },
+                    cultural: { bg: 'bg-[#FED7AA]', text: 'text-[#C2410C]' },
+                    academic: { bg: 'bg-[#DBEAFE]', text: 'text-[#1E40AF]' },
+                    meeting: { bg: 'bg-[#F3F4F6]', text: 'text-[#374151]' },
+                    other: { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]' },
+                  };
+                  const c = typeColors[event.eventType] || typeColors.other;
+                  return (
+                    <div key={event._id} className={`p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{event.title}</p>
+                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.bg} ${c.text}`}>
+                          {event.eventType}
+                        </span>
+                      </div>
+                      <span className="ml-2 px-3 py-1 bg-[#DBEAFE] text-[#1E40AF] rounded-full text-xs font-semibold whitespace-nowrap">
+                        {formatDate(event.startDate)}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-[#64748B] text-center py-4">No upcoming events</p>
+              )}
             </div>
           </div>
         </div>
+
       </div>
     );
   };
 
-  // 4. Subjects & Learning
-  const renderSubjects = () => {
-    const subjects = scheduleData?.subjects || [];
-    const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444', '#14B8A6'];
-
+  // 4. Online Classes
+  const renderOnlineClasses = () => {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-[#0F172A]">Subjects & Learning</h2>
+        <h2 className="text-2xl font-bold text-[#0F172A]">Online Classes</h2>
 
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4">Subject List</h3>
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Video className="text-[#EF4444]" size={24} />
+            My Scheduled Classes
+          </h3>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {subjects.length > 0 ? subjects.map((subject, idx) => {
-              const color = COLORS[idx % COLORS.length];
-              const teacherName = subject.staffId?.userId?.name || '—';
-              return (
-                <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
-                      <BookOpen size={20} style={{ color }} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">{subject.name}</h4>
-                      <p className="text-xs text-[#64748B]">{subject.code || '—'}</p>
-                    </div>
+            {onlineClasses.length > 0 ? onlineClasses.map((oc) => (
+              <div key={oc._id} className="p-4 border-2 border-[#E2E8F0] rounded-lg hover:shadow-md transition-shadow bg-[#F8FAFC]">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#FEE2E2]">
+                    <Video size={20} className="text-[#DC2626]" />
                   </div>
-                  <p className="text-sm text-[#64748B] mb-3">Teacher: {teacherName}</p>
-                  <div className="flex gap-2">
-                    <button className="flex-1 text-xs bg-[#F8FAFC] text-[#4F46E5] py-2 rounded font-semibold hover:bg-[#EEF2FF]">Syllabus</button>
-                    <button className="flex-1 text-xs bg-[#4F46E5] text-white py-2 rounded font-semibold hover:bg-[#4338CA]">Materials</button>
+                  <div className="min-w-0 pr-2">
+                    <h4 className="font-bold truncate">{oc.title}</h4>
+                    <p className="text-xs text-[#64748B]">{oc.platform}</p>
                   </div>
                 </div>
-              );
-            }) : (
-              <div className="col-span-3 p-8 text-center text-[#64748B]">
-                <p>No subjects found for your class</p>
+                <div className="space-y-1 mb-4">
+                  <p className="text-sm font-semibold">Subject: <span className="text-[#64748B] font-normal">{oc.subject}</span></p>
+                  <p className="text-sm font-semibold">Teacher: <span className="text-[#64748B] font-normal">{oc.staffId?.userId?.name || '—'}</span></p>
+                  <p className="text-sm font-semibold">Date & Time: <span className="text-[#64748B] font-normal">{new Date(oc.date).toLocaleDateString()} at {oc.time}</span></p>
+                </div>
+                <a
+                  href={oc.meetingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-[#EF4444] text-white font-bold rounded-lg hover:bg-[#DC2626] transition-colors"
+                >
+                  <Video size={16} /> Join Class
+                </a>
+              </div>
+            )) : (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 p-8 text-center bg-white border-2 border-[#E2E8F0] border-dashed rounded-lg">
+                <Video className="mx-auto text-[#94A3B8] mb-3" size={32} />
+                <p className="text-[#64748B] font-medium">No online classes scheduled at the moment</p>
               </div>
             )}
-            {subjects.length === 0 && classInfo?.subjects?.map((subName, idx) => {
-              const color = COLORS[idx % COLORS.length];
-              return (
-                <div key={idx} className="p-4 border-2 border-[#E2E8F0] rounded-lg hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
-                      <BookOpen size={20} style={{ color }} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">{subName}</h4>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="flex-1 text-xs bg-[#F8FAFC] text-[#4F46E5] py-2 rounded font-semibold hover:bg-[#EEF2FF]">Syllabus</button>
-                    <button className="flex-1 text-xs bg-[#4F46E5] text-white py-2 rounded font-semibold hover:bg-[#4338CA]">Materials</button>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
@@ -722,6 +939,72 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
             </div>
           </div>
         )}
+
+        {/* Lesson Plans */}
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <FileText className="text-[#F59E0B]" size={20} />
+            Lesson Plans
+          </h3>
+          {lessonPlansData.length > 0 ? (
+            <div className="space-y-3">
+              {lessonPlansData.map((plan) => (
+                <div key={plan._id} className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center hover:bg-[#FFFBEB] transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{plan.title}</p>
+                    <p className="text-sm text-[#64748B]">
+                      {plan.subject} • {formatDate(plan.date)}
+                    </p>
+                    <p className="text-xs text-[#94A3B8] mt-0.5">
+                      Uploaded by: {plan.uploadedBy?.userId?.name || 'Teacher'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadLessonPlan(plan._id, plan.originalName)}
+                    className="ml-3 flex items-center gap-1 text-sm text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline"
+                  >
+                    <Download size={16} /> Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[#64748B] text-center py-4">No lesson plans available for your class</p>
+          )}
+        </div>
+
+        {/* Study Materials */}
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Library className="text-[#7C3AED]" size={20} />
+            Study Materials
+          </h3>
+          {studyMaterialsData.length > 0 ? (
+            <div className="space-y-3">
+              {studyMaterialsData.map((mat) => (
+                <div key={mat._id} className="p-4 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center hover:bg-[#FFFBEB] transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{mat.title}</p>
+                    <p className="text-sm text-[#64748B]">
+                      {mat.subject}{mat.description ? ` — ${mat.description}` : ''}
+                    </p>
+                    <p className="text-xs text-[#94A3B8] mt-0.5">
+                      Uploaded by: {mat.uploadedBy?.userId?.name || 'Teacher'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadStudyMaterial(mat._id, mat.originalName)}
+                    className="ml-3 flex items-center gap-1 text-sm text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline"
+                  >
+                    <Download size={16} /> Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[#64748B] text-center py-4">No study materials available for your class</p>
+          )}
+        </div>
       </div>
     );
   };
@@ -900,8 +1183,8 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         <div className="space-y-4">
           {announcements.length > 0 ? announcements.map((a, idx) => (
             <div key={idx} className={`p-4 rounded-lg border-l-4 ${a.priority === 'high' || a.priority === 'urgent' ? 'bg-[#FEE2E2] border-[#DC2626]' :
-                a.priority === 'normal' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
-                  'bg-[#F1F5F9] border-[#64748B]'
+              a.priority === 'normal' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
+                'bg-[#F1F5F9] border-[#64748B]'
               }`}>
               <div className="flex justify-between items-start">
                 <h4 className="font-semibold">{a.title}</h4>
@@ -949,30 +1232,21 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h4 className={`font-semibold ${style.text}`}>{event.title}</h4>
-                      <p className="text-sm text-[#64748B] mt-1">{event.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-[#64748B]">
                         <span className="flex items-center gap-1">
                           <Calendar size={12} />
                           {formatDate(event.startDate)}
-                          {event.endDate && ` - ${formatDate(event.endDate)}`}
                         </span>
-                        {event.location && (
-                          <span className="flex items-center gap-1">
-                            <FileText size={12} />
-                            {event.location}
-                          </span>
-                        )}
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
                           {event.eventType}
                         </span>
                       </div>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                      event.status === 'upcoming' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${event.status === 'upcoming' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
                       event.status === 'ongoing' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                      event.status === 'completed' ? 'bg-[#F1F5F9] text-[#64748B]' :
-                      'bg-[#FEE2E2] text-[#991B1B]'
-                    }`}>
+                        event.status === 'completed' ? 'bg-[#F1F5F9] text-[#64748B]' :
+                          'bg-[#FEE2E2] text-[#991B1B]'
+                      }`}>
                       {event.status}
                     </span>
                   </div>
@@ -1040,8 +1314,8 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                     <td className="px-4 py-3 text-sm">{formatDate(fee.dueDate)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${fee.status === 'paid' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                          fee.status === 'overdue' ? 'bg-[#FEE2E2] text-[#991B1B]' :
-                            'bg-[#FEF3C7] text-[#92400E]'
+                        fee.status === 'overdue' ? 'bg-[#FEE2E2] text-[#991B1B]' :
+                          'bg-[#FEF3C7] text-[#92400E]'
                         }`}>{fee.status.charAt(0).toUpperCase() + fee.status.slice(1)}</span>
                     </td>
                   </tr>
@@ -1119,10 +1393,10 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   // 10. Activities & Scholarships
   const renderActivities = () => {
     const STATUS_COLORS = {
-      pending:  'bg-[#FEF3C7] text-[#92400E]',
+      pending: 'bg-[#FEF3C7] text-[#92400E]',
       approved: 'bg-[#D1FAE5] text-[#065F46]',
       rejected: 'bg-[#FEE2E2] text-[#991B1B]',
-      disbursed:'bg-[#DBEAFE] text-[#1E40AF]',
+      disbursed: 'bg-[#DBEAFE] text-[#1E40AF]',
     };
     return (
       <div className="space-y-6">
@@ -1176,48 +1450,53 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   );
 
   // 12. Settings
-  const renderSettings = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Settings</h2>
+  // const renderSettings = () => (
+  //   <div className="space-y-6">
+  //     <h2 className="text-2xl font-bold text-[#0F172A]">Settings</h2>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <Settings className="text-[#64748B]" size={20} />
-          Account Settings
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Email Address</label>
-            <input type="email" defaultValue={user?.email || ''} className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" readOnly />
-          </div>
-          <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm">Change Password</button>
-        </div>
-      </div>
-{/* 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <HelpCircle className="text-[#4F46E5]" size={20} />
-          Help & Support
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="p-4 bg-[#FEF3C7] rounded-lg">
-            <p className="font-semibold">IT Help Desk</p>
-            <p className="text-sm text-[#64748B]">For login & technical issues</p>
-          </div>
-          <div className="p-4 bg-[#DBEAFE] rounded-lg">
-            <p className="font-semibold">Academic Support</p>
-            <p className="text-sm text-[#64748B]">For academic queries</p>
-          </div>
-        </div>
-      </div> */}
-    </div>
-  );
+  //     <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+  //       <h3 className="font-bold mb-4 flex items-center gap-2">
+  //         <Settings className="text-[#64748B]" size={20} />
+  //         Account Settings
+  //       </h3>
+  //       <div className="space-y-4">
+  //         <div>
+  //           <label className="block text-sm font-medium mb-2">Email Address</label>
+  //           <input type="email" defaultValue={user?.email || ''} className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" readOnly />
+  //         </div>
+  //         <button
+  //           onClick={() => setIsPasswordModalOpen(true)}
+  //           className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors"
+  //         >
+  //           Change Password
+  //         </button>
+  //       </div>
+  //     </div>
+  //     {/* 
+  //     <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+  //       <h3 className="font-bold mb-4 flex items-center gap-2">
+  //         <HelpCircle className="text-[#4F46E5]" size={20} />
+  //         Help & Support
+  //       </h3>
+  //       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  //         <div className="p-4 bg-[#FEF3C7] rounded-lg">
+  //           <p className="font-semibold">IT Help Desk</p>
+  //           <p className="text-sm text-[#64748B]">For login & technical issues</p>
+  //         </div>
+  //         <div className="p-4 bg-[#DBEAFE] rounded-lg">
+  //           <p className="font-semibold">Academic Support</p>
+  //           <p className="text-sm text-[#64748B]">For academic queries</p>
+  //         </div>
+  //       </div>
+  //     </div> */}
+  //   </div>
+  // );
 
   const modules = [
     { id: 'profile', name: 'Profile', render: renderProfile },
     { id: 'attendance', name: 'Attendance', render: renderAttendance },
     { id: 'timetable', name: 'Timetable', render: renderTimetable },
-    { id: 'subjects', name: 'Subjects', render: renderSubjects },
+    { id: 'online-classes', name: 'Online Classes', render: renderOnlineClasses },
     { id: 'homework', name: 'Homework', render: renderHomework },
     { id: 'exams', name: 'Exams', render: renderExams },
     { id: 'communication', name: 'Communication', render: renderCommunication },
@@ -1225,28 +1504,211 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     { id: 'library', name: 'Library', render: renderLibrary },
     { id: 'activities', name: 'Activities', render: renderActivities },
     { id: 'requests', name: 'Requests', render: renderRequests },
-    { id: 'settings', name: 'Settings', render: renderSettings },
+    // { id: 'settings', name: 'Settings', render: renderSettings },
   ];
 
   const currentModule = modules.find(m => m.id === module) || modules[0];
 
   return (
-    <div className="space-y-6">
-      <div className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE] rounded-2xl p-6 border-2 border-[#4F46E5]">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
-        <p className="text-base text-[#64748B]">Student Portal - AJM International Institution</p>
+    <>
+      <div className="space-y-6">
+        <div className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE] rounded-2xl p-6 border-2 border-[#4F46E5]">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
+          <p className="text-base text-[#64748B]">Student Portal - AJM International Institution</p>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#4F46E5]"></div>
+          </div>
+        ) : (
+          <div>
+            {currentModule.render()}
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#4F46E5]"></div>
-        </div>
-      ) : (
-        <div>
-          {currentModule.render()}
+      {/* Change Password Modal */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border-2 border-[#4F46E5] overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE] px-6 py-4 flex justify-between items-center border-b border-[#E2E8F0]">
+              <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+                <Lock className="text-[#4F46E5]" size={20} />
+                Change Password
+              </h2>
+              <button
+                onClick={() => setIsPasswordModalOpen(false)}
+                className="p-2 hover:bg-white/50 rounded-full transition-colors"
+              >
+                <X size={20} className="text-[#64748B]" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    placeholder="Enter current password"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    placeholder="Minimum 6 characters"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    placeholder="Re-enter new password"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="flex-1 px-4 py-2 border-2 border-[#E2E8F0] text-[#64748B] font-bold rounded-xl hover:bg-[#F8FAFC] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="flex-1 px-4 py-2 bg-[#4F46E5] text-white font-bold rounded-xl hover:bg-[#4338CA] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {passwordLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Update Password'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-    </div>
+
+      {/* Leave Request Modal */}
+      {isLeaveModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b-2 border-[#FEF3C7] flex justify-between items-center">
+              <h3 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+                <CalendarDays className="text-[#4F46E5]" size={24} />
+                Apply for Leave
+              </h3>
+              <button onClick={() => setIsLeaveModalOpen(false)} className="text-[#94A3B8] hover:text-[#0F172A] transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleLeaveSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-[#64748B] mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveForm.startDate}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-[#64748B] mb-1">End Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveForm.endDate}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">Leave Type</label>
+                <select
+                  value={leaveForm.leaveType}
+                  onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                >
+                  <option value="casual">Casual Leave</option>
+                  <option value="sick">Sick Leave</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">Reason</label>
+                <textarea
+                  required
+                  value={leaveForm.reason}
+                  onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors h-24"
+                  placeholder="Detailed reason for leave..."
+                ></textarea>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsLeaveModalOpen(false)}
+                  className="flex-1 px-4 py-2 border-2 border-[#E2E8F0] text-[#64748B] font-bold rounded-xl hover:bg-[#F8FAFC] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={leaveLoading}
+                  className="flex-1 px-4 py-2 bg-[#4F46E5] text-white font-bold rounded-xl hover:bg-[#4338CA] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {leaveLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Submit Request'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

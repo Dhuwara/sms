@@ -94,11 +94,12 @@ const initScheduleDraft = (periods, existingSchedule) => {
   return draft;
 };
 
-const initDayDraft = (periods, tt, day) =>
-  (periods || []).map((_, i) => ({
+const initDayDraft = (periods, tt, day) => {
+  return (periods || []).map((_, i) => ({
     subject: tt?.schedule?.[day]?.[i]?.subject || '',
-    teacher: tt?.schedule?.[day]?.[i]?.teacher?.toString() || '',
+    teacher: tt?.schedule?.[day]?.[i]?.teacher?.toString() || null,
   }));
+};
 
 const Classes = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -149,6 +150,17 @@ const Classes = () => {
   const [ttPeriodTimetable, setTtPeriodTimetable] = useState(null);
   const [ttDaySaving, setTtDaySaving] = useState(false);
   const [ttDayEditMode, setTtDayEditMode] = useState(false);
+
+  const [ttGenerator, setTtGenerator] = useState({
+    startTime: '08:30',
+    periodDuration: 40,
+    totalPeriods: 8,
+    breakAfter: 2,
+    breakDuration: 15,
+    lunchAfter: 4,
+    lunchDuration: 45,
+    targetDay: 'Monday'
+  });
 
   useEffect(() => {
     fetchClasses();
@@ -394,14 +406,15 @@ const Classes = () => {
   const handleSaveMapping = async () => {
     if (!mappingClassId) return;
     setMappingSaving(true);
+    console.log(mappingData, "mappingdata");
     try {
-      await api.post('/api/classmapping/save', {
-        classId: mappingClassId,
-        academicYear: getAcademicYear(),
-        classTeacher: mappingData?.classTeacher || null,
-        subjectTeachers: mappingData?.subjectTeachers || {},
-        students: mappingData?.students || [],
-      });
+      // await api.post('/api/classmapping/save', {
+      //   classId: mappingClassId,
+      //   academicYear: getAcademicYear(),
+      //   classTeacher: mappingData?.classTeacher || null,
+      //   subjectTeachers: mappingData?.subjectTeachers || {},
+      //   students: mappingData?.students || [],
+      // });
       toast.success('Class mapping saved!');
       setMappingEditMode(false);
       fetchClasses();
@@ -418,6 +431,7 @@ const Classes = () => {
   // ─── Timetable ───────────────────────────────────────────────────────────────
 
   const handleTtPeriodClassChange = async (classId) => {
+    console.log(classId, "classId");
     setTtPeriodClassId(classId);
     setTtEditMode(false);
     setTtDayEditMode(false);
@@ -433,10 +447,10 @@ const Classes = () => {
   };
 
   const handleAddPeriod = () => {
-    const classCount = periodDraft.filter((p) => p.type === 'class').length;
+    const classCount = periodDraft.filter((p) => p.type === 'class' && p.day === ttGenerator.targetDay).length;
     setPeriodDraft((prev) => [
       ...prev,
-      { name: `Period ${classCount + 1}`, startTime: '09:00', endTime: '10:00', type: 'class', day: ttPeriodDay, subject: '', teacher: '' },
+      { name: `Period ${classCount + 1}`, startTime: '09:00', endTime: '10:00', type: 'class', day: ttGenerator.targetDay, subject: '', teacher: null },
     ]);
   };
 
@@ -446,13 +460,87 @@ const Classes = () => {
     setPeriodDraft((prev) => prev.map((p, idx) => {
       if (idx !== i) return p;
       const updated = { ...p, [field]: value };
-      if (field === 'subject') updated.teacher = '';
+      if (field === 'subject') updated.teacher = null;
       if (field === 'type' && value !== 'class' && value !== 'lab' && value !== 'sports') {
         updated.subject = '';
         updated.teacher = null;
       }
       return updated;
     }));
+
+  const handleGenerateTimetable = () => {
+    if (!ttPeriodClassId) {
+      toast.error('Please select a class first');
+      return;
+    }
+
+    const dayPeriods = periodDraft.filter(p => p.day === ttGenerator.targetDay);
+    if (dayPeriods.length > 0 && !window.confirm(`This will overwrite the current ${ttGenerator.targetDay} setup. Continue?`)) return;
+
+    const newDayPeriods = [];
+    let currentTime = ttGenerator.startTime;
+
+    const addMinutes = (timeStr, minutes) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      const date = new Date();
+      date.setHours(h, m, 0);
+      const newDate = new Date(date.getTime() + (Number(minutes) || 0) * 60000);
+      return `${String(newDate.getHours()).padStart(2, '0')}:${String(newDate.getMinutes()).padStart(2, '0')}`;
+    };
+
+    let pCount = 0;
+    for (let i = 1; i <= ttGenerator.totalPeriods; i++) {
+      pCount++;
+      const endTime = addMinutes(currentTime, ttGenerator.periodDuration);
+      newDayPeriods.push({
+        name: `Period ${pCount}`,
+        startTime: currentTime,
+        endTime: endTime,
+        type: 'class',
+        day: ttGenerator.targetDay,
+        subject: '',
+        teacher: null
+      });
+      currentTime = endTime;
+
+      if (i === Number(ttGenerator.breakAfter)) {
+        const bEnd = addMinutes(currentTime, ttGenerator.breakDuration);
+        newDayPeriods.push({
+          name: 'Break',
+          startTime: currentTime,
+          endTime: bEnd,
+          type: 'break',
+          day: ttGenerator.targetDay,
+          subject: '',
+          teacher: null
+        });
+        currentTime = bEnd;
+      }
+
+      if (i === Number(ttGenerator.lunchAfter)) {
+        const lEnd = addMinutes(currentTime, ttGenerator.lunchDuration);
+        newDayPeriods.push({
+          name: 'Lunch',
+          startTime: currentTime,
+          endTime: lEnd,
+          type: 'lunch',
+          day: ttGenerator.targetDay,
+          subject: '',
+          teacher: null
+        });
+        currentTime = lEnd;
+      }
+    }
+
+    setPeriodDraft(prev => {
+      // Replace ONLY the target day
+      const filtered = prev.filter(p => p.day !== ttGenerator.targetDay);
+      return [...filtered, ...newDayPeriods];
+    });
+
+    setTtEditMode(true);
+    toast.success(`Periods generated for ${ttGenerator.targetDay}!`);
+  };
 
   const handleSavePeriodConfig = async () => {
     setTtLoading(true);
@@ -464,7 +552,31 @@ const Classes = () => {
       });
       setPeriodConfig(res.data);
       setPeriodDraft(res.data.periods || []);
-      setDayDraft(initDayDraft(res.data.periods || [], ttPeriodTimetable, ttPeriodDay));
+
+      // propagate subject/teacher to the actual timetable schedule
+      let updatedSchedule = { ...(ttPeriodTimetable?.schedule || {}) };
+
+      periodDraft.forEach((p, idx) => {
+        const day = p.day;
+        if (!updatedSchedule[day]) updatedSchedule[day] = [];
+        while (updatedSchedule[day].length <= idx) {
+          updatedSchedule[day].push({ periodIndex: updatedSchedule[day].length, subject: '', teacher: null });
+        }
+        updatedSchedule[day][idx] = {
+          periodIndex: idx,
+          subject: p.subject || '',
+          teacher: p.teacher || null
+        };
+      });
+
+      const ttRes = await api.post('/api/timetable', {
+        classId: ttPeriodClassId,
+        academicYear: getAcademicYear(),
+        schedule: updatedSchedule,
+      });
+      setTtPeriodTimetable(ttRes.data);
+
+      setDayDraft(initDayDraft(res.data.periods || [], ttRes.data, ttPeriodDay));
       setTtEditMode(false);
       toast.success('Period configuration saved!');
     } catch {
@@ -484,7 +596,7 @@ const Classes = () => {
     setDayDraft((prev) => prev.map((entry, idx) => {
       if (idx !== i) return entry;
       const updated = { ...entry, [field]: value };
-      if (field === 'subject') updated.teacher = '';
+      if (field === 'subject') updated.teacher = null;
       return updated;
     }));
   };
@@ -497,7 +609,10 @@ const Classes = () => {
         subject: dayDraft[i]?.subject || '',
         teacher: dayDraft[i]?.teacher || null,
       }));
-      const newSchedule = { ...(ttPeriodTimetable?.schedule || {}), [ttPeriodDay]: daySchedule };
+
+      let newSchedule = { ...(ttPeriodTimetable?.schedule || {}) };
+      newSchedule[ttPeriodDay] = daySchedule;
+
       const res = await api.post('/api/timetable', {
         classId: ttPeriodClassId,
         academicYear: getAcademicYear(),
@@ -616,8 +731,8 @@ const Classes = () => {
             key={key}
             onClick={() => setActiveTab(key)}
             className={`px-6 py-3 font-semibold transition-all ${activeTab === key
-                ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg'
-                : 'text-[#64748B] hover:text-[#0F172A]'
+              ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg'
+              : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
           >
             {label}
@@ -771,6 +886,115 @@ const Classes = () => {
                 )}
               </div>
 
+              {ttPeriodClassId && ttEditMode && (
+                <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm overflow-hidden space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-6 w-1 bg-[#F59E0B] rounded-full"></div>
+                    <h3 className="text-md font-bold text-[#0F172A]">Bulk Schedule Generator</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Start Time</label>
+                      <input
+                        type="time"
+                        value={ttGenerator.startTime}
+                        onChange={(e) => setTtGenerator({ ...ttGenerator, startTime: e.target.value })}
+                        className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Per Period (Min)</label>
+                      <input
+                        type="number"
+                        value={ttGenerator.periodDuration}
+                        onChange={(e) => setTtGenerator({ ...ttGenerator, periodDuration: e.target.value })}
+                        className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Total Periods</label>
+                      <input
+                        type="number"
+                        value={ttGenerator.totalPeriods}
+                        onChange={(e) => setTtGenerator({ ...ttGenerator, totalPeriods: e.target.value })}
+                        className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Target Day</label>
+                      <select
+                        value={ttGenerator.targetDay}
+                        onChange={(e) => setTtGenerator({ ...ttGenerator, targetDay: e.target.value })}
+                        className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      >
+                        {DAYS.map(day => <option key={day} value={day}>{day}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <button
+                        type="button"
+                        onClick={handleGenerateTimetable}
+                        className="w-full h-10 bg-[#F59E0B] text-white hover:bg-[#D97706] px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Generate Table
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+                    <div className="md:col-span-2">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Break After Period</label>
+                          <select
+                            value={ttGenerator.breakAfter}
+                            onChange={(e) => setTtGenerator({ ...ttGenerator, breakAfter: e.target.value })}
+                            className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                          >
+                            {[...Array(11).keys()].map(n => <option key={n} value={n}>{n > 0 ? `After Period ${n}` : 'No Break'}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Break (Min)</label>
+                          <input
+                            type="number"
+                            value={ttGenerator.breakDuration}
+                            onChange={(e) => setTtGenerator({ ...ttGenerator, breakDuration: e.target.value })}
+                            className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Lunch After Period</label>
+                          <select
+                            value={ttGenerator.lunchAfter}
+                            onChange={(e) => setTtGenerator({ ...ttGenerator, lunchAfter: e.target.value })}
+                            className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                          >
+                            {[...Array(11).keys()].map(n => <option key={n} value={n}>{n > 0 ? `After Period ${n}` : 'No Lunch'}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs font-semibold text-[#64748B] uppercase mb-1 block">Lunch (Min)</label>
+                          <input
+                            type="number"
+                            value={ttGenerator.lunchDuration}
+                            onChange={(e) => setTtGenerator({ ...ttGenerator, lunchDuration: e.target.value })}
+                            className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {ttPeriodClassId ? (
                 <div className="space-y-4">
                   <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
@@ -790,95 +1014,98 @@ const Classes = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {periodDraft.length === 0 ? (
+                          {periodDraft.filter(p => p.day === ttGenerator.targetDay).length === 0 ? (
                             <tr>
                               <td colSpan={ttEditMode ? 9 : 8} className="px-4 py-10 text-center text-[#64748B]">
-                                {ttEditMode ? 'Click "+ Add Period" below to start.' : 'No periods configured. Click Edit to add.'}
+                                {ttEditMode ? `Click "+ Add Period" or use Generator above to start for ${ttGenerator.targetDay}.` : `No periods configured for ${ttGenerator.targetDay}. Click Edit to add.`}
                               </td>
                             </tr>
                           ) : (
-                            periodDraft.map((p, i) => {
-                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
-                              const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
-                              const filteredTeachers = teachers.filter((t) => t.subjects?.includes(p.subject));
-                              return (
-                                <tr key={i} className={`${typeInfo.rowBg} transition-all`}>
-                                  <td className="px-4 py-3 text-sm text-center text-[#64748B]">{i + 1}</td>
-                                  <td className="px-4 py-3">
-                                    {ttEditMode ? (
-                                      <input type="text" value={p.name} onChange={(e) => handlePeriodChange(i, 'name', e.target.value)} className="w-full h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
-                                    ) : (
-                                      <span className="text-sm font-medium text-[#0F172A]">{p.name}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {ttEditMode ? (
-                                      <input type="time" value={p.startTime} onChange={(e) => handlePeriodChange(i, 'startTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
-                                    ) : (
-                                      <span className="text-sm text-[#64748B]">{p.startTime}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {ttEditMode ? (
-                                      <input type="time" value={p.endTime} onChange={(e) => handlePeriodChange(i, 'endTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
-                                    ) : (
-                                      <span className="text-sm text-[#64748B]">{p.endTime}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {ttEditMode ? (
-                                      <select value={p.day || 'Monday'} onChange={(e) => handlePeriodChange(i, 'day', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
-                                        {DAYS.map((d) => <option key={d} value={d}>{d.slice(0, 3)}</option>)}
-                                      </select>
-                                    ) : (
-                                      <span className="text-sm text-[#64748B]">{p.day || 'Monday'}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {ttEditMode ? (
-                                      <select value={p.type} onChange={(e) => handlePeriodChange(i, 'type', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
-                                        {PERIOD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                      </select>
-                                    ) : (
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
-                                      ttEditMode ? (
-                                        <select value={p.subject || ''} onChange={(e) => handlePeriodChange(i, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
-                                          <option value="">Select Subject</option>
-                                          {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                                        </select>
+                            periodDraft
+                              .map((p, globalIdx) => ({ ...p, globalIdx }))
+                              .filter(p => p.day === ttGenerator.targetDay)
+                              .map((p, i) => {
+                                const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                                const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
+                                const filteredTeachers = teachers.filter((t) => t.subjects?.includes(p.subject));
+                                return (
+                                  <tr key={p.globalIdx} className={`${typeInfo.rowBg} transition-all`}>
+                                    <td className="px-4 py-3 text-sm text-center text-[#64748B]">{i + 1}</td>
+                                    <td className="px-4 py-3">
+                                      {ttEditMode ? (
+                                        <input type="text" value={p.name} onChange={(e) => handlePeriodChange(p.globalIdx, 'name', e.target.value)} className="w-full h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
                                       ) : (
-                                        <span className="text-sm text-[#64748B]">{p.subject || '-'}</span>
-                                      )
-                                    ) : (
-                                      <span className="text-sm text-[#94A3B8]">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
-                                      ttEditMode ? (
-                                        <select value={p.teacher || ''} onChange={(e) => handlePeriodChange(i, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!p.subject}>
-                                          <option value="">{p.subject ? 'Select Teacher' : 'Select subject first'}</option>
-                                          {filteredTeachers.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                        </select>
-                                      ) : (
-                                        <span className="text-sm text-[#64748B]">{teachers.find((t) => t._id === p.teacher)?.name || '-'}</span>
-                                      )
-                                    ) : (
-                                      <span className="text-sm text-[#94A3B8]">—</span>
-                                    )}
-                                  </td>
-                                  {ttEditMode && (
-                                    <td className="px-4 py-3 text-center">
-                                      <button type="button" onClick={() => handleRemovePeriod(i)} className="text-[#DC2626] hover:text-red-700 p-1"><X size={15} /></button>
+                                        <span className="text-sm font-medium text-[#0F172A]">{p.name}</span>
+                                      )}
                                     </td>
-                                  )}
-                                </tr>
-                              );
-                            })
+                                    <td className="px-4 py-3">
+                                      {ttEditMode ? (
+                                        <input type="time" value={p.startTime} onChange={(e) => handlePeriodChange(p.globalIdx, 'startTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
+                                      ) : (
+                                        <span className="text-sm text-[#64748B]">{p.startTime}</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {ttEditMode ? (
+                                        <input type="time" value={p.endTime} onChange={(e) => handlePeriodChange(p.globalIdx, 'endTime', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" />
+                                      ) : (
+                                        <span className="text-sm text-[#64748B]">{p.endTime}</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {ttEditMode ? (
+                                        <select value={p.day || 'Monday'} onChange={(e) => handlePeriodChange(p.globalIdx, 'day', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                          {DAYS.map((d) => <option key={d} value={d}>{d.slice(0, 3)}</option>)}
+                                        </select>
+                                      ) : (
+                                        <span className="text-sm text-[#64748B]">{p.day || 'Monday'}</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {ttEditMode ? (
+                                        <select value={p.type} onChange={(e) => handlePeriodChange(p.globalIdx, 'type', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                          {PERIOD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                        </select>
+                                      ) : (
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
+                                        ttEditMode ? (
+                                          <select value={p.subject || ''} onChange={(e) => handlePeriodChange(p.globalIdx, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                            <option value="">Select Subject</option>
+                                            {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                                          </select>
+                                        ) : (
+                                          <span className="text-sm text-[#64748B]">{p.subject || '-'}</span>
+                                        )
+                                      ) : (
+                                        <span className="text-sm text-[#94A3B8]">—</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {p.type === 'class' || p.type === 'lab' || p.type === 'sports' ? (
+                                        ttEditMode ? (
+                                          <select value={p.teacher || ''} onChange={(e) => handlePeriodChange(p.globalIdx, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!p.subject}>
+                                            <option value="">{p.subject ? 'Select Teacher' : 'Select subject first'}</option>
+                                            {filteredTeachers.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                          </select>
+                                        ) : (
+                                          <span className="text-sm text-[#64748B]">{teachers.find((t) => t._id?.toString() === p.teacher?.toString())?.name || '-'}</span>
+                                        )
+                                      ) : (
+                                        <span className="text-sm text-[#94A3B8]">—</span>
+                                      )}
+                                    </td>
+                                    {ttEditMode && (
+                                      <td className="px-4 py-3 text-center">
+                                        <button type="button" onClick={() => handleRemovePeriod(p.globalIdx)} className="text-[#DC2626] hover:text-red-700 p-1"><X size={15} /></button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })
                           )}
                         </tbody>
                       </table>
@@ -1124,8 +1351,8 @@ const Classes = () => {
                   onClick={() => setMappingEditMode(!mappingEditMode)}
                   disabled={!mappingClassId}
                   className={`px-6 py-2 rounded-lg font-semibold transition-all ${mappingEditMode
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-[#4F46E5] hover:bg-[#4338CA] text-white'
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-[#4F46E5] hover:bg-[#4338CA] text-white'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {mappingEditMode ? 'View Mode' : 'Edit Mode'}

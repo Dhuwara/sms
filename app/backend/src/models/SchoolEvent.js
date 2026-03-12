@@ -2,15 +2,12 @@ import mongoose from 'mongoose';
 
 const schoolEventSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  description: { type: String },
   eventType: { 
     type: String, 
     enum: ['holiday', 'exam', 'meeting', 'sports', 'cultural', 'academic', 'other'],
     required: true 
   },
   startDate: { type: Date, required: true },
-  endDate: { type: Date },
-  location: { type: String },
   targetAudience: [{ 
     type: String, 
     enum: ['all', 'students', 'staff', 'parents', 'specific-class'],
@@ -33,12 +30,12 @@ const schoolEventSchema = new mongoose.Schema({
     mimeType: { type: String },
     size: { type: Number }
   }],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
 // Index for better query performance
-schoolEventSchema.index({ startDate: 1, endDate: 1 });
+schoolEventSchema.index({ startDate: 1 });
 schoolEventSchema.index({ targetAudience: 1 });
 schoolEventSchema.index({ status: 1 });
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import StudyMaterial from '../models/StudyMaterial.js';
 import Staff from '../models/Staff.js';
+import Student from '../models/Student.js';
 
 export const getStudyMaterials = async (req, res, next) => {
     try {
@@ -65,5 +66,23 @@ export const deleteStudyMaterial = async (req, res, next) => {
 
         await material.deleteOne();
         res.json({ success: true, message: 'Study material deleted' });
+    } catch (err) { next(err); }
+};
+
+// Student-facing: get study materials for the student's class
+export const getMyStudyMaterials = async (req, res, next) => {
+    try {
+        const student = await Student.findOne({ userId: req.user.userId });
+        if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+        const materials = await StudyMaterial.find({ classId: student.classId })
+            .populate('classId', 'name section')
+            .populate({
+                path: 'uploadedBy',
+                populate: { path: 'userId', select: 'name email' }
+            })
+            .sort({ createdAt: -1 });
+
+        res.json({ success: true, data: materials });
     } catch (err) { next(err); }
 };

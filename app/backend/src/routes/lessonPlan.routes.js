@@ -9,7 +9,8 @@ import {
     getLessonPlanDetails,
     uploadLessonPlan,
     downloadLessonPlan,
-    deleteLessonPlan
+    deleteLessonPlan,
+    getMyLessonPlans
 } from '../controllers/lessonPlan.controller.js';
 
 // Ensure upload directory exists
@@ -50,10 +51,11 @@ const upload = multer({
 const router = Router();
 router.use(protect); // Need to be logged in
 
+router.get('/my-plans', authorize('student'), getMyLessonPlans);
 router.get('/', authorize('staff', 'admin'), getLessonPlans);
-router.get('/:id', authorize('staff', 'admin'), getLessonPlanDetails);
+router.get('/:id', authorize('staff', 'admin', 'student'), getLessonPlanDetails);
 router.post('/', authorize('staff', 'admin'), upload.single('file'), uploadLessonPlan);
-router.get('/:id/download', authorize('staff', 'admin'), downloadLessonPlan);
+router.get('/:id/download', authorize('staff', 'admin', 'student'), downloadLessonPlan);
 router.delete('/:id', authorize('staff', 'admin'), deleteLessonPlan);
 
 export default router;

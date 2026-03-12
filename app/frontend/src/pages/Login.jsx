@@ -16,10 +16,12 @@ const getDefaultPath = (role) => {
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [loginType, setLoginType] = useState('other'); // 'student' or 'other'
+  const [formData, setFormData] = useState({ identifier: '', password: '' });
   const [loading, setLoading] = useState(false);
-    const [isEye, setIsEye] = useState(false)
-    const handlePassword = () => {
+  const [isEye, setIsEye] = useState(false);
+
+  const handlePassword = () => {
     setIsEye((prev) => !prev);
   };
 
@@ -27,11 +29,17 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await login(formData.email, formData.password);
+      const credentials = {
+        password: formData.password,
+        [loginType === 'student' ? 'rollNumber' : 'email']: formData.identifier,
+      };
+      const user = await login(credentials);
+      console.log(user, "user");
       toast.success('Login successful!');
       navigate(getDefaultPath(user.role), { replace: true });
-    } catch {
-      toast.error('Invalid email or password');
+    } catch (error) {
+      console.log(error, "error");
+      toast.error(error.response?.data?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -39,6 +47,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex">
+      {/* ... Left Side remains same ... */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#4F46E5] items-center justify-center p-12">
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-6">
@@ -53,7 +62,7 @@ const Login = () => {
             <div className="space-y-2 text-sm">
               <p><strong>Admin:</strong> admin@school.com / Admin@123</p>
               <p><strong>Staff:</strong> john.smith@school.com / Staff@123</p>
-              <p><strong>Student:</strong> student1@school.com / Student@123</p>
+              <p><strong>Student:</strong> STU2026002 / Dhuwa@123</p>
               <p><strong>Parent:</strong> parent1@school.com / Parent@123</p>
             </div>
           </div>
@@ -68,20 +77,45 @@ const Login = () => {
               <p className="text-[#64748B]">Enter your credentials to access your portal</p>
             </div>
 
+            {/* Login Type Toggle */}
+            <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginType('other');
+                  setFormData({ ...formData, identifier: '' });
+                }}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginType === 'other' ? 'bg-white text-[#4F46E5] shadow-sm' : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+              >
+                Staff/Admin/Parent
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginType('student');
+                  setFormData({ ...formData, identifier: '' });
+                }}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginType === 'student' ? 'bg-white text-[#4F46E5] shadow-sm' : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+              >
+                Student
+              </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-[#0F172A] mb-2">
-                  Email
+                <label htmlFor="identifier" className="block text-sm font-medium text-[#0F172A] mb-2">
+                  {loginType === 'student' ? 'Roll Number' : 'Email'}
                 </label>
                 <input
-                  id="email"
-                  data-testid="username-input"
-                  type="email"
+                  id="identifier"
+                  type={loginType === 'student' ? 'text' : 'email'}
                   required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.identifier}
+                  onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                   className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
-                  placeholder="you@school.com"
+                  placeholder={loginType === 'student' ? 'STU2026001' : 'you@school.com'}
                 />
               </div>
 
@@ -99,43 +133,42 @@ const Login = () => {
                   placeholder="••••••••"
                 />
                 {isEye ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
-                        onClick={handlePassword}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
-                        onClick={handlePassword}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-                        />
-                      </svg>
-                    )}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                    onClick={handlePassword}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                    onClick={handlePassword}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                    />
+                  </svg>
+                )}
               </div>
 
               <button
                 type="submit"
-                data-testid="auth-submit-button"
                 disabled={loading}
                 className="w-full bg-[#4F46E5] text-white hover:bg-[#4338CA] h-10 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

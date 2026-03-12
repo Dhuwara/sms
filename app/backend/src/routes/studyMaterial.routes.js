@@ -6,6 +6,7 @@ import fs from 'fs';
 import { protect, authorize } from '../middleware/auth.js';
 import {
     getStudyMaterials, uploadStudyMaterial, downloadStudyMaterial, deleteStudyMaterial,
+    getMyStudyMaterials,
 } from '../controllers/studyMaterial.controller.js';
 
 const uploadDir = path.join(process.cwd(), 'uploads', 'study-materials');
@@ -23,11 +24,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
-router.use(protect, authorize('staff', 'admin'));
+router.use(protect);
 
-router.get('/', getStudyMaterials);
-router.post('/', upload.single('file'), uploadStudyMaterial);
-router.get('/:id/download', downloadStudyMaterial);
-router.delete('/:id', deleteStudyMaterial);
+router.get('/my-materials', authorize('student'), getMyStudyMaterials);
+router.get('/', authorize('staff', 'admin'), getStudyMaterials);
+router.post('/', authorize('staff', 'admin'), upload.single('file'), uploadStudyMaterial);
+router.get('/:id/download', authorize('staff', 'admin', 'student'), downloadStudyMaterial);
+router.delete('/:id', authorize('staff', 'admin'), deleteStudyMaterial);
 
 export default router;

@@ -37,6 +37,8 @@ import notificationRoutes from './src/routes/notification.routes.js';
 import substitutionRoutes from './src/routes/substitution.routes.js';
 import scholarshipRoutes from './src/routes/scholarship.routes.js';
 import schoolEventsRoutes from './src/routes/schoolEvents.routes.js';
+import studentLeaveRoutes from './src/routes/studentLeave.routes.js';
+import onlineClassRoutes from './src/routes/onlineClass.routes.js';
 
 const app = express();
 
@@ -85,6 +87,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/substitutions', substitutionRoutes);
 app.use('/api/scholarships', scholarshipRoutes);
 app.use('/api/school-events', schoolEventsRoutes);
+app.use('/api/student-leaves', studentLeaveRoutes);
+app.use('/api/online-classes', onlineClassRoutes);
 
 app.use(errorHandler);
 

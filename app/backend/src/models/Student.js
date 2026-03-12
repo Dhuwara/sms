@@ -9,7 +9,9 @@ const studentSchema = new mongoose.Schema({
   gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
   address: { type: String },
   parentContact: { type: String },
+  parentOccupation: { type: String },
   studentType: { type: String, enum: ['dayScholar', 'hosteller'], default: 'dayScholar' },
+  bloodGroup: { type: String, enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'], default: 'Unknown' },
   status: { type: String, enum: ['active', 'inactive', 'graduated', 'transferred'], default: 'active' },
 }, { timestamps: true });
 

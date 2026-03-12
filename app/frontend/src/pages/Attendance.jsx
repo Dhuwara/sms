@@ -245,6 +245,17 @@ const Attendance = () => {
                           <X size={16} />
                           Absent
                         </button>
+                        <button
+                          onClick={() => handleAttendanceChange(student._id, 'half-day')}
+                          className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                            attendance[student._id] === 'half-day'
+                              ? 'bg-[#F59E0B] text-white'
+                              : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
+                          }`}
+                        >
+                          <Check size={16} />
+                          Half-day
+                        </button>
                       </div>
                     </td>
                   </tr>

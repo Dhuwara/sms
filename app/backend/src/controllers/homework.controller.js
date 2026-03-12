@@ -83,7 +83,7 @@ export const deleteHomework = async (req, res, next) => {
 export const downloadAttachment = async (req, res, next) => {
   try {
     console.log('Download request:', { id: req.params.id, filename: req.params.filename });
-    
+
     const homework = await Homework.findById(req.params.id);
     if (!homework) return res.status(404).json({ success: false, message: 'Homework not found' });
 
@@ -178,11 +178,11 @@ export const getMyHomework = async (req, res, next) => {
   try {
     const student = await Student.findOne({ userId: req.user.userId });
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
-
+    console.log(student, "studenttt")
     const homework = await Homework.find({ classId: student.classId, status: 'active' })
       .populate({ path: 'assignedBy', populate: { path: 'userId', select: 'name' } })
       .sort({ dueDate: 1 });
-
+    console.log(homework, "homework")
     const submissions = await HomeworkSubmission.find({
       studentId: student._id,
       homeworkId: { $in: homework.map(h => h._id) }
@@ -195,7 +195,7 @@ export const getMyHomework = async (req, res, next) => {
       ...h.toObject(),
       submission: submissionMap[h._id.toString()] || null,
     }));
-
+    console.log(result, "resultt")
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

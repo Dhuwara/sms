@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Student from '../models/Student.js';
 
 const generateTokens = (userId, role) => {
   const accessToken = jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -20,18 +21,54 @@ const setCookies = (res, accessToken, refreshToken) => {
 };
 
 export const login = async (req, res, next) => {
+
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    let { email, rollNumber, password } = req.body;
+
+    email = email?.trim();
+    rollNumber = rollNumber?.trim();
+
+    if ((!email && !rollNumber) || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email or Roll Number and password are required",
+      });
     }
-    const user = await User.findOne({ email }).select('+passwordHash');
+
+    let user;
+    let student;
+
+    if (email) {
+      user = await User.findOne({ email }).select("+passwordHash");
+    } else if (rollNumber) {
+      student = await Student.findOne({ rollNumber });
+
+      if (student) {
+        user = await User.findById(student.userId).select("+passwordHash");
+      }
+    }
+
+
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials"
+      });
     }
+
     const { accessToken, refreshToken } = generateTokens(user._id, user.role);
     setCookies(res, accessToken, refreshToken);
-    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role } });
+
+    res.json({
+      success: true,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+    });
+
   } catch (err) {
     next(err);
   }
@@ -131,6 +168,38 @@ export const resetPassword = async (req, res, next) => {
     await user.save();
 
     res.json({ success: true, message: 'Password reset successful. You can now log in.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/change-password
+export const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new passwords are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user.userId).select('+passwordHash');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Incorrect current password' });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: 'Password changed successfully' });
   } catch (err) {
     next(err);
   }

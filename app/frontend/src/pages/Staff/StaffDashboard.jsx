@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../utils/api';
 import { toast } from 'sonner';
+import html2pdf from 'html2pdf.js';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import {
   User, Calendar, BookOpen, Users, FileText, ClipboardCheck,
   MessageSquare, DollarSign, FileQuestion, Book, Award, Settings,
   Clock, CheckCircle, XCircle, Bell, Mail, Download, Upload,
-  Star, HelpCircle, LogOut, ChevronRight, Building, Briefcase, Check, CalendarDays
+  Star, HelpCircle, LogOut, ChevronRight, Building, Briefcase, Check, Printer, Plus, GraduationCap, Video
 } from 'lucide-react';
 
 const StaffDashboard = ({ user, module = 'profile' }) => {
@@ -20,7 +22,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [classDetail, SetClassDetail] = useState(null);
   const [selectedClassForStudents, setSelectedClassForStudents] = useState('');
   const [classStudents, setClassStudents] = useState([]);
-  const [schoolEvents, setSchoolEvents] = useState([]);
 
   // Attendance & Leave State
   const [todayAttendance, setTodayAttendance] = useState(null);
@@ -32,6 +33,11 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [staffList, setStaffList] = useState([]);
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [pendingStudentLeaves, setPendingStudentLeaves] = useState([]);
+  const [isStudentDenyModalOpen, setIsStudentDenyModalOpen] = useState(false);
+  const [studentDenyReason, setStudentDenyReason] = useState('');
+  const [selectedStudentLeaveId, setSelectedStudentLeaveId] = useState(null);
+  const [studentActionLoading, setStudentActionLoading] = useState(false);
 
   // Attendance Marking State (for Class & Student Management)
   const [showMarkAttendanceModal, setShowMarkAttendanceModal] = useState(false);
@@ -45,6 +51,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [myTimetable, setMyTimetable] = useState([]);
   const [substitutions, setSubstitutions] = useState([]);
   const [examDuties, setExamDuties] = useState([]);
+  const [schoolEvents, setSchoolEvents] = useState([]);
 
   // Payroll State
   const [latestSalary, setLatestSalary] = useState(null);
@@ -64,23 +71,36 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [commSending, setCommSending] = useState(false);
   const [commAnnouncements, setCommAnnouncements] = useState([]);
 
-  // Lesson Plans State
+  // Academic Content State
   const [lessonPlans, setLessonPlans] = useState([]);
+  const [studyMaterials, setStudyMaterials] = useState([]);
+  const [classHomework, setClassHomework] = useState([]);
+  const [onlineClasses, setOnlineClasses] = useState([]);
+  const [classSubjects, setClassSubjects] = useState([]);
+
+  // Forms & Modals for Academic Content
   const [showLessonPlanModal, setShowLessonPlanModal] = useState(false);
   const [lessonPlanForm, setLessonPlanForm] = useState({ title: '', classId: '', subject: '', date: '', file: null });
   const [lessonPlanSubmitting, setLessonPlanSubmitting] = useState(false);
 
-  // Academic class selection
-  const [selectedAcademicClass, setSelectedAcademicClass] = useState('');
-  const [studyMaterials, setStudyMaterials] = useState([]);
-  const [classHomework, setClassHomework] = useState([]);
   const [showStudyMaterialModal, setShowStudyMaterialModal] = useState(false);
   const [studyMaterialForm, setStudyMaterialForm] = useState({ title: '', subject: '', description: '', file: null });
   const [studyMaterialSubmitting, setStudyMaterialSubmitting] = useState(false);
+
   const [showHomeworkModal, setShowHomeworkModal] = useState(false);
-  const [homeworkForm, setHomeworkForm] = useState({ title: '', description: '', subject: '', dueDate: '', files: [], classId: '' });
+  const [homeworkForm, setHomeworkForm] = useState({ title: '', description: '', subject: '', dueDate: '', files: [] });
   const [homeworkSubmitting, setHomeworkSubmitting] = useState(false);
-  const [classSubjects, setClassSubjects] = useState([]);
+
+  const [showOnlineClassModal, setShowOnlineClassModal] = useState(false);
+  const [onlineClassForm, setOnlineClassForm] = useState({ title: '', platform: 'Google Meet', link: '', date: '', time: '', subject: '', classId: '' });
+  const [onlineClassSubmitting, setOnlineClassSubmitting] = useState(false); // Renamed from onlineClassUploading for consistency
+
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  // Academic class selection
+  const [selectedAcademicClass, setSelectedAcademicClass] = useState('');
+
 
   // Marks & Assessment State
   const [timetableAssignments, setTimetableAssignments] = useState([]);
@@ -93,50 +113,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [marksSaving, setMarksSaving] = useState(false);
   const [marksLoaded, setMarksLoaded] = useState(false);
   const [marksAnalysis, setMarksAnalysis] = useState(null);
-
-  // Real-time performance analysis calculation
-  const calculatePerformanceAnalysis = (entries, students, maxScore, exam) => {
-    const validEntries = Object.entries(entries).filter(([_, marks]) => marks && marks.trim() !== '');
-    
-    if (validEntries.length === 0) {
-      setMarksAnalysis(null);
-      return;
-    }
-
-    const values = validEntries.map(([_, marks]) => parseFloat(marks)).filter(m => !isNaN(m));
-    
-    if (values.length === 0) {
-      setMarksAnalysis(null);
-      return;
-    }
-
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    const highest = Math.max(...values);
-    const lowest = Math.min(...values);
-    const highestStudentId = validEntries.find(([_, marks]) => parseFloat(marks) === highest)?.[0];
-    const highestStudent = students.find(s => s._id === highestStudentId);
-    const passCount = values.filter(m => (m / maxScore) * 100 >= 35).length;
-    const gradeDist = {};
-    values.forEach(m => {
-      const g = marksCalcGrade(m, maxScore);
-      gradeDist[g] = (gradeDist[g] || 0) + 1;
-    });
-
-    setMarksAnalysis({
-      avg: avg.toFixed(1),
-      avgPct: ((avg / maxScore) * 100).toFixed(1),
-      highest,
-      highestStudentName: highestStudent?.name || '—',
-      lowest,
-      passCount,
-      total: values.length,
-      passRate: ((passCount / values.length) * 100).toFixed(0),
-      maxScore,
-      gradeDist,
-      subject: exam?.subject || '',
-      examType: exam?.examType || '',
-    });
-  };
 
   // Request tracking to prevent duplicate simultaneous requests
   const fetchingRef = useRef({
@@ -153,7 +129,10 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     payrollHistory: false,
     reimbursements: false,
     documents: false,
-    lessonPlans: false
+    lessonPlans: false,
+    studyMaterials: false,
+    classHomework: false,
+    onlineClasses: false,
   });
 
   useEffect(() => {
@@ -162,6 +141,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   useEffect(() => {
     if (module === 'attendance') {
+      console.log('Attendance module loaded, fetching data...');
       // Reset request tracking flags to allow fresh fetch
       fetchingRef.current = { ...fetchingRef.current, today: false, history: false, balance: false, leaves: false, staff: false };
 
@@ -170,17 +150,23 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       fetchLeaveBalance();
       fetchMyLeaves();
       fetchStaffList();
+      fetchPendingStudentLeaves();
     }
   }, [module]);
 
   useEffect(() => {
     if (module === 'timetable') {
+      console.log('Timetable module loaded, fetching data...');
       // Reset request tracking flags
       fetchingRef.current = { ...fetchingRef.current, timetable: false, substitutions: false, examDuties: false };
 
       fetchMyTimetable();
       fetchSubstitutions();
       fetchExamDuties();
+      // Fetch school events for Holiday Calendar + School Events panels
+      api.get('/api/school-events/user-events')
+        .then(res => setSchoolEvents(res?.data || []))
+        .catch(() => { });
     }
     if (module === 'leave') {
       fetchingRef.current = { ...fetchingRef.current, balance: false, leaves: false, staff: false, approvals: false };
@@ -188,6 +174,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       fetchMyLeaves();
       fetchStaffList();
       fetchPendingApprovals();
+      fetchPendingStudentLeaves();
     }
     if (module === 'payroll') {
       fetchingRef.current = { ...fetchingRef.current, salary: false, payrollHistory: false, reimbursements: false };
@@ -200,12 +187,13 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       fetchDocuments();
     }
     if (module === 'academic') {
-      fetchingRef.current = { ...fetchingRef.current, lessonPlans: false, examDuties: false };
+      fetchingRef.current = { ...fetchingRef.current, lessonPlans: false, examDuties: false, studyMaterials: false, classHomework: false, onlineClasses: false };
       fetchExamDuties();
       // Fetch all (no class filter) initially; class-filtered fetch triggered by selectedAcademicClass
-      fetchLessonPlans();
+      fetchLessonPlans('');
       fetchStudyMaterials('');
       fetchClassHomework('');
+      fetchOnlineClasses('');
     }
     if (module === 'marks') {
       api.get('/api/staff/timetable-assignments')
@@ -215,7 +203,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (module === 'communication') {
       fetchCommClasses();
       fetchAnnouncements();
-      fetchSchoolEvents();
     }
   }, [module]);
 
@@ -224,9 +211,14 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (module !== 'academic') return;
     fetchingRef.current._academicClassId = selectedAcademicClass;
     fetchingRef.current.lessonPlans = false;
-    fetchLessonPlans();
+    fetchingRef.current.studyMaterials = false;
+    fetchingRef.current.classHomework = false;
+    fetchingRef.current.onlineClasses = false;
+
+    fetchLessonPlans(selectedAcademicClass);
     fetchStudyMaterials(selectedAcademicClass);
     fetchClassHomework(selectedAcademicClass);
+    fetchOnlineClasses(selectedAcademicClass);
     fetchClassSubjects(selectedAcademicClass);
   }, [selectedAcademicClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -248,7 +240,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         return;
       }
       try {
+        console.log("hitsstudentsss")
         const response = await api.get(`/api/staff/classes/${selectedClassForStudents}/students`);
+        console.log(response, "responseee")
         setClassStudents(response.data || []);
       } catch (error) {
         console.error('Error fetching students:', error);
@@ -258,13 +252,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchStudents();
   }, [selectedClassForStudents]);
 
-  // Fetch homework for selected class when in Classes module
-  useEffect(() => {
-    if (module === 'classes' && selectedClassForStudents) {
-      fetchClassHomework(selectedClassForStudents);
-    }
-  }, [module, selectedClassForStudents]);
-
   const fetchStaffData = async () => {
     if (!user?.id) return;
     try {
@@ -273,7 +260,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       SetClassDetail(classResponse.data);
       setStaffData(response.data);
       setContactForm({ contact: response.data?.contact || '' });
-      
     } catch (error) {
       console.error('Error fetching staff data:', error);
       toast.error('Failed to load staff data');
@@ -341,6 +327,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       const response = await api.get('/api/staff/my-attendance/today');
       // Handle different response formats
       const attendanceData = response.data?.data || response.data || null;
+      console.log('Today Attendance Data:', attendanceData);
       setTodayAttendance(attendanceData);
     } catch (error) {
       console.error('Error fetching today attendance:', error);
@@ -355,6 +342,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.history = true;
     try {
       const response = await api.get('/api/staff/my-attendance/history');
+      console.log(response, "reponseee")
       setAttendanceHistory(response?.data || []);
     } catch (error) {
       console.error('Error fetching attendance history:', error);
@@ -383,6 +371,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.leaves = true;
     try {
       const response = await api.get('/api/staff/my-leaves');
+      console.log(response, "pepeepp")
       setMyLeaves(response?.data || []);
     } catch (error) {
       console.error('Error fetching leaves:', error);
@@ -410,11 +399,11 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   };
 
   // Lesson Plans Functions
-  const fetchLessonPlans = async () => {
+  const fetchLessonPlans = async (classId) => {
     if (fetchingRef.current.lessonPlans) return;
     fetchingRef.current.lessonPlans = true;
     try {
-      const params = fetchingRef.current._academicClassId ? `?classId=${fetchingRef.current._academicClassId}` : '';
+      const params = classId ? `?classId=${classId}` : '';
       const response = await api.get(`/api/lesson-plans${params}`);
       setLessonPlans(response.data?.data || response.data || []);
     } catch (error) {
@@ -459,33 +448,64 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   };
 
   const handleDeleteLessonPlan = async (id) => {
-    if (!window.confirm('Delete this lesson plan?')) return;
-    try {
-      await api.delete(`/api/lesson-plans/${id}`);
-      setLessonPlans((prev) => prev.filter((lp) => lp._id !== id));
-      toast.success('Lesson plan deleted');
-    } catch (error) {
-      toast.error('Failed to delete lesson plan');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Lesson Plan',
+      message: 'Are you sure you want to delete this lesson plan? This action cannot be undone.',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/api/lesson-plans/${id}`);
+          setLessonPlans((prev) => prev.filter((lp) => lp._id !== id));
+          toast.success('Lesson plan deleted');
+        } catch (error) {
+          toast.error('Failed to delete lesson plan');
+        }
+      }
+    });
   };
 
   const fetchStudyMaterials = async (classId) => {
+    if (fetchingRef.current.studyMaterials) return;
+    fetchingRef.current.studyMaterials = true;
     try {
       const params = classId ? `?classId=${classId}` : '';
       const response = await api.get(`/api/study-materials${params}`);
       setStudyMaterials(response.data?.data || response.data || []);
     } catch (error) {
       console.error('Error fetching study materials:', error);
+    } finally {
+      fetchingRef.current.studyMaterials = false;
     }
   };
 
   const fetchClassHomework = async (classId) => {
+    if (fetchingRef.current.classHomework) return;
+    fetchingRef.current.classHomework = true;
     try {
       const params = classId ? `?classId=${classId}` : '';
       const response = await api.get(`/api/homework/my-assigned${params}`);
       setClassHomework(response.data?.data || response.data || []);
     } catch (error) {
       console.error('Error fetching homework:', error);
+    } finally {
+      fetchingRef.current.classHomework = false;
+    }
+  };
+
+  const fetchOnlineClasses = async (classId) => {
+    console.log(classId, "classId")
+    if (!classId) return;
+    if (fetchingRef.current.onlineClasses) return;
+    fetchingRef.current.onlineClasses = true;
+    try {
+      const response = await api.get(`/api/online-classes/class/${classId}`);
+      console.log(response, "response")
+      setOnlineClasses(response.data?.data || response.data || []);
+    } catch (error) {
+      console.error('Error fetching online classes:', error);
+    } finally {
+      fetchingRef.current.onlineClasses = false;
     }
   };
 
@@ -526,14 +546,21 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   };
 
   const handleDeleteStudyMaterial = async (id) => {
-    if (!window.confirm('Delete this study material?')) return;
-    try {
-      await api.delete(`/api/study-materials/${id}`);
-      setStudyMaterials((prev) => prev.filter((m) => m._id !== id));
-      toast.success('Study material deleted');
-    } catch (error) {
-      toast.error('Failed to delete study material');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Study Material',
+      message: 'Are you sure you want to delete this study material? This action cannot be undone.',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/api/study-materials/${id}`);
+          setStudyMaterials((prev) => prev.filter((m) => m._id !== id));
+          toast.success('Study material deleted');
+        } catch (error) {
+          toast.error('Failed to delete study material');
+        }
+      }
+    });
   };
 
   const handleDownloadStudyMaterial = async (id, originalName) => {
@@ -553,8 +580,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   const handleCreateHomework = async (e) => {
     e.preventDefault();
-    const targetClassId = homeworkForm.classId || selectedAcademicClass;
-    if (!homeworkForm.title || !homeworkForm.subject || !homeworkForm.dueDate || !targetClassId) {
+    if (!homeworkForm.title || !homeworkForm.subject || !homeworkForm.dueDate || !selectedAcademicClass) {
       toast.error('Title, subject, class, and due date are required');
       return;
     }
@@ -563,15 +589,15 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       const fd = new FormData();
       fd.append('title', homeworkForm.title);
       fd.append('description', homeworkForm.description);
-      fd.append('classId', targetClassId);
+      fd.append('classId', selectedAcademicClass);
       fd.append('subject', homeworkForm.subject);
       fd.append('dueDate', homeworkForm.dueDate);
       for (const file of homeworkForm.files) fd.append('files', file);
       await api.post('/api/homework', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Homework assigned');
       setShowHomeworkModal(false);
-      setHomeworkForm({ title: '', description: '', subject: '', dueDate: '', files: [], classId: '' });
-      fetchClassHomework(targetClassId);
+      setHomeworkForm({ title: '', description: '', subject: '', dueDate: '', files: [] });
+      fetchClassHomework(selectedAcademicClass);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create homework');
     } finally {
@@ -579,22 +605,22 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     }
   };
 
-  const handleOpenHomeworkForClass = (cls) => {
-    setSelectedClassForStudents(cls._id);
-    setHomeworkForm(prev => ({ ...prev, classId: cls._id }));
-    fetchClassSubjects(cls._id);
-    setShowHomeworkModal(true);
-  };
-
   const handleDeleteHomework = async (id) => {
-    if (!window.confirm('Delete this homework?')) return;
-    try {
-      await api.delete(`/api/homework/${id}`);
-      setClassHomework((prev) => prev.filter((h) => h._id !== id));
-      toast.success('Homework deleted');
-    } catch (error) {
-      toast.error('Failed to delete homework');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Homework',
+      message: 'Are you sure you want to delete this homework assignment? Students will no longer see it.',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/api/homework/${id}`);
+          setClassHomework((prev) => prev.filter((h) => h._id !== id));
+          toast.success('Homework deleted');
+        } catch (error) {
+          toast.error('Failed to delete homework');
+        }
+      }
+    });
   };
 
   const handleDownloadLessonPlan = async (id, originalName) => {
@@ -623,6 +649,34 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       console.error('Error fetching pending approvals:', error);
     } finally {
       fetchingRef.current.approvals = false;
+    }
+  };
+
+  const fetchPendingStudentLeaves = async () => {
+    try {
+      const response = await api.get('/api/student-leaves/staff/pending');
+      setPendingStudentLeaves(response.data || []);
+    } catch (error) {
+      console.error('Error fetching pending student leaves:', error);
+    }
+  };
+
+  const handleStudentLeaveAction = async (id, action, reason = '') => {
+    setStudentActionLoading(true);
+    try {
+      await api.put(`/api/student-leaves/staff/action/${id}`, { action, reason });
+      toast.success(`Student leave ${action === 'approve' ? 'approved' : 'denied'} successfully`);
+      fetchPendingStudentLeaves();
+      if (action === 'deny') {
+        setIsStudentDenyModalOpen(false);
+        setStudentDenyReason('');
+        setSelectedStudentLeaveId(null);
+      }
+    } catch (err) {
+      console.error('Failed to update student leave status:', err);
+      toast.error(err.response?.data?.message || 'Failed to update student leave status');
+    } finally {
+      setStudentActionLoading(false);
     }
   };
 
@@ -664,6 +718,85 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     }
   };
 
+  const handleDownloadSalarySlip = (payment) => {
+    if (!payment) {
+      toast.error('Salary data not found');
+      return;
+    }
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const filename = `Salary-Slip-${monthNames[payment.month - 1]}-${payment.year}.pdf`;
+
+    // Create a temporary container for the slip content
+    const element = document.createElement('div');
+    element.style.padding = '40px';
+    element.style.backgroundColor = 'white';
+    element.style.color = '#0F172A';
+    element.style.fontFamily = 'Arial, sans-serif';
+
+    const e = payment.earnings || {};
+    const d = payment.deductions || {};
+
+    element.innerHTML = `
+      <div style="text-align: center; border-bottom: 3px solid #FCD34D; padding-bottom: 20px; margin-bottom: 30px;">
+        <h1 style="margin: 0; font-size: 28px;">${staffData?.userId?.name || 'Staff Member'}</h1>
+        <p style="margin: 5px 0; color: #64748B;">Staff ID: ${staffData?.employeeId || 'N/A'}</p>
+        <h2 style="margin: 20px 0 0; color: #4F46E5;">Salary Slip: ${monthNames[payment.month - 1]} ${payment.year}</h2>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+        <div>
+          <h3 style="color: #10B981; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px;">Earnings</h3>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Basic Salary</span> <b>₹${(e.basicSalary || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>HRA</span> <b>₹${(e.hra || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Transport Allowance</span> <b>₹${(e.transportAllowance || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Medical Allowance</span> <b>₹${(e.medicalAllowance || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #E2E8F0; font-weight: bold;"><span>Gross Salary</span> <span>₹${(payment.grossSalary || 0).toLocaleString()}</span></div>
+        </div>
+        
+        <div>
+          <h3 style="color: #DC2626; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px;">Deductions</h3>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Provident Fund</span> <b>₹${(d.providentFund || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>Professional Tax</span> <b>₹${(d.professionalTax || 0).toLocaleString()}</b></div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;"><span>TDS</span> <b>₹${(d.tds || 0).toLocaleString()}</b></div>
+          <div style="height: 38px;"></div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #E2E8F0; font-weight: bold;"><span>Total Deductions</span> <span>₹${(payment.totalDeductions || 0).toLocaleString()}</span></div>
+        </div>
+      </div>
+      
+      <div style="background-color: #4F46E5; color: white; padding: 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <p style="margin: 0; opacity: 0.8; font-size: 14px;">Net Payable Amount</p>
+          <p style="margin: 0; font-size: 32px; font-weight: bold;">₹${(payment.netSalary || 0).toLocaleString()}</p>
+        </div>
+        <div style="text-align: right;">
+          <p style="margin: 0; font-size: 14px;">Status: <b>${payment.status.toUpperCase()}</b></p>
+          <p style="margin: 5px 0 0; font-size: 12px; opacity: 0.7;">Payment Date: ${payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'N/A'}</p>
+        </div>
+      </div>
+      
+      <div style="margin-top: 50px; border-top: 1px solid #E2E8F0; padding-top: 20px; color: #64748B; font-size: 12px; text-align: center;">
+        <p>This is a computer generated salary slip and does not require a physical signature.</p>
+        <p>© ${new Date().getFullYear()} School Management System</p>
+      </div>
+    `;
+
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 10,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+      toast.success('Salary slip downloaded');
+    });
+  };
+
   const fetchReimbursements = async () => {
     if (fetchingRef.current.reimbursements) return;
     fetchingRef.current.reimbursements = true;
@@ -703,6 +836,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.documents = true;
     try {
       const response = await api.get('/api/documents');
+      // Backend returns { success: true, data: [...] }
       setDocuments(response?.data || []);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -718,13 +852,15 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleDownloadDocument = async (docId) => {
+  const handleDownloadDocument = async (doc) => {
     try {
-      const response = await api.get(`/api/documents/${docId}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response]));
+      const response = await api.get(`/api/documents/${doc._id}/download`, { responseType: 'blob' });
+      // response.data is the actual blob when responseType is 'blob'
+      const blob = new Blob([response.data], { type: doc.mimeType || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', '');
+      link.setAttribute('download', doc.originalName || doc.title || 'document');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -907,6 +1043,49 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     } finally {
       setAttendanceLoading(false);
     }
+  };
+
+  const handleOnlineClassSubmit = async (e) => {
+    e.preventDefault();
+    setOnlineClassSubmitting(true);
+    try {
+      const payload = {
+        title: onlineClassForm.title,
+        platform: onlineClassForm.platform,
+        meetingLink: onlineClassForm.link,
+        date: onlineClassForm.date,
+        time: onlineClassForm.time,
+        subject: onlineClassForm.subject,
+        classId: selectedAcademicClass
+      };
+      await api.post('/api/online-classes', payload);
+      toast.success('Online class scheduled successfully');
+      setShowOnlineClassModal(false);
+      setOnlineClassForm({ title: '', platform: 'Google Meet', link: '', date: '', time: '', subject: '', classId: '' });
+      fetchOnlineClasses(selectedAcademicClass);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to schedule online class');
+    } finally {
+      setOnlineClassSubmitting(false);
+    }
+  };
+
+  const handleDeleteOnlineClass = async (id) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Online Class',
+      message: 'Are you sure you want to delete this online class? This action cannot be undone.',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/api/online-classes/${id}`);
+          toast.success('Online class deleted successfully');
+          setOnlineClasses((prev) => prev.filter((oc) => oc._id !== id));
+        } catch (error) {
+          toast.error('Failed to delete online class');
+        }
+      }
+    });
   };
 
   // 1. Staff Profile & Account
@@ -1594,6 +1773,58 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         )}
       </div>
 
+      {/* Student Leave Approvals - Parent approved student leaves that need class teacher action */}
+      <div className="bg-white rounded-xl border-2 border-[#10B981] p-6 mt-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <GraduationCap className="text-[#10B981]" size={20} />
+          Student Leave Approvals ({pendingStudentLeaves.length})
+        </h3>
+        {pendingStudentLeaves.length > 0 ? (
+          <div className="space-y-4">
+            {pendingStudentLeaves.map((leave) => (
+              <div key={leave._id} className="p-4 border-2 border-[#D1FAE5] rounded-lg bg-[#F0FDF4]">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-bold">{leave.studentId?.userId?.name || 'Student'}</p>
+                    <p className="text-sm text-[#64748B]">Class Teacher Approval Needed</p>
+                  </div>
+                  <span className="px-2 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-xs font-semibold capitalize">{leave.leaveType} Leave</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                  <div><span className="text-[#64748B]">From:</span> <span className="font-semibold">{formatDate(leave.startDate)}</span></div>
+                  <div><span className="text-[#64748B]">To:</span> <span className="font-semibold">{formatDate(leave.endDate)}</span></div>
+                </div>
+                <p className="text-sm text-[#64748B] mb-1"><span className="font-semibold">Reason:</span> {leave.reason}</p>
+                <p className="text-xs text-[#10B981] font-semibold mb-3">✓ Approved by Parent</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleStudentLeaveAction(leave._id, 'approve')}
+                    disabled={studentActionLoading}
+                    className="flex-1 bg-[#10B981] text-white py-2 rounded-lg font-semibold text-sm hover:bg-[#059669] transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedStudentLeaveId(leave._id);
+                      setIsStudentDenyModalOpen(true);
+                    }}
+                    disabled={studentActionLoading}
+                    className="flex-1 bg-[#DC2626] text-white py-2 rounded-lg font-semibold text-sm hover:bg-[#B91C1C] transition-colors"
+                  >
+                    Deny
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center text-[#64748B]">
+            <CheckCircle className="mx-auto mb-2 text-[#10B981]" size={32} />
+            <p>No student leave approvals pending</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -1609,38 +1840,41 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         // Filter out break/lunch/assembly — only show class/lab/sports periods
         const classSlotIndices = allSlots.map((s, i) => ({ ...s, _idx: i })).filter((s) => s.type !== 'break' && s.type !== 'lunch' && s.type !== 'assembly');
         return (
-        <div key={ttIdx} className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4">{tt.className} - {tt.section}</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
-                <tr>
-                  <th className="px-4 py-3 text-left font-bold text-sm">Day</th>
-                  {classSlotIndices.length > 0 ? classSlotIndices.map((slot, idx) => (
-                    <th key={idx} className="px-4 py-3 text-left font-bold text-sm">{slot.name}<br /><span className="font-normal text-xs">{slot.startTime}-{slot.endTime}</span></th>
-                  )) : (
-                    <th className="px-4 py-3 text-left font-bold text-sm">Periods not configured</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
-                  <tr key={day} className="border-b border-[#E2E8F0]">
-                    <td className="px-4 py-3 font-semibold">{day}</td>
-                    {tt.schedule?.[day]?.length > 0 ? classSlotIndices.map((slot, idx) => {
-                      const entry = tt.schedule[day]?.[slot._idx];
-                      return (
-                        <td key={idx} className="px-4 py-3 text-sm">{entry?.subject || '-'}</td>
-                      );
-                    }) : (
-                      <td colSpan={classSlotIndices.length || 1} className="px-4 py-3 text-sm text-[#64748B]">No schedule</td>
+          <div key={ttIdx} className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+            <h3 className="font-bold mb-4">{tt.className} - {tt.section}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Day</th>
+                    {classSlotIndices.length > 0 ? classSlotIndices.map((slot, idx) => (
+                      <th key={idx} className="px-4 py-3 text-left font-bold text-sm">{slot.name}<br /><span className="font-normal text-xs">{slot.startTime}-{slot.endTime}</span></th>
+                    )) : (
+                      <th className="px-4 py-3 text-left font-bold text-sm">Periods not configured</th>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
+                    <tr key={day} className="border-b border-[#E2E8F0]">
+                      <td className="px-4 py-3 font-semibold">{day}</td>
+                      {tt.schedule?.[day]?.length > 0 ? classSlotIndices.map((slot, idx) => {
+                        const entry = tt.schedule[day]?.[slot._idx];
+                        const isMyPeriod = entry?.teacher?.toString() === staffData?._id?.toString();
+                        return (
+                          <td key={idx} className="px-4 py-3 text-sm">
+                            {isMyPeriod ? (entry?.subject || '-') : '-'}
+                          </td>
+                        );
+                      }) : (
+                        <td colSpan={classSlotIndices.length || 1} className="px-4 py-3 text-sm text-[#64748B]">No schedule</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         );
       }) : (
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 text-center text-[#64748B]">
@@ -1687,27 +1921,66 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
       </div>
+      {/* Holiday Calendar + School Events — from admin-created calendar events */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Calendar className="text-[#F59E0B]" size={20} />
+            Holiday Calendar
+          </h3>
+          <div className="space-y-3">
+            {schoolEvents.filter(e => e.eventType === 'holiday').length > 0 ? (
+              schoolEvents.filter(e => e.eventType === 'holiday').map((event) => (
+                <div key={event._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold">{event.title}</p>
+                    <p className="text-xs text-[#64748B] capitalize">{event.priority} priority</p>
+                  </div>
+                  <span className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-sm font-semibold whitespace-nowrap">
+                    {formatDate(event.startDate)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[#64748B] text-center py-4">No holidays scheduled</p>
+            )}
+          </div>
+        </div>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <Calendar className="text-[#F59E0B]" size={20} />
-          Extra Classes & Events
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-[#FEF3C7] rounded-lg border-l-4 border-[#F59E0B]">
-            <p className="font-semibold">Doubt Clearing Session</p>
-            <p className="text-sm text-[#64748B]">Saturday, 10:00 AM</p>
-            <p className="text-xs text-[#64748B]">Grade 7-A & 7-B</p>
-          </div>
-          <div className="p-4 bg-[#D1FAE5] rounded-lg border-l-4 border-[#10B981]">
-            <p className="font-semibold">Science Exhibition Prep</p>
-            <p className="text-sm text-[#64748B]">Dec 23, 3:00 PM</p>
-            <p className="text-xs text-[#64748B]">Lab 2</p>
-          </div>
-          <div className="p-4 bg-[#FEE2E2] rounded-lg border-l-4 border-[#DC2626]">
-            <p className="font-semibold">Parent-Teacher Meeting</p>
-            <p className="text-sm text-[#64748B]">Dec 30, 10:00 AM</p>
-            <p className="text-xs text-[#64748B]">Main Hall</p>
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Briefcase className="text-[#4F46E5]" size={20} />
+            School Events
+          </h3>
+          <div className="space-y-3">
+            {schoolEvents.filter(e => e.eventType !== 'holiday').length > 0 ? (
+              schoolEvents.filter(e => e.eventType !== 'holiday').map((event) => {
+                const typeColors = {
+                  exam: { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]' },
+                  sports: { bg: 'bg-[#D1FAE5]', text: 'text-[#065F46]' },
+                  cultural: { bg: 'bg-[#FED7AA]', text: 'text-[#C2410C]' },
+                  academic: { bg: 'bg-[#DBEAFE]', text: 'text-[#1E40AF]' },
+                  meeting: { bg: 'bg-[#F3F4F6]', text: 'text-[#374151]' },
+                  other: { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]' },
+                };
+                const c = typeColors[event.eventType] || typeColors.other;
+                return (
+                  <div key={event._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{event.title}</p>
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.bg} ${c.text}`}>
+                        {event.eventType}
+                      </span>
+                    </div>
+                    <span className="ml-2 px-3 py-1 bg-[#DBEAFE] text-[#1E40AF] rounded-full text-xs font-semibold whitespace-nowrap">
+                      {formatDate(event.startDate)}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-[#64748B] text-center py-4">No upcoming events</p>
+            )}
           </div>
         </div>
       </div>
@@ -1715,80 +1988,31 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   );
 
   // 4. Class & Student Management
-  const renderClassManagement = () => {
-    const classesForStaff = (classDetail || []).filter(c => c.staffId === staffData?._id);
-    const selectedClassObj = classesForStaff.find(c => c._id === selectedClassForStudents);
-    const classesHomework = module === 'classes' && selectedClassForStudents ? classHomework : [];
-
-    return (
+  const renderClassManagement = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Class & Student Management</h2>
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4">My Assigned Classes</h3>
-        <p className="text-sm text-[#64748B] mb-4">Select a class to view students and assign homework</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {classDetail?.map((cls, idx) => {
-            const isSelected = selectedClassForStudents === cls._id;
-            return (
-            <div
-              key={idx}
-              onClick={() => setSelectedClassForStudents(cls._id)}
-              className={`p-4 border-2 rounded-lg transition-colors cursor-pointer ${isSelected ? 'border-[#4F46E5] bg-[#EEF2FF]' : 'border-[#FCD34D] hover:bg-[#FFFBEB]'}`}
-            >
+          {classDetail?.map((cls, idx) => (
+            <div key={idx} className="p-4 border-2 border-[#FCD34D] rounded-lg hover:bg-[#FFFBEB] transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-2">
-                <h4 className="font-bold text-lg">{cls.name} {cls.section}</h4>
+                <h4 className="font-bold text-lg">{cls.name}</h4>
               </div>
-              <p className="text-sm text-[#64748B]">{cls.students ?? '—'} Students</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <p className="text-sm text-[#64748B]">{cls.students} Students</p>
+              <div className="mt-3 flex gap-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleOpenMarkAttendance(cls._id); }}
-                  className="cursor-pointer text-xs bg-[#10B981] text-white px-3 py-1 rounded font-semibold hover:bg-[#059669] transition-colors"
+                  onClick={() => handleOpenMarkAttendance(cls._id)}
+                  className="text-xs bg-[#10B981] text-white px-3 py-1 rounded font-semibold hover:bg-[#059669] transition-colors"
                 >
                   Mark Attendance
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleOpenHomeworkForClass(cls); }}
-                  className="cursor-pointer text-xs bg-[#4F46E5] text-white px-3 py-1 rounded font-semibold hover:bg-[#4338CA] transition-colors"
-                >
-                  Set Homework
-                </button>
               </div>
             </div>
-            );
-          })}
+          ))}
         </div>
       </div>
-
-      {selectedClassObj && (
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2">
-          <ClipboardCheck className="text-[#DC2626]" size={20} />
-          Homework & Assignments — {selectedClassObj.name} {selectedClassObj.section}
-        </h3>
-        <div className="space-y-3 mb-4 max-h-[200px] overflow-y-auto pr-1">
-          {classesHomework.length > 0 ? classesHomework.map((hw) => (
-            <div key={hw._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center bg-white hover:border-[#CBD5E1] transition-colors">
-              <div>
-                <p className="font-semibold text-sm">{hw.title}</p>
-                <p className="text-xs text-[#64748B]">Due: {formatDate(hw.dueDate)} • {hw.submissionCount || 0} submissions</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleDeleteHomework(hw._id)} className="text-red-400 hover:text-red-600"><XCircle size={16} /></button>
-              </div>
-            </div>
-          )) : (
-            <p className="text-sm text-[#64748B] text-center py-4">No homework assigned yet. Use &quot;Set Homework&quot; on a class card above.</p>
-          )}
-        </div>
-        <button
-          onClick={() => handleOpenHomeworkForClass(selectedClassObj)}
-          className="w-full bg-[#10B981] text-white py-2 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-[#059669] transition-colors"
-        >
-          <Upload size={18} /> Add Assignment
-        </button>
-      </div>
-      )}
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <div className="flex justify-between items-center mb-4">
@@ -1834,7 +2058,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                       --%
                     </span>
                   </td>
-                 
+
                 </tr>
               )) : (
                 <tr>
@@ -1851,7 +2075,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
     </div>
   );
-  };
 
   // 5. Academic Management
   const renderAcademic = () => {
@@ -1863,6 +2086,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       setLessonPlans([]);
       setStudyMaterials([]);
       setClassHomework([]);
+      setOnlineClasses([]);
     };
 
     return (
@@ -1870,28 +2094,23 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         <h2 className="text-2xl font-bold text-[#0F172A]">Academic Management</h2>
 
         {/* Class Selector */}
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 flex flex-wrap items-center gap-3">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 flex items-center gap-3">
           <span className="font-semibold text-[#0F172A]">Select Class:</span>
           {assignedClasses.length === 0 ? (
             <span className="text-sm text-[#64748B]">No classes assigned</span>
           ) : (
-            <>
-              <button
-                onClick={() => handleClassChange('')}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${!selectedAcademicClass ? 'bg-[#4F46E5] text-white' : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-              >
-                All Classes
-              </button>
+            <select
+              value={selectedAcademicClass}
+              onChange={(e) => handleClassChange(e.target.value)}
+              className="flex-1 max-w-xs px-4 py-2 border-2 border-[#FCD34D] rounded-lg text-sm font-semibold focus:outline-none focus:border-[#4F46E5] transition-colors"
+            >
+              <option value="">All Classes</option>
               {assignedClasses.map((cls) => (
-                <button
-                  key={cls._id}
-                  onClick={() => handleClassChange(cls._id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${selectedAcademicClass === cls._id ? 'bg-[#4F46E5] text-white' : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0]'}`}
-                >
+                <option key={cls._id} value={cls._id}>
                   {cls.name} {cls.section}
-                </button>
+                </option>
               ))}
-            </>
+            </select>
           )}
         </div>
 
@@ -1979,10 +2198,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
               )}
             </div>
             <button
-              onClick={() => {
-                setHomeworkForm(prev => ({ ...prev, classId: selectedAcademicClass }));
-                setShowHomeworkModal(true);
-              }}
+              onClick={() => setShowHomeworkModal(true)}
               disabled={!selectedAcademicClass}
               className="w-full bg-[#10B981] text-white py-2 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -2026,6 +2242,44 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
             </button>
             {!selectedAcademicClass && <p className="text-xs text-[#64748B] text-center mt-1">Select a class to upload materials</p>}
           </div>
+        </div>
+
+        {/* Online Classes */}
+        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Video className="text-[#EF4444]" size={20} />
+            Online Classes {selectedClassObj ? `— ${selectedClassObj.name} ${selectedClassObj.section}` : ''}
+          </h3>
+          <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto pr-2">
+            {onlineClasses.length > 0 ? onlineClasses.map((oc) => (
+              <div key={oc._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center bg-white hover:border-[#CBD5E1] transition-colors">
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="font-semibold text-sm truncate">{oc.title} ({oc.platform})</p>
+                  <p className="text-xs text-[#64748B]">
+                    {oc.subject} • {new Date(oc.date).toLocaleDateString()} at {oc.time}
+                  </p>
+                  <a href={oc.meetingLink} target="_blank" rel="noopener noreferrer" className="text-xs text-[#4F46E5] hover:underline truncate inline-block max-w-full">
+                    {oc.meetingLink}
+                  </a>
+                </div>
+                <div className="flex gap-2 whitespace-nowrap">
+                  <button onClick={() => handleDeleteOnlineClass(oc._id)} className="text-red-500 text-sm font-semibold hover:underline">Delete</button>
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-[#64748B] text-center py-4">No online classes scheduled {selectedAcademicClass ? 'for this class' : ''} yet.</p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setOnlineClassForm({ title: '', platform: 'Google Meet', link: '', date: '', time: '', subject: '', classId: selectedAcademicClass });
+              setShowOnlineClassModal(true);
+            }}
+            disabled={!selectedAcademicClass}
+            className="w-full py-3 bg-white border-2 border-[#EF4444] text-[#EF4444] hover:bg-[#FEF2F2] font-bold rounded-xl transition-colors disabled:opacity-50 disabled:border-[#E2E8F0] disabled:text-[#94A3B8] disabled:hover:bg-white flex items-center justify-center gap-2"
+          >
+            <Plus size={20} /> Schedule Online Class
+          </button>
         </div>
 
         {/* Exam Invigilator Duties */}
@@ -2091,6 +2345,107 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
             </div>
           </div>
         )}
+
+        {/* Homework Modal */}
+        {showHomeworkModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-[#0F172A] mb-4">Assign Homework — {selectedClassObj?.name} {selectedClassObj?.section}</h2>
+              <form onSubmit={handleCreateHomework} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium teLxt-[#0F172A] mb-1">Title</label>
+                  <input type="text" required value={homeworkForm.title} onChange={(ev) => setHomeworkForm({ ...homeworkForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Subject</label>
+                  {classSubjects.length > 0 ? (
+                    <select required value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
+                      <option value="">Select subject</option>
+                      {classSubjects.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                    </select>
+                  ) : (
+                    <input type="text" required placeholder="e.g. Mathematics" value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Description (optional)</label>
+                  <textarea value={homeworkForm.description} onChange={(ev) => setHomeworkForm({ ...homeworkForm, description: ev.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Due Date</label>
+                  <input type="date" required value={homeworkForm.dueDate} onChange={(ev) => setHomeworkForm({ ...homeworkForm, dueDate: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Attachments (optional, max 5 files, 20MB each)</label>
+                  <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(ev) => setHomeworkForm({ ...homeworkForm, files: Array.from(ev.target.files) })} className="w-full border-2 border-[#E2E8F0] rounded-lg px-3 py-2 text-sm" />
+                  {homeworkForm.files.length > 0 && (
+                    <p className="text-xs text-[#10B981] mt-1">{homeworkForm.files.length} file(s) selected</p>
+                  )}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowHomeworkModal(false)} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
+                  <button type="submit" disabled={homeworkSubmitting} className="flex-1 h-10 bg-[#10B981] text-white rounded-lg font-medium disabled:opacity-50">{homeworkSubmitting ? 'Saving...' : 'Assign'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Online Class Modal */}
+        {showOnlineClassModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-[#0F172A] mb-4">Schedule Online Class — {selectedClassObj?.name} {selectedClassObj?.section}</h2>
+              <form onSubmit={handleOnlineClassSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Title</label>
+                  <input type="text" required value={onlineClassForm.title} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-1">Platform</label>
+                    <select required value={onlineClassForm.platform} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, platform: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
+                      <option value="Google Meet">Google Meet</option>
+                      <option value="Teams">Teams</option>
+                      <option value="Zoom">Zoom</option>
+                      <option value="Webex">Webex</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-1">Subject</label>
+                    {classSubjects.length > 0 ? (
+                      <select required value={onlineClassForm.subject} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
+                        <option value="">Select subject</option>
+                        {classSubjects.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                      </select>
+                    ) : (
+                      <input type="text" required placeholder="Subject" value={onlineClassForm.subject} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Meeting Link</label>
+                  <input type="url" required placeholder="https://..." value={onlineClassForm.link} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, link: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-1">Date</label>
+                    <input type="date" required value={onlineClassForm.date} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, date: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-1">Time</label>
+                    <input type="time" required value={onlineClassForm.time} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, time: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowOnlineClassModal(false)} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
+                  <button type="submit" disabled={onlineClassSubmitting} className="flex-1 h-10 bg-[#EF4444] text-white rounded-lg font-medium disabled:opacity-50 hover:bg-[#DC2626]">{onlineClassSubmitting ? 'Saving...' : 'Schedule'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2109,12 +2464,12 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   const GRADE_COLOR = {
     'A+': 'bg-[#D1FAE5] text-[#065F46]',
-    'A':  'bg-[#DBEAFE] text-[#1E40AF]',
+    'A': 'bg-[#DBEAFE] text-[#1E40AF]',
     'B+': 'bg-[#EDE9FE] text-[#5B21B6]',
-    'B':  'bg-[#FEF3C7] text-[#92400E]',
-    'C':  'bg-[#FFE4E6] text-[#9F1239]',
-    'D':  'bg-[#F1F5F9] text-[#475569]',
-    'F':  'bg-[#FEE2E2] text-[#991B1B]',
+    'B': 'bg-[#FEF3C7] text-[#92400E]',
+    'C': 'bg-[#FFE4E6] text-[#9F1239]',
+    'D': 'bg-[#F1F5F9] text-[#475569]',
+    'F': 'bg-[#FEE2E2] text-[#991B1B]',
   };
 
   const handleMarksClassChange = async (classId) => {
@@ -2153,6 +2508,24 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     setMarksLoading(true);
     setMarksLoaded(false);
     setMarksAnalysis(null);
+    const fetchAttendanceAndLeave = async () => {
+      try {
+        const [todayRes, historyRes, leavesRes, staffRes, studentLeavesRes] = await Promise.all([
+          api.get('/api/attendance/me/today'),
+          api.get('/api/attendance/me/history'),
+          api.get('/api/attendance/leave/my'),
+          api.get('/api/teachers'),
+          api.get('/api/student-leaves/staff/pending')
+        ]);
+        setTodayAttendance(todayRes.data);
+        setAttendanceHistory(historyRes.data);
+        setMyLeaves(leavesRes.data);
+        setStaffList(staffRes.data);
+        setPendingStudentLeaves(studentLeavesRes.data?.data || []);
+      } catch (err) {
+        console.error('Failed to load attendance/leave data:', err);
+      }
+    };
     try {
       const [studentsRes, resultsRes] = await Promise.all([
         api.get(`/api/students?classId=${marksClassId}`),
@@ -2160,21 +2533,14 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       ]);
       const students = studentsRes.data || [];
       const results = resultsRes.data || [];
-      const selectedExam = marksExams.find(e => e._id === marksExamId);
-      const maxScore = selectedExam?.maxScore || 100;
-      
       setMarksStudents(students);
       // Pre-fill entries from existing results
       const entries = {};
       results.forEach(r => {
-        const sid = r.studentId?._id || r.studentId;
         if (sid) entries[sid] = String(r.marks);
       });
       setMarksEntries(entries);
       setMarksLoaded(true);
-      
-      // Calculate performance analysis for existing marks
-      calculatePerformanceAnalysis(entries, students, maxScore, selectedExam);
     } catch {
       toast.error('Failed to load students');
     } finally {
@@ -2202,8 +2568,33 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       await api.post(`/api/exams/${marksExamId}/results/bulk`, { results });
       toast.success(`Saved marks for ${results.length} student(s)`);
 
-      // Use the unified performance analysis function
-      calculatePerformanceAnalysis(marksEntries, marksStudents, maxScore, selectedExam);
+      // Compute performance analysis
+      const scored = results;
+      const values = scored.map(r => r.marks);
+      const avg = values.reduce((a, b) => a + b, 0) / values.length;
+      const highest = Math.max(...values);
+      const lowest = Math.min(...values);
+      const highestStudent = marksStudents.find(s => marksEntries[s._id] === String(highest));
+      const passCount = values.filter(m => (m / maxScore) * 100 >= 35).length;
+      const gradeDist = {};
+      values.forEach(m => {
+        const g = marksCalcGrade(m, maxScore);
+        gradeDist[g] = (gradeDist[g] || 0) + 1;
+      });
+      setMarksAnalysis({
+        avg: avg.toFixed(1),
+        avgPct: ((avg / maxScore) * 100).toFixed(1),
+        highest,
+        highestStudentName: highestStudent?.name || '—',
+        lowest,
+        passCount,
+        total: values.length,
+        passRate: ((passCount / values.length) * 100).toFixed(0),
+        maxScore,
+        gradeDist,
+        subject: selectedExam?.subject || '',
+        examType: selectedExam?.examType || '',
+      });
     } catch {
       toast.error('Failed to save marks');
     } finally {
@@ -2311,11 +2702,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                             max={maxScore}
                             value={raw ?? ''}
                             placeholder="—"
-                            onChange={e => {
-                              const newEntries = { ...marksEntries, [student._id]: e.target.value };
-                              setMarksEntries(newEntries);
-                              calculatePerformanceAnalysis(newEntries, marksStudents, maxScore, selectedExam);
-                            }}
+                            onChange={e => setMarksEntries(prev => ({ ...prev, [student._id]: e.target.value }))}
                             className="w-24 h-9 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
                           />
                         </td>
@@ -2352,7 +2739,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           </div>
         )}
 
-        {/* Performance Analysis — shown in real-time as marks are entered */}
+        {/* Performance Analysis — shown after save */}
         {marksAnalysis && (
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
             <h3 className="font-bold text-[#0F172A] mb-4">
@@ -2419,39 +2806,8 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     try {
       const res = await api.get(`/api/communication/class-contacts/${classId}`);
       setCommContacts(res.data || []);
+      console.log(res, "Resssss")
     } catch { setCommContacts([]); }
-  };
-
-  const fetchSchoolEvents = async () => {
-    try {
-      const res = await api.get('/api/school-events/user-events');
-      setSchoolEvents(res.data || []);
-    } catch { /* ignore */ }
-  };
-
-  const getEventStyle = (eventType, priority) => {
-    const eventColors = {
-      holiday: { bg: 'bg-[#E0E7FF]', border: 'border-[#6366F1]', text: 'text-[#4338CA]' },
-      exam: { bg: 'bg-[#FEE2E2]', border: 'border-[#DC2626]', text: 'text-[#991B1B]' },
-      sports: { bg: 'bg-[#D1FAE5]', border: 'border-[#10B981]', text: 'text-[#065F46]' },
-      cultural: { bg: 'bg-[#FED7AA]', border: 'border-[#FB923C]', text: 'text-[#C2410C]' },
-      academic: { bg: 'bg-[#DBEAFE]', border: 'border-[#3B82F6]', text: 'text-[#1E40AF]' },
-      meeting: { bg: 'bg-[#F3F4F6]', border: 'border-[#6B7280]', text: 'text-[#374151]' },
-      other: { bg: 'bg-[#FEF3C7]', border: 'border-[#F59E0B]', text: 'text-[#92400E]' }
-    };
-    
-    const baseStyle = eventColors[eventType] || eventColors.other;
-    
-    if (priority === 'high') {
-      return {
-        ...baseStyle,
-        bg: 'bg-[#FEE2E2]',
-        border: 'border-[#DC2626]',
-        text: 'text-[#991B1B]'
-      };
-    }
-    
-    return baseStyle;
   };
 
   const handleCommClassChange = (classId) => {
@@ -2511,280 +2867,251 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     }
   };
 
-    const renderCommunication = () => (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-[#0F172A]">Communication Tools</h2>
+  const renderCommunication = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-[#0F172A]">Communication Tools</h2>
 
-        {/* Communication Channels - WhatsApp, Email, SMS */}
-        <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-xl p-6 text-white">
-          <h3 className="font-bold text-xl mb-4">Send Notifications via Multiple Channels</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#25D366] rounded-full flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-bold">WhatsApp</p>
-                  <p className="text-xs text-white/80">Instant messaging</p>
-                </div>
+      {/* Communication Channels - WhatsApp, Email, SMS */}
+      <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-xl p-6 text-white">
+        <h3 className="font-bold text-xl mb-4">Send Notifications via Multiple Channels</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#25D366] rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                </svg>
               </div>
-              <p className="text-sm text-white/70">Send instant messages to parents via WhatsApp</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#EA4335] rounded-full flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold">Email</p>
-                  <p className="text-xs text-white/80">Detailed communication</p>
-                </div>
+              <div>
+                <p className="font-bold">WhatsApp</p>
+                <p className="text-xs text-white/80">Instant messaging</p>
               </div>
-              <p className="text-sm text-white/70">Send detailed emails with attachments</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-[#4F46E5] rounded-full flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold">SMS</p>
-                  <p className="text-xs text-white/80">Quick alerts</p>
-                </div>
+            <p className="text-sm text-white/70">Send instant messages to parents via WhatsApp</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#EA4335] rounded-full flex items-center justify-center">
+                <Mail className="w-5 h-5 text-white" />
               </div>
-              <p className="text-sm text-white/70">Send quick SMS alerts to parents</p>
+              <div>
+                <p className="font-bold">Email</p>
+                <p className="text-xs text-white/80">Detailed communication</p>
+              </div>
             </div>
+            <p className="text-sm text-white/70">Send detailed emails with attachments</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-[#4F46E5] rounded-full flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold">SMS</p>
+                <p className="text-xs text-white/80">Quick alerts</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/70">Send quick SMS alerts to parents</p>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <Bell className="text-[#DC2626]" size={20} />
-              Messages from Management
-            </h3>
-            <div className="space-y-3">
-              {commAnnouncements.filter(a => a.priority === 'high' || a.priority === 'urgent').length === 0 && commAnnouncements.length === 0 ? (
-                <p className="text-sm text-[#64748B] text-center py-4">No messages from management</p>
-              ) : (
-                commAnnouncements.slice(0, 5).map((msg, idx) => (
-                  <div key={msg._id || idx} className={`p-4 rounded-lg border-l-4 ${msg.priority === 'high' || msg.priority === 'urgent' ? 'bg-[#FEE2E2] border-[#DC2626]' :
-                    msg.priority === 'normal' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
-                      'bg-[#F1F5F9] border-[#64748B]'
-                    }`}>
-                    <div className="flex justify-between items-start">
-                      <p className="font-semibold">{msg.title}</p>
-                      <span className="text-xs text-[#64748B]">{new Date(msg.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-sm text-[#64748B] mt-1">{msg.message}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <CalendarDays className="text-[#10B981]" size={20} />
-              School Events
-            </h3>
-            <div className="space-y-3">
-              {schoolEvents.length > 0 ? schoolEvents.map((event, idx) => {
-                const style = getEventStyle(event.eventType, event.priority);
-                return (
-                  <div key={idx} className={`p-4 rounded-lg border-l-4 ${style.bg} ${style.border}`}>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className={`font-semibold ${style.text}`}>{event.title}</h4>
-                        <p className="text-sm text-[#64748B] mt-1">{event.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-[#64748B]">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} />
-                            {new Date(event.startDate).toLocaleDateString()}
-                            {event.endDate && ` - ${new Date(event.endDate).toLocaleDateString()}`}
-                          </span>
-                          {event.location && (
-                            <span className="flex items-center gap-1">
-                              <FileText size={12} />
-                              {event.location}
-                            </span>
-                          )}
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
-                            {event.eventType}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                        event.status === 'upcoming' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
-                        event.status === 'ongoing' ? 'bg-[#D1FAE5] text-[#065F46]' :
-                        event.status === 'completed' ? 'bg-[#F1F5F9] text-[#64748B]' :
-                        'bg-[#FEE2E2] text-[#991B1B]'
-                      }`}>
-                        {event.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }) : (
-                <div className="p-8 text-center text-[#64748B]">
-                  <CalendarDays className="mx-auto mb-2 text-gray-400" size={32} />
-                  <p className="text-sm">No school events scheduled</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
           <h3 className="font-bold mb-4 flex items-center gap-2">
-            <MessageSquare className="text-[#10B981]" size={20} />
-            Send Message to Students / Parents
+            <Bell className="text-[#DC2626]" size={20} />
+            Messages from Management
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <select
-              className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
-              value={commForm.classId}
-              onChange={(e) => handleCommClassChange(e.target.value)}
-            >
-              <option value="">Select Class</option>
-              {commClasses.map(c => (
-                <option key={c._id} value={c._id}>{c.name}</option>
-              ))}
-            </select>
-            <select
-              className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
-              value={commForm.messageTo}
-              onChange={(e) => setCommForm(prev => ({ ...prev, messageTo: e.target.value, selectedParentIdx: '' }))}
-            >
-              <option value="all_parents">All Parents</option>
-              <option value="individual_parent">Individual Parent</option>
-            </select>
-            <select
-              className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
-              value={commForm.messageType}
-              onChange={(e) => setCommForm(prev => ({ ...prev, messageType: e.target.value }))}
-            >
-              <option value="announcement">General Announcement</option>
-              <option value="homework">Homework Reminder</option>
-              <option value="performance">Performance Update</option>
-              <option value="behavior">Behavior Report</option>
-            </select>
-            <select
-              className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
-              value={commForm.sendVia}
-              onChange={(e) => setCommForm(prev => ({ ...prev, sendVia: e.target.value }))}
-            >
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-              <option value="sms">SMS</option>
-              <option value="all">All Channels</option>
-            </select>
-          </div>
-          {commForm.messageTo === 'individual_parent' && commForm.classId && commContacts.length > 0 && (
-            <select
-              className="border-2 border-[#FCD34D] rounded-lg px-4 py-2 mb-4 w-full md:w-1/2"
-              value={commForm.selectedParentIdx}
-              onChange={(e) => setCommForm(prev => ({ ...prev, selectedParentIdx: e.target.value }))}
-            >
-              <option value="">Select Parent</option>
-              {commContacts.map((c, idx) => (
-                <option key={idx} value={idx}>
-                  {c.parentName || 'Parent'} ({c.studentName}'s parent)
-                </option>
-              ))}
-            </select>
-          )}
-          {/* Individual parent selected — show student details & contact info */}
-          {commForm.messageTo === 'individual_parent' && commForm.selectedParentIdx !== '' && commContacts[Number(commForm.selectedParentIdx)] && (() => {
-            const sel = commContacts[Number(commForm.selectedParentIdx)];
-            return (
-              <div className="mb-4 p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-[#64748B] mb-1">Student Details</p>
-                    <p className="font-semibold text-[#0F172A]">{sel.studentName}</p>
-                    <p className="text-sm text-[#64748B]">Class: {sel.className || '—'} {sel.rollNumber ? `| Roll No: ${sel.rollNumber}` : ''}</p>
+          <div className="space-y-3">
+            {commAnnouncements.filter(a => a.priority === 'high' || a.priority === 'urgent').length === 0 && commAnnouncements.length === 0 ? (
+              <p className="text-sm text-[#64748B] text-center py-4">No messages from management</p>
+            ) : (
+              commAnnouncements.slice(0, 5).map((msg, idx) => (
+                <div key={msg._id || idx} className={`p-4 rounded-lg border-l-4 ${msg.priority === 'high' || msg.priority === 'urgent' ? 'bg-[#FEE2E2] border-[#DC2626]' :
+                  msg.priority === 'normal' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
+                    'bg-[#F1F5F9] border-[#64748B]'
+                  }`}>
+                  <div className="flex justify-between items-start">
+                    <p className="font-semibold">{msg.title}</p>
+                    <span className="text-xs text-[#64748B]">{new Date(msg.createdAt).toLocaleDateString()}</span>
                   </div>
+                  <p className="text-sm text-[#64748B] mt-1">{msg.message}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Mail className="text-[#4F46E5]" size={20} />
+            Notices & Announcements
+          </h3>
+          <div className="space-y-3">
+            {commAnnouncements.length === 0 ? (
+              <p className="text-sm text-[#64748B] text-center py-4">No announcements</p>
+            ) : (
+              commAnnouncements.slice(0, 5).map((notice, idx) => (
+                <div key={notice._id || idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center hover:bg-[#F8FAFC] cursor-pointer">
                   <div>
-                    <p className="text-xs text-[#64748B] mb-1">Parent: {sel.parentName || '—'}</p>
-                    {(commForm.sendVia === 'email' || commForm.sendVia === 'all') && (
-                      <p className="text-sm flex items-center gap-1.5 mt-1">
-                        <Mail size={14} className="text-[#EA4335]" />
-                        <span className="font-medium text-[#0F172A]">{sel.parentEmail || 'No email available'}</span>
-                      </p>
-                    )}
-                    {(commForm.sendVia === 'whatsapp' || commForm.sendVia === 'sms' || commForm.sendVia === 'all') && (
-                      <p className="text-sm flex items-center gap-1.5 mt-1">
-                        {commForm.sendVia === 'whatsapp' ? (
-                          <span className="w-3.5 h-3.5 bg-[#25D366] rounded-full inline-flex items-center justify-center flex-shrink-0">
+                    <p className="font-semibold text-sm">{notice.title}</p>
+                    <p className="text-xs text-[#64748B]">{new Date(notice.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <ChevronRight className="text-[#64748B]" size={18} />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <MessageSquare className="text-[#10B981]" size={20} />
+          Send Message to Students / Parents
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <select
+            className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
+            value={commForm.classId}
+            onChange={(e) => handleCommClassChange(e.target.value)}
+          >
+            <option value="">Select Class</option>
+            {commClasses.map(c => (
+              <option key={c._id} value={c._id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
+            value={commForm.messageTo}
+            onChange={(e) => setCommForm(prev => ({ ...prev, messageTo: e.target.value, selectedParentIdx: '' }))}
+          >
+            <option value="all_parents">All Parents</option>
+            <option value="individual_parent">Individual Parent</option>
+          </select>
+          <select
+            className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
+            value={commForm.messageType}
+            onChange={(e) => setCommForm(prev => ({ ...prev, messageType: e.target.value }))}
+          >
+            <option value="announcement">General Announcement</option>
+            <option value="homework">Homework Reminder</option>
+            <option value="performance">Performance Update</option>
+            <option value="behavior">Behavior Report</option>
+          </select>
+          <select
+            className="border-2 border-[#FCD34D] rounded-lg px-4 py-2"
+            value={commForm.sendVia}
+            onChange={(e) => setCommForm(prev => ({ ...prev, sendVia: e.target.value }))}
+          >
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="all">All Channels</option>
+          </select>
+        </div>
+        {commForm.messageTo === 'individual_parent' && commForm.classId && commContacts.length > 0 && (
+          <select
+            className="border-2 border-[#FCD34D] rounded-lg px-4 py-2 mb-4 w-full md:w-1/2"
+            value={commForm.selectedParentIdx}
+            onChange={(e) => setCommForm(prev => ({ ...prev, selectedParentIdx: e.target.value }))}
+          >
+            <option value="">Select Parent</option>
+            {commContacts.map((c, idx) => (
+              <option key={idx} value={idx}>
+                {c.parentName || 'Parent'} ({c.studentName}'s parent)
+              </option>
+            ))}
+          </select>
+        )}
+        {/* Individual parent selected — show student details & contact info */}
+        {commForm.messageTo === 'individual_parent' && commForm.selectedParentIdx !== '' && commContacts[Number(commForm.selectedParentIdx)] && (() => {
+          const sel = commContacts[Number(commForm.selectedParentIdx)];
+          return (
+            <div className="mb-4 p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-[#64748B] mb-1">Student Details</p>
+                  <p className="font-semibold text-[#0F172A]">{sel.studentName}</p>
+                  <p className="text-sm text-[#64748B]">Class: {sel.className || '—'} {sel.rollNumber ? `| Roll No: ${sel.rollNumber}` : ''}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#64748B] mb-1">Parent: {sel.parentName || '—'}</p>
+                  {(commForm.sendVia === 'email' || commForm.sendVia === 'all') && (
+                    <p className="text-sm flex items-center gap-1.5 mt-1">
+                      <Mail size={14} className="text-[#EA4335]" />
+                      <span className="font-medium text-[#0F172A]">{sel.parentEmail || 'No email available'}</span>
+                    </p>
+                  )}
+                  {(commForm.sendVia === 'whatsapp' || commForm.sendVia === 'sms' || commForm.sendVia === 'all') && (
+                    <p className="text-sm flex items-center gap-1.5 mt-1">
+                      {commForm.sendVia === 'whatsapp' ? (
+                        <span className="w-3.5 h-3.5 bg-[#25D366] rounded-full inline-flex items-center justify-center flex-shrink-0">
+                          <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                        </span>
+                      ) : commForm.sendVia === 'sms' ? (
+                        <MessageSquare size={14} className="text-[#4F46E5] flex-shrink-0" />
+                      ) : (
+                        <span className="flex items-center gap-1 flex-shrink-0">
+                          <span className="w-3.5 h-3.5 bg-[#25D366] rounded-full inline-flex items-center justify-center">
                             <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                           </span>
-                        ) : commForm.sendVia === 'sms' ? (
-                          <MessageSquare size={14} className="text-[#4F46E5] flex-shrink-0" />
-                        ) : (
-                          <span className="flex items-center gap-1 flex-shrink-0">
-                            <span className="w-3.5 h-3.5 bg-[#25D366] rounded-full inline-flex items-center justify-center">
-                              <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                            </span>
-                            <MessageSquare size={14} className="text-[#4F46E5]" />
-                          </span>
-                        )}
-                        <span className="font-medium text-[#0F172A]">{sel.parentPhone || 'No phone available'}</span>
-                      </p>
-                    )}
-                  </div>
+                          <MessageSquare size={14} className="text-[#4F46E5]" />
+                        </span>
+                      )}
+                      <span className="font-medium text-[#0F172A]">{sel.parentPhone || 'No phone available'}</span>
+                    </p>
+                  )}
                 </div>
               </div>
-            );
-          })()}
-          {commForm.classId && commContacts.length > 0 && commForm.messageTo === 'all_parents' && (
-            <p className="text-xs text-[#64748B] mb-2">{commContacts.length} parent contact(s) found for this class</p>
-          )}
-          <textarea
-            className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-32"
-            placeholder="Type your message here..."
-            value={commForm.message}
-            onChange={(e) => setCommForm(prev => ({ ...prev, message: e.target.value }))}
-          ></textarea>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              className="bg-[#25D366] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
-              disabled={commSending}
-              onClick={() => handleSendMessage('whatsapp')}
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
-              WhatsApp
-            </button>
-            <button
-              className="bg-[#EA4335] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
-              disabled={commSending}
-              onClick={() => handleSendMessage('email')}
-            >
-              <Mail size={18} /> Email
-            </button>
-            <button
-              className="bg-[#4F46E5] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
-              disabled={commSending}
-              onClick={() => handleSendMessage('sms')}
-            >
-              <MessageSquare size={18} /> SMS
-            </button>
-            <button
-              className="bg-[#0F172A] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
-              disabled={commSending}
-              onClick={() => handleSendMessage('all')}
-            >
-              Send to All Channels
-            </button>
-          </div>
+            </div>
+          );
+        })()}
+        {commForm.classId && commContacts.length > 0 && commForm.messageTo === 'all_parents' && (
+          <p className="text-xs text-[#64748B] mb-2">{commContacts.length} parent contact(s) found for this class</p>
+        )}
+        <textarea
+          className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-32"
+          placeholder="Type your message here..."
+          value={commForm.message}
+          onChange={(e) => setCommForm(prev => ({ ...prev, message: e.target.value }))}
+        ></textarea>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            className="bg-[#25D366] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
+            disabled={commSending}
+            onClick={() => handleSendMessage('whatsapp')}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+            WhatsApp
+          </button>
+          <button
+            className="bg-[#EA4335] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
+            disabled={commSending}
+            onClick={() => handleSendMessage('email')}
+          >
+            <Mail size={18} /> Email
+          </button>
+          <button
+            className="bg-[#4F46E5] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
+            disabled={commSending}
+            onClick={() => handleSendMessage('sms')}
+          >
+            <MessageSquare size={18} /> SMS
+          </button>
+          <button
+            className="bg-[#0F172A] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
+            disabled={commSending}
+            onClick={() => handleSendMessage('all')}
+          >
+            Send to All Channels
+          </button>
         </div>
+      </div>
 
-        {/* <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      {/* <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4">Recent Conversations</h3>
           <div className="space-y-3">
             {[
@@ -2806,8 +3133,8 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
             ))}
           </div>
         </div> */}
-      </div>
-    );
+    </div>
+  );
 
   // 8. Payroll & Finance
   const renderPayroll = () => {
@@ -2896,7 +3223,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
               <p className="text-sm opacity-80">Net Payable Amount</p>
               <p className="text-3xl font-bold">₹{(sal?.netSalary || 0).toLocaleString()}</p>
             </div>
-            <button className="bg-white text-[#4F46E5] px-6 py-2 rounded-lg font-semibold flex items-center gap-2">
+            <button onClick={() => handleDownloadSalarySlip(sal)} className="bg-white text-[#4F46E5] px-6 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-slate-50 transition-colors">
               <Download size={18} /> Download Slip
             </button>
           </div>
@@ -2927,7 +3254,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${payment.status === 'paid' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>{payment.status === 'paid' ? 'Paid' : 'Pending'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <button className="text-[#4F46E5]"><Download size={18} /></button>
+                      <button onClick={() => handleDownloadSalarySlip(payment)} className="text-[#4F46E5] hover:bg-indigo-50 p-2 rounded-full transition-colors">
+                        <Download size={18} />
+                      </button>
                     </td>
                   </tr>
                 )) : (
@@ -3039,7 +3368,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                     <p className="text-xs text-[#64748B]">{formatDate(doc.createdAt)} • {formatFileSize(doc.size)}</p>
                   </div>
                 </div>
-                <button onClick={() => handleDownloadDocument(doc._id)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
+                <button onClick={() => handleDownloadDocument(doc)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
                   <Download size={18} />
                 </button>
               </div>
@@ -3056,7 +3385,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
               <Book className="mx-auto text-[#F59E0B] mb-3" size={48} />
               <h4 className="font-bold text-lg mb-2">{handbooks[0].title}</h4>
               <p className="text-sm text-[#64748B] mb-4">{handbooks[0].description || 'Complete guide for all staff members including policies, procedures, and guidelines.'}</p>
-              <button onClick={() => handleDownloadDocument(handbooks[0]._id)} className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 mx-auto">
+              <button onClick={() => handleDownloadDocument(handbooks[0])} className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 mx-auto">
                 <Download size={18} /> Download Handbook
               </button>
             </div>
@@ -3074,7 +3403,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                   <p className="font-semibold text-sm">{item.title}</p>
                   <p className="text-xs text-[#64748B]">{formatDate(item.createdAt)}</p>
                 </div>
-                <button onClick={() => handleDownloadDocument(item._id)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
+                <button onClick={() => handleDownloadDocument(item)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
                   <Download size={18} />
                 </button>
               </div>
@@ -3096,7 +3425,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                   <p className="font-semibold text-sm">{material.title}</p>
                   <p className="text-xs text-[#64748B]">{formatFileSize(material.size)} • {formatDate(material.createdAt)}</p>
                 </div>
-                <button onClick={() => handleDownloadDocument(material._id)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
+                <button onClick={() => handleDownloadDocument(material)} className="text-[#4F46E5] hover:bg-[#EEF2FF] p-2 rounded-lg transition-colors">
                   <Download size={18} />
                 </button>
               </div>
@@ -3114,7 +3443,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   // 12. Settings & Support
   const renderSettings = () => (
     <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
+      <h2 className="text-2xl font-bold text-[#0F172A]">Settings & Support</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
@@ -3125,36 +3454,15 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Display Name</label>
-              <input 
-                type="text" 
-                defaultValue={ user?.name || 'Staff User'} 
-                placeholder={loading ? 'Loading...' : 'Enter display name'}
-                disabled={loading}
-                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
-              />
+              <input type="text" defaultValue={user?.full_name || 'Staff User'} className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Email Address</label>
-              <input 
-                type="email" 
-                defaultValue={ user?.email || 'staff@ajmschool.edu'} 
-                placeholder={loading ? 'Loading...' : 'Enter email address'}
-                disabled={loading}
-                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
-              />
+              <input type="email" defaultValue="staff@ajmschool.edu" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Phone Number</label>
-              <input 
-                type="tel" 
-                defaultValue={staffData?.contact } 
-                placeholder={loading ? 'Loading...' : 'Enter phone number'}
-                disabled={loading}
-                className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2 disabled:opacity-50" 
-              />
-              {!loading && !staffData?.contact && (
-                <p className="text-xs text-[#64748B] mt-1">Contact information not available in profile</p>
-              )}
+              <input type="tel" defaultValue="+91 9876543210" className="w-full border-2 border-[#E2E8F0] rounded-lg px-4 py-2" />
             </div>
             <button className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold">Update Profile</button>
           </div>
@@ -3296,54 +3604,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         </div>
       )}
 
-      {showHomeworkModal && (() => {
-        const hwClassId = homeworkForm.classId || selectedAcademicClass;
-        const hwClassObj = (staffData?.classesAssigned || classDetail || []).find(c => c._id === hwClassId);
-        return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-[#0F172A] mb-4">Assign Homework — {hwClassObj?.name || ''} {hwClassObj?.section || ''}</h2>
-            <form onSubmit={handleCreateHomework} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Title</label>
-                <input type="text" required value={homeworkForm.title} onChange={(ev) => setHomeworkForm({ ...homeworkForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Subject</label>
-                {classSubjects.length > 0 ? (
-                  <select required value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
-                    <option value="">Select subject</option>
-                    {classSubjects.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
-                  </select>
-                ) : (
-                  <input type="text" required placeholder="e.g. Mathematics" value={homeworkForm.subject} onChange={(ev) => setHomeworkForm({ ...homeworkForm, subject: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Description (optional)</label>
-                <textarea value={homeworkForm.description} onChange={(ev) => setHomeworkForm({ ...homeworkForm, description: ev.target.value })} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Due Date</label>
-                <input type="date" required value={homeworkForm.dueDate} onChange={(ev) => setHomeworkForm({ ...homeworkForm, dueDate: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Attachments (optional, max 5 files, 20MB each)</label>
-                <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(ev) => setHomeworkForm({ ...homeworkForm, files: Array.from(ev.target.files) })} className="w-full border-2 border-[#E2E8F0] rounded-lg px-3 py-2 text-sm" />
-                {homeworkForm.files.length > 0 && (
-                  <p className="text-xs text-[#10B981] mt-1">{homeworkForm.files.length} file(s) selected</p>
-                )}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowHomeworkModal(false)} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
-                <button type="submit" disabled={homeworkSubmitting} className="flex-1 h-10 bg-[#10B981] text-white rounded-lg font-medium disabled:opacity-50">{homeworkSubmitting ? 'Saving...' : 'Assign'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        );
-      })()}
-
       {showMarkAttendanceModal && (
         <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-4xl w-full p-6 border-2 border-[#FCD34D] max-h-[90vh] flex flex-col">
@@ -3443,6 +3703,68 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         </div>
       )}
 
+      {/* Student Deny Leave Modal */}
+      {isStudentDenyModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b-2 border-[#FEF3C7] flex justify-between items-center">
+              <h3 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+                <XCircle className="text-[#DC2626]" size={24} />
+                Student Leave Denial
+              </h3>
+              <button
+                onClick={() => setIsStudentDenyModalOpen(false)}
+                className="text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-[#64748B]">Please provide a reason for denying this student's leave request. This will be visible to the student.</p>
+              <textarea
+                required
+                value={studentDenyReason}
+                onChange={(e) => setStudentDenyReason(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors h-32"
+                placeholder="Reason for denial..."
+              ></textarea>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsStudentDenyModalOpen(false)}
+                  className="flex-1 px-4 py-2 border-2 border-[#E2E8F0] text-[#64748B] font-bold rounded-xl hover:bg-[#F8FAFC] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleStudentLeaveAction(selectedStudentLeaveId, 'deny', studentDenyReason)}
+                  disabled={studentActionLoading || !studentDenyReason.trim()}
+                  className="flex-1 px-4 py-2 bg-[#DC2626] text-white font-bold rounded-xl hover:bg-[#B91C1C] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {studentActionLoading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Confirm Denial'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

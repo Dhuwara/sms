@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import LessonPlan from '../models/LessonPlan.js';
 import Staff from '../models/Staff.js';
+import Student from '../models/Student.js';
 
 export const getLessonPlans = async (req, res, next) => {
     try {
@@ -117,6 +118,26 @@ export const deleteLessonPlan = async (req, res, next) => {
 
         await plan.deleteOne();
         res.json({ success: true, message: 'Lesson plan deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Student-facing: get lesson plans for the student's class
+export const getMyLessonPlans = async (req, res, next) => {
+    try {
+        const student = await Student.findOne({ userId: req.user.userId });
+        if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+        const plans = await LessonPlan.find({ classId: student.classId })
+            .populate('classId', 'name section')
+            .populate({
+                path: 'uploadedBy',
+                populate: { path: 'userId', select: 'name email' }
+            })
+            .sort({ date: -1 });
+
+        res.json({ success: true, data: plans });
     } catch (err) {
         next(err);
     }

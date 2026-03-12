@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, BookOpen, Calendar, GraduationCap, DollarSign, Library, Bus, Building, Mail, LogOut, Menu, X,
   User, FileText, ClipboardCheck, MessageSquare, FileQuestion, Book, Award, Settings,
-  Activity, Bell, Heart, CalendarDays, UserCheck
+  Activity, Bell, Heart, CalendarDays, UserCheck, Video
 } from 'lucide-react';
 import api from '../utils/api';
 
@@ -111,7 +111,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Profile', path: '/student/profile', icon: User },
     { name: 'Attendance', path: '/student/attendance', icon: Calendar },
     { name: 'Timetable', path: '/student/timetable', icon: BookOpen },
-    { name: 'Subjects', path: '/student/subjects', icon: FileText },
+    { name: 'Online Classes', path: '/student/online-classes', icon: Video },
     { name: 'Homework', path: '/student/homework', icon: ClipboardCheck },
     { name: 'Exams', path: '/student/exams', icon: GraduationCap },
     // { name: 'Communication', path: '/student/communication', icon: MessageSquare },
@@ -119,7 +119,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Library', path: '/student/library', icon: Library },
     { name: 'Activities', path: '/student/activities', icon: Activity },
     // { name: 'Requests', path: '/student/requests', icon: FileQuestion },
-    { name: 'Settings', path: '/student/settings', icon: Settings },
+    // { name: 'Settings', path: '/student/settings', icon: Settings },
   ];
 
   // Parent navigation - 12 modules
@@ -129,7 +129,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Attendance', path: '/parent/attendance', icon: Calendar },
     { name: 'Academic Progress', path: '/parent/academic', icon: GraduationCap },
     { name: 'Communication', path: '/parent/communication', icon: MessageSquare },
-   
+
     { name: 'Transport', path: '/parent/transport', icon: Bus },
     { name: 'Settings', path: '/parent/settings', icon: Settings },
   ];
