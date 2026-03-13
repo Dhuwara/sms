@@ -82,12 +82,12 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Exams', path: '/exams', icon: GraduationCap },
     { name: 'Fees', path: '/fees', icon: DollarSign },
     { name: 'Library', path: '/library', icon: Library },
-    { name: 'Transport', path: '/transport', icon: Bus },
-    { name: 'Hostel', path: '/hostel', icon: Building },
+    // { name: 'Transport', path: '/transport', icon: Bus },
+    // { name: 'Hostel', path: '/hostel', icon: Building },
     { name: 'Communication', path: '/communication', icon: Mail },
     { name: 'Calendar Events', path: '/calendar-events', icon: CalendarDays },
     { name: 'Substitutions', path: '/substitutions', icon: UserCheck },
-    { name: 'Scholarships', path: '/scholarships', icon: Award },
+    // { name: 'Scholarships', path: '/scholarships', icon: Award },
     { name: 'Payroll', path: '/payroll', icon: DollarSign },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
@@ -101,6 +101,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Academic', path: '/staff/academic', icon: FileText },
     { name: 'Marks', path: '/staff/marks', icon: ClipboardCheck },
     // { name: 'Communication', path: '/staff/communication', icon: MessageSquare },
+    { name: 'Library', path: '/staff/library', icon: Library },
     { name: 'Payroll', path: '/staff/payroll', icon: DollarSign },
     { name: 'Documents', path: '/staff/documents', icon: Book },
     { name: 'Settings', path: '/staff/settings', icon: Settings },
@@ -130,7 +131,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Academic Progress', path: '/parent/academic', icon: GraduationCap },
     { name: 'Communication', path: '/parent/communication', icon: MessageSquare },
 
-    { name: 'Transport', path: '/parent/transport', icon: Bus },
+    // { name: 'Transport', path: '/parent/transport', icon: Bus },
     { name: 'Settings', path: '/parent/settings', icon: Settings },
   ];
 

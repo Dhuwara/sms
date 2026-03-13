@@ -100,6 +100,7 @@ function App() {
           <Route path="/staff/academic" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="academic" /></ProtectedRoute>} />
           <Route path="/staff/marks" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="marks" /></ProtectedRoute>} />
           <Route path="/staff/communication" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="communication" /></ProtectedRoute>} />
+          <Route path="/staff/library" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="library" /></ProtectedRoute>} />
           <Route path="/staff/payroll" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="payroll" /></ProtectedRoute>} />
           <Route path="/staff/documents" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="documents" /></ProtectedRoute>} />
           <Route path="/staff/settings" element={<ProtectedRoute allowedRoles={['staff']}><StaffDashboard user={user} module="settings" /></ProtectedRoute>} />

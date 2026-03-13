@@ -14,6 +14,7 @@ import PeriodConfig from '../models/PeriodConfig.js';
 import Exam from '../models/Exam.js';
 import Substitution from '../models/Substitution.js';
 import ClassMapping from '../models/ClassMapping.js';
+import Notification from '../models/Notification.js';
 
 const getStaffProfile = async (userId) => {
   const staff = await Staff.findOne({ userId });
@@ -394,6 +395,14 @@ export const applyLeave = async (req, res, next) => {
         // Need to import Message if not already there, ensure it's available
         await mongoose.model('Message').insertMany(messages);
       }
+      // Also push bell notifications to approvers
+      const notifDocs = approvers.map(approverId => ({
+        userId: approverId,
+        title: `Leave Request from ${staff.userId?.name || 'Staff'}`,
+        message: `${leaveType} leave requested from ${new Date(startDate).toLocaleDateString('en-IN')} to ${new Date(endDate).toLocaleDateString('en-IN')}. Reason: ${reason}`,
+        type: 'warning',
+      }));
+      if (notifDocs.length > 0) await Notification.insertMany(notifDocs);
     } catch (msgErr) {
       console.error('Failed to send notification messages:', msgErr);
       // Suppress error so leave creation still succeeds
@@ -598,6 +607,21 @@ export const approveRejectLeave = async (req, res, next) => {
     }
 
     await leave.save();
+
+    // Notify the staff member of the decision
+    try {
+      const staffDoc = await Staff.findById(leave.staffId).select('userId');
+      if (staffDoc?.userId) {
+        const decision = action === 'approve' ? 'approved' : 'rejected';
+        await Notification.create({
+          userId: staffDoc.userId,
+          title: `Leave ${decision.charAt(0).toUpperCase() + decision.slice(1)}`,
+          message: `Your ${leave.leaveType} leave request has been ${decision}.`,
+          type: action === 'approve' ? 'success' : 'error',
+        });
+      }
+    } catch { /* non-critical */ }
+
     res.json({ success: true, data: leave });
   } catch (err) {
     next(err);
