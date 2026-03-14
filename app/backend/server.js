@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import connectDB from './src/config/db.js';
 import errorHandler from './src/middleware/errorHandler.js';
+import { startChangeStreams } from './src/changeStreams.js';
 
 // Role-based routes
 import authRoutes from './src/routes/auth.routes.js';
@@ -20,6 +21,7 @@ import classesRoutes from './src/routes/classes.routes.js';
 import attendanceRoutes from './src/routes/attendance.routes.js';
 import examsRoutes from './src/routes/exams.routes.js';
 import feesRoutes from './src/routes/fees.routes.js';
+import feeStructureRoutes from './src/routes/feeStructure.routes.js';
 import libraryRoutes from './src/routes/library.routes.js';
 import transportRoutes from './src/routes/transport.routes.js';
 import hostelRoutes from './src/routes/hostel.routes.js';
@@ -39,10 +41,12 @@ import scholarshipRoutes from './src/routes/scholarship.routes.js';
 import schoolEventsRoutes from './src/routes/schoolEvents.routes.js';
 import studentLeaveRoutes from './src/routes/studentLeave.routes.js';
 import onlineClassRoutes from './src/routes/onlineClass.routes.js';
+import ptmRoutes from './src/routes/ptm.routes.js';
 
 const app = express();
 
-connectDB();
+await connectDB();
+startChangeStreams();
 
 app.use(helmet());
 app.use(cors({
@@ -70,6 +74,7 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/exams', examsRoutes);
 app.use('/api/fees', feesRoutes);
+app.use('/api/fee-structure', feeStructureRoutes);
 app.use('/api/library', libraryRoutes);
 app.use('/api/transport', transportRoutes);
 app.use('/api/hostel', hostelRoutes);
@@ -89,6 +94,7 @@ app.use('/api/scholarships', scholarshipRoutes);
 app.use('/api/school-events', schoolEventsRoutes);
 app.use('/api/student-leaves', studentLeaveRoutes);
 app.use('/api/online-classes', onlineClassRoutes);
+app.use('/api/ptm', ptmRoutes);
 
 app.use(errorHandler);
 

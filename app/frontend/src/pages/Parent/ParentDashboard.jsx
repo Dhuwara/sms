@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  User, Calendar, ClipboardCheck,
-  MessageSquare, DollarSign, Award, Settings, Users,
+  User, Calendar,
+  Award, Settings, Users,
   Clock, CheckCircle, XCircle, Bell, Mail, Download,
   Star, HelpCircle, LogOut, AlertCircle,
   Bus, Heart, Shield, CalendarDays, Phone, MapPin,
-  CreditCard, Receipt, GraduationCap
+  GraduationCap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../utils/api';
@@ -23,6 +23,11 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const [actionLoading, setActionLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [schoolEvents, setSchoolEvents] = useState([]);
+  const [childExams, setChildExams] = useState([]);
+  const [ptmSchedules, setPtmSchedules] = useState([]);
+  const [overviewStats, setOverviewStats] = useState({ attendancePct: null, overallGrade: null });
+  const [sendMsgForm, setSendMsgForm] = useState({ subject: '', body: '' });
+  const [sendMsgLoading, setSendMsgLoading] = useState(false);
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -52,9 +57,29 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           setChildAttendance(attRes.data);
           setPendingLeaves(leaveRes?.data || []);
         }
+        if (module === 'overview') {
+          try {
+            const [attRes, gradesRes] = await Promise.all([
+              api.get(`/api/parent/children/${selectedChild._id}/attendance`),
+              api.get(`/api/parent/children/${selectedChild._id}/grades`),
+            ]);
+            const att = attRes.data?.summary || {};
+            const total = att.total || 0;
+            const present = att.present || 0;
+            const pct = total > 0 ? ((present / total) * 100).toFixed(1) : null;
+            const grades = gradesRes.data || [];
+            const lastGrade = grades.length > 0 ? grades[grades.length - 1].grade : null;
+            setOverviewStats({ attendancePct: pct, overallGrade: lastGrade });
+          } catch { /* ignore */ }
+        }
         if (module === 'academic') {
-          const res = await api.get(`/api/parent/children/${selectedChild._id}/grades`);
-          setChildGrades(res.data || []);
+          const rawClassId = selectedChild.classId?._id ?? selectedChild.classId;
+          const [gradesRes, examsRes] = await Promise.all([
+            api.get(`/api/parent/children/${selectedChild._id}/grades`),
+            rawClassId ? api.get(`/api/exams?classId=${rawClassId}`) : Promise.resolve({ data: [] }),
+          ]);
+          setChildGrades(gradesRes.data || []);
+          setChildExams(examsRes.data?.data || examsRes.data || []);
         }
         if (module === 'fees') {
           const res = await api.get(`/api/parent/children/${selectedChild._id}/fees`);
@@ -62,9 +87,13 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
         }
         if (module === 'communication') {
           try {
-            const eventsRes = await api.get('/api/school-events/user-events');
+            const [eventsRes, ptmRes] = await Promise.all([
+              api.get('/api/school-events/user-events'),
+              api.get('/api/ptm/parent'),
+            ]);
             setSchoolEvents(eventsRes?.data || []);
-          } catch { /* events optional */ }
+            setPtmSchedules(ptmRes.data?.data || ptmRes.data || []);
+          } catch { /* optional */ }
         }
       } catch (err) {
         console.error('Failed to load child data:', err);
@@ -279,11 +308,11 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
               </div>
               <div className="p-3 bg-[#F8FAFC] rounded-lg">
                 <p className="text-sm text-[#64748B]">Admission Date</p>
-                <p className="font-semibold">{child?.admissionDate ? formatDate(child.admissionDate) : '—'}</p>
+                <p className="font-semibold">{child?.createdAt ? formatDate(child.createdAt) : '—'}</p>
               </div>
               <div className="p-3 bg-[#F8FAFC] rounded-lg">
-                <p className="text-sm text-[#64748B]">House</p>
-                <p className="font-semibold">{child?.house || '—'}</p>
+                <p className="text-sm text-[#64748B]">Student Type</p>
+                <p className="font-semibold capitalize">{child?.studentType || '—'}</p>
               </div>
             </div>
           </div>
@@ -305,20 +334,15 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
             <p className="text-sm text-[#64748B]">Attendance</p>
-            <p className="text-3xl font-bold text-[#065F46]">—</p>
-            <p className="text-xs text-[#10B981]">This Month</p>
-          </div>
-          <div className="p-6 bg-[#DBEAFE] rounded-xl border-2 border-[#3B82F6]">
-            <p className="text-sm text-[#64748B]">Class Rank</p>
-            <p className="text-3xl font-bold text-[#1E40AF]">—</p>
-            <p className="text-xs text-[#3B82F6]">Out of —</p>
+            <p className="text-3xl font-bold text-[#065F46]">{overviewStats.attendancePct === null ? '—' : `${overviewStats.attendancePct}%`}</p>
+            <p className="text-xs text-[#10B981]">Overall</p>
           </div>
           <div className="p-6 bg-[#FEF3C7] rounded-xl border-2 border-[#F59E0B]">
             <p className="text-sm text-[#64748B]">Overall Grade</p>
-            <p className="text-3xl font-bold text-[#92400E]">—</p>
+            <p className="text-3xl font-bold text-[#92400E]">{overviewStats.overallGrade || '—'}</p>
             <p className="text-xs text-[#F59E0B]">Last Exam</p>
           </div>
         </div>
@@ -513,30 +537,39 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <ClipboardCheck className="text-[#DC2626]" size={20} />
-              Homework & Assignments
-            </h3>
-            <div className="space-y-3">
-              <div className="p-4 text-center text-[#64748B]">
-                <p>Homework module coming soon</p>
-              </div>
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <GraduationCap className="text-[#7C3AED]" size={20} />
+            Test & Exam Schedule
+          </h3>
+          {childExams.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#EDE9FE]">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Exam</th>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Subject</th>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Date</th>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Time</th>
+                    <th className="px-4 py-3 text-left font-bold text-sm">Max Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {childExams.map((exam, idx) => (
+                    <tr key={exam._id || idx} className="border-b border-[#E2E8F0]">
+                      <td className="px-4 py-3 text-sm font-semibold">{exam.examType}</td>
+                      <td className="px-4 py-3 text-sm">{exam.subject}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(exam.date)}</td>
+                      <td className="px-4 py-3 text-sm">{exam.startTime} – {exam.endTime}</td>
+                      <td className="px-4 py-3 text-sm">{exam.maxScore}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <GraduationCap className="text-[#7C3AED]" size={20} />
-              Test & Exam Schedules
-            </h3>
-            <div className="space-y-3">
-              <div className="p-4 text-center text-[#64748B]">
-                <p>Exam schedules coming soon</p>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p className="text-[#64748B] text-center py-6">No exam schedules found for this class.</p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
@@ -583,263 +616,129 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   };
 
   // 5. Communication
+  const handleSendMessageToSchool = async (e) => {
+    e.preventDefault();
+    if (!sendMsgForm.subject.trim() || !sendMsgForm.body.trim()) {
+      toast.error('Please fill in subject and message');
+      return;
+    }
+    setSendMsgLoading(true);
+    try {
+      const res = await api.post('/api/communication/send-email', {
+        recipientType: 'admin',
+        subject: sendMsgForm.subject,
+        body: sendMsgForm.body,
+      });
+      toast.success(res.data?.message || 'Message sent to school!');
+      setSendMsgForm({ subject: '', body: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send message');
+    } finally {
+      setSendMsgLoading(false);
+    }
+  };
+
   const renderCommunication = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Communication</h2>
 
-      {/* Holiday Calendar + School Events — from admin-created calendar events */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <CalendarDays className="text-[#F59E0B]" size={20} />
-            Holiday Calendar
-          </h3>
-          <div className="space-y-3">
-            {schoolEvents.filter(e => e.eventType === 'holiday').length > 0 ? (
-              schoolEvents.filter(e => e.eventType === 'holiday').map((event) => (
-                <div key={event._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold">{event.title}</p>
-                    <p className="text-xs text-[#64748B] capitalize">{event.priority} priority</p>
-                  </div>
-                  <span className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-sm font-semibold whitespace-nowrap">
-                    {formatDate(event.startDate)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-[#64748B] text-center py-4">No holidays scheduled</p>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Bell className="text-[#4F46E5]" size={20} />
-            School Events
-          </h3>
-          <div className="space-y-3">
-            {schoolEvents.filter(e => e.eventType !== 'holiday').length > 0 ? (
-              schoolEvents.filter(e => e.eventType !== 'holiday').map((event) => {
-                const typeColors = {
-                  exam: { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]' },
-                  sports: { bg: 'bg-[#D1FAE5]', text: 'text-[#065F46]' },
-                  cultural: { bg: 'bg-[#FED7AA]', text: 'text-[#C2410C]' },
-                  academic: { bg: 'bg-[#DBEAFE]', text: 'text-[#1E40AF]' },
-                  meeting: { bg: 'bg-[#F3F4F6]', text: 'text-[#374151]' },
-                  other: { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]' },
-                };
-                const c = typeColors[event.eventType] || typeColors.other;
-                return (
-                  <div key={event._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{event.title}</p>
-                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.bg} ${c.text}`}>
-                        {event.eventType}
-                      </span>
-                    </div>
-                    <span className="ml-2 px-3 py-1 bg-[#DBEAFE] text-[#1E40AF] rounded-full text-xs font-semibold whitespace-nowrap">
-                      {formatDate(event.startDate)}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-sm text-[#64748B] text-center py-4">No upcoming events</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Communication Channels - WhatsApp, Email, SMS */}
-      <div className="bg-linear-to-r from-[#4F46E5] to-[#7C3AED] rounded-xl p-6 text-white">
-        <h3 className="font-bold text-xl mb-4">Contact School via Multiple Channels</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#25D366] rounded-full flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-bold">WhatsApp</p>
-                <p className="text-xs text-white/80">+91 98765 43210</p>
-              </div>
-            </div>
-            <p className="text-sm text-white/70">Message school on WhatsApp for quick queries</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#EA4335] rounded-full flex items-center justify-center">
-                <Mail className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="font-bold">Email</p>
-                <p className="text-xs text-white/80">info@ajmschool.edu</p>
-              </div>
-            </div>
-            <p className="text-sm text-white/70">Send detailed emails with attachments</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#10B981] rounded-full flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="font-bold">SMS Alerts</p>
-                <p className="text-xs text-white/80">Subscribed</p>
-              </div>
-            </div>
-            <p className="text-sm text-white/70">Receive instant SMS alerts for important updates</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      {/* Parent-Teacher Meeting — dynamic from backend */}
+      <div className="bg-white rounded-xl border-2 border-[#4F46E5] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
-          <MessageSquare className="text-[#4F46E5]" size={20} />
-          Messages from Teachers
+          <Users className="text-[#4F46E5]" size={20} />
+          Parent-Teacher Meeting (PTM)
         </h3>
-        <div className="space-y-4">
-          {[
-            { teacher: 'Mr. Sharma (Mathematics)', message: 'Rahul has shown great improvement in problem-solving. Encourage more practice at home.', time: 'Today, 10:30 AM', type: 'positive', via: 'WhatsApp' },
-            { teacher: 'Mrs. Gupta (Science)', message: 'Please ensure Rahul completes the lab report by Dec 28. It\'s important for grades.', time: 'Yesterday, 3:15 PM', type: 'info', via: 'Email' },
-            { teacher: 'Mrs. Sunita (Class Teacher)', message: 'Parent-Teacher Meeting scheduled for Dec 30. Please confirm your attendance.', time: 'Dec 20, 2024', type: 'important', via: 'SMS' },
-          ].map((msg, idx) => (
-            <div key={idx} className={`p-4 rounded-lg border-l-4 ${msg.type === 'positive' ? 'bg-[#F0FDF4] border-[#10B981]' :
-              msg.type === 'important' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
-                'bg-[#F8FAFC] border-[#64748B]'
-              }`}>
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold">{msg.teacher}</p>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${msg.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' :
-                    msg.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
-                      'bg-[#4F46E5]/20 text-[#4F46E5]'
-                    }`}>{msg.via}</span>
-                </div>
-                <span className="text-xs text-[#64748B]">{msg.time}</span>
+        {ptmSchedules.length > 0 ? (
+          <div className="space-y-3">
+            {ptmSchedules.map((ptm) => (
+              <div key={ptm._id} className="p-4 bg-[#EEF2FF] rounded-lg border-l-4 border-[#4F46E5]">
+                <p className="font-semibold text-[#4F46E5] text-lg">{ptm.title}</p>
+                <p className="text-sm text-[#64748B] mt-1">
+                  <span className="font-medium text-[#0F172A]">Date:</span> {formatDate(ptm.date)}
+                </p>
+                <p className="text-sm text-[#64748B]">
+                  <span className="font-medium text-[#0F172A]">Time:</span> {ptm.time}
+                </p>
+                <p className="text-sm text-[#64748B]">
+                  <span className="font-medium text-[#0F172A]">Venue:</span> {ptm.venue}
+                </p>
+                {ptm.notes && <p className="text-sm text-[#64748B] mt-1 italic">"{ptm.notes}"</p>}
+                {ptm.targetAudience === 'class' && ptm.classIds?.length > 0 && (
+                  <p className="text-xs text-[#4F46E5] mt-2 font-medium">
+                    Classes: {ptm.classIds.map(c => `${c.name} ${c.section || ''}`).join(', ')}
+                  </p>
+                )}
               </div>
-              <p className="text-sm text-[#64748B] mt-2">{msg.message}</p>
-              <div className="mt-3 flex gap-2">
-                <button className="text-sm bg-[#25D366] text-white px-3 py-1 rounded font-semibold">Reply via WhatsApp</button>
-                <button className="text-sm bg-[#EA4335] text-white px-3 py-1 rounded font-semibold">Reply via Email</button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 bg-[#F8FAFC] rounded-lg text-center">
+            <p className="text-[#64748B]">No PTM scheduled at the moment.</p>
+            <p className="text-xs text-[#94A3B8] mt-1">You will be notified when a meeting is scheduled.</p>
+          </div>
+        )}
       </div>
 
+      {/* School Announcements */}
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <Bell className="text-[#DC2626]" size={20} />
           School Announcements & Notices
         </h3>
         <div className="space-y-3">
-          {[
-            { title: 'Mid-Term Examination Schedule', message: 'Examinations begin from December 26, 2024. Please check the timetable.', time: '2 hours ago', priority: 'high', via: 'SMS' },
-            { title: 'Annual Day Celebration', message: 'Annual Day will be celebrated on January 15, 2025. Parents are cordially invited.', time: '1 day ago', priority: 'medium', via: 'Email' },
-            { title: 'Winter Vacation Notice', message: 'School will remain closed from January 1-5, 2025 for winter vacation.', time: '2 days ago', priority: 'low', via: 'WhatsApp' },
-          ].map((notice, idx) => (
-            <div key={idx} className={`p-4 rounded-lg border-l-4 ${notice.priority === 'high' ? 'bg-[#FEE2E2] border-[#DC2626]' :
-              notice.priority === 'medium' ? 'bg-[#FEF3C7] border-[#F59E0B]' :
-                'bg-[#F1F5F9] border-[#64748B]'
-              }`}>
+          {schoolEvents.length > 0 ? schoolEvents.slice(0, 5).map((event) => (
+            <div key={event._id} className="p-4 rounded-lg border-l-4 bg-[#F8FAFC] border-[#64748B]">
               <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold">{notice.title}</p>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${notice.via === 'WhatsApp' ? 'bg-[#25D366]/20 text-[#25D366]' :
-                    notice.via === 'Email' ? 'bg-[#EA4335]/20 text-[#EA4335]' :
-                      'bg-[#4F46E5]/20 text-[#4F46E5]'
-                    }`}>via {notice.via}</span>
-                </div>
-                <span className="text-xs text-[#64748B]">{notice.time}</span>
+                <p className="font-semibold">{event.title}</p>
+                <span className="text-xs text-[#64748B]">{formatDate(event.startDate)}</span>
               </div>
-              <p className="text-sm text-[#64748B] mt-1">{notice.message}</p>
+              {event.description && <p className="text-sm text-[#64748B] mt-1">{event.description}</p>}
             </div>
-          ))}
+          )) : (
+            <p className="text-sm text-[#64748B] text-center py-4">No announcements at the moment.</p>
+          )}
         </div>
       </div>
 
+      {/* Send Message to School — real email */}
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <h3 className="font-bold mb-4">Send Message to School</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
-            <option>Select Recipient</option>
-            <option>Class Teacher</option>
-            <option>Subject Teacher</option>
-            <option>Principal</option>
-            <option>Admin Office</option>
-          </select>
-          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
-            <option>Regarding</option>
-            <option>Academic Query</option>
-            <option>Attendance Issue</option>
-            <option>Fee Related</option>
-            <option>General Inquiry</option>
-          </select>
-          <select className="border-2 border-[#FCD34D] rounded-lg px-4 py-2">
-            <option>Send Via</option>
-            <option>WhatsApp</option>
-            <option>Email</option>
-            <option>In-App Message</option>
-          </select>
-        </div>
-        <textarea className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-3 h-24" placeholder="Type your message here..."></textarea>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button className="bg-[#25D366] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-            </svg>
-            Send via WhatsApp
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Mail className="text-[#4F46E5]" size={20} />
+          Send Message to School
+        </h3>
+        <form onSubmit={handleSendMessageToSchool} className="space-y-4">
+          <div>
+            <label htmlFor="msg-subject" className="block text-sm font-medium text-[#0F172A] mb-2">Subject</label>
+            <input
+              id="msg-subject"
+              type="text"
+              required
+              value={sendMsgForm.subject}
+              onChange={(e) => setSendMsgForm(prev => ({ ...prev, subject: e.target.value }))}
+              placeholder="e.g. Query about attendance"
+              className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+            />
+          </div>
+          <div>
+            <label htmlFor="msg-body" className="block text-sm font-medium text-[#0F172A] mb-2">Message</label>
+            <textarea
+              id="msg-body"
+              required
+              value={sendMsgForm.body}
+              onChange={(e) => setSendMsgForm(prev => ({ ...prev, body: e.target.value }))}
+              placeholder="Type your message here..."
+              rows={5}
+              className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] resize-none"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={sendMsgLoading}
+            className="bg-[#4F46E5] text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-[#4338CA] transition-colors disabled:opacity-50"
+          >
+            <Mail size={18} /> {sendMsgLoading ? 'Sending...' : 'Send to School'}
           </button>
-          <button className="bg-[#EA4335] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2">
-            <Mail size={18} /> Send via Email
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border-2 border-[#4F46E5] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Users className="text-[#4F46E5]" size={20} />
-            Parent-Teacher Meeting (PTM)
-          </h3>
-          <div className="p-4 bg-[#EEF2FF] rounded-lg mb-4">
-            <p className="font-semibold text-[#4F46E5]">Next PTM: December 30, 2024</p>
-            <p className="text-sm text-[#64748B]">Time: 10:00 AM - 1:00 PM</p>
-            <p className="text-sm text-[#64748B]">Venue: Main Hall</p>
-          </div>
-          <div className="flex gap-3">
-            <button className="flex-1 bg-[#10B981] text-white py-2 rounded-lg font-semibold text-sm">Confirm Attendance</button>
-            <button className="flex-1 border-2 border-[#DC2626] text-[#DC2626] py-2 rounded-lg font-semibold text-sm">Request Reschedule</button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Star className="text-[#F59E0B]" size={20} />
-            Feedback from Teachers
-          </h3>
-          <div className="space-y-3">
-            <div className="p-3 bg-[#D1FAE5] rounded-lg">
-              <p className="font-semibold text-sm">Academic Performance</p>
-              <div className="flex mt-1">
-                {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} className="text-[#F59E0B] fill-[#F59E0B]" />)}
-              </div>
-              <p className="text-xs text-[#64748B] mt-1">Excellent progress in all subjects</p>
-            </div>
-            <div className="p-3 bg-[#DBEAFE] rounded-lg">
-              <p className="font-semibold text-sm">Behavior & Discipline</p>
-              <div className="flex mt-1">
-                {[1, 2, 3, 4].map(star => <Star key={star} size={16} className="text-[#F59E0B] fill-[#F59E0B]" />)}
-                <Star size={16} className="text-[#E2E8F0]" />
-              </div>
-              <p className="text-xs text-[#64748B] mt-1">Good behavior, participates actively</p>
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
     </div>
   );
@@ -905,112 +804,6 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <CreditCard className="text-[#4F46E5]" size={20} />
-              Online Payment
-            </h3>
-            <div className="p-4 bg-[#FEE2E2] rounded-lg mb-4">
-              <p className="text-sm text-[#64748B]">Amount Due</p>
-              <p className="text-2xl font-bold text-[#991B1B]">₹{totalDue.toLocaleString()}</p>
-            </div>
-            <select className="w-full border-2 border-[#FCD34D] rounded-lg px-4 py-2 mb-4">
-              <option>Select Fee Type</option>
-              {fees.filter(f => f.status !== 'paid').map((f, idx) => (
-                <option key={idx}>{f.feeType || f.type || 'Fee'} - ₹{(f.amount || 0).toLocaleString()}</option>
-              ))}
-              {totalDue > 0 && <option>Pay All Pending - ₹{totalDue.toLocaleString()}</option>}
-            </select>
-
-            {/* Payment Methods */}
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-[#64748B] mb-3">Choose Payment Method</p>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Razorpay */}
-                <button className="p-3 border-2 border-[#3B82F6] rounded-lg hover:bg-[#EFF6FF] transition-all flex flex-col items-center gap-2 group">
-                  <div className="w-10 h-10 bg-[#3B82F6] rounded-lg flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
-                      <path d="M22.436 0H1.564C.7 0 0 .7 0 1.564v20.872C0 23.3.7 24 1.564 24h20.872c.864 0 1.564-.7 1.564-1.564V1.564C24 .7 23.3 0 22.436 0zM7.543 15.957l-2.4-1.3 6.5-11.357 2.4 1.3-6.5 11.357zm8.314 4.5l-2.4-1.3 2.7-4.7 2.4 1.3-2.7 4.7zm1.5-6.2l-2.4-1.3 1.3-2.3 2.4 1.3-1.3 2.3z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-semibold text-[#3B82F6]">Razorpay</span>
-                </button>
-
-                {/* UPI */}
-                <button className="p-3 border-2 border-[#10B981] rounded-lg hover:bg-[#ECFDF5] transition-all flex flex-col items-center gap-2 group">
-                  <div className="w-10 h-10 bg-[#10B981] rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">UPI</span>
-                  </div>
-                  <span className="text-sm font-semibold text-[#10B981]">UPI Payment</span>
-                </button>
-
-                {/* Card */}
-                <button className="p-3 border-2 border-[#7C3AED] rounded-lg hover:bg-[#F5F3FF] transition-all flex flex-col items-center gap-2 group">
-                  <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-sm font-semibold text-[#7C3AED]">Debit/Credit Card</span>
-                </button>
-
-                {/* QR Scanner */}
-                <button className="p-3 border-2 border-[#F59E0B] rounded-lg hover:bg-[#FFFBEB] transition-all flex flex-col items-center gap-2 group">
-                  <div className="w-10 h-10 bg-[#F59E0B] rounded-lg flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-                      <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2zM17 17h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-semibold text-[#F59E0B]">Scan QR Code</span>
-                </button>
-              </div>
-            </div>
-
-            <button className="w-full bg-[#4F46E5] text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-[#4338CA] transition-colors">
-              <CreditCard size={18} /> Proceed to Pay
-            </button>
-
-            {/* Payment Info */}
-            <div className="mt-4 p-3 bg-[#F1F5F9] rounded-lg">
-              <p className="text-xs text-[#64748B] text-center">
-                Secure payment powered by Razorpay. All transactions are encrypted.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2">
-              <Receipt className="text-[#10B981]" size={20} />
-              Receipts & Invoices
-            </h3>
-            <div className="space-y-3">
-              {fees.filter(f => f.status === 'paid').length > 0 ? fees.filter(f => f.status === 'paid').map((receipt, idx) => (
-                <div key={idx} className="p-3 border-2 border-[#E2E8F0] rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-sm">{receipt.feeType || receipt.type || 'Fee'}</p>
-                    <p className="text-xs text-[#64748B]">{receipt.paidDate ? formatDate(receipt.paidDate) : formatDate(receipt.dueDate)}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-[#10B981]">₹{(receipt.amount || 0).toLocaleString()}</span>
-                    <button className="text-[#4F46E5]"><Download size={18} /></button>
-                  </div>
-                </div>
-              )) : (
-                <p className="text-center text-[#64748B] py-4">No paid receipts yet.</p>
-              )}
-            </div>
-
-            {/* QR Code for Payment */}
-            <div className="mt-6 p-4 border-2 border-dashed border-[#FCD34D] rounded-lg text-center">
-              <h4 className="font-semibold mb-3">Scan to Pay via UPI</h4>
-              <div className="w-32 h-32 mx-auto bg-white border-2 border-[#E2E8F0] rounded-lg flex items-center justify-center mb-2">
-                <svg viewBox="0 0 24 24" className="w-20 h-20 fill-[#0F172A]">
-                  <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2zM17 17h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z" />
-                </svg>
-              </div>
-              <p className="text-xs text-[#64748B]">ajmschool@upi</p>
-            </div>
-          </div>
-        </div>
       </div>
     );
   };

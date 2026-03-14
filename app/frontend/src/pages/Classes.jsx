@@ -235,6 +235,7 @@ const Classes = () => {
   const fetchTeachers = async () => {
     try {
       const res = await api.get('/api/teachers');
+      console.log(res.data,"teacherss")
       setTeachers(res.data);
     } catch {
       console.error('Failed to load teachers');
@@ -377,16 +378,19 @@ const Classes = () => {
     setMappingClassId(classId);
     setMappingEditMode(false);
     if (!classId) { setMappingData(null); return; }
+    const classInfo = classes.find(c => c._id === classId);
+    const defaultTeacherId = classInfo?.classTeacher?._id || '';
     try {
       const res = await api.get(`/api/classmapping/${classId}/${getAcademicYear()}`);
       const m = res.data;
+      const teacherId = (typeof m.classTeacher === 'object' ? m.classTeacher?._id : m.classTeacher) || defaultTeacherId || '';
       setMappingData({
-        classTeacher: m.classTeacher || '',
+        classTeacher: teacherId.toString(),
         subjectTeachers: m.subjectTeachers ? Object.fromEntries(Object.entries(m.subjectTeachers)) : {},
         students: m.students ? m.students.map((s) => (typeof s === 'object' ? s._id : s)) : [],
       });
     } catch {
-      setMappingData({ classTeacher: '', subjectTeachers: {}, students: [] });
+      setMappingData({ classTeacher: defaultTeacherId.toString(), subjectTeachers: {}, students: [] });
     }
   };
 
@@ -406,19 +410,19 @@ const Classes = () => {
   const handleSaveMapping = async () => {
     if (!mappingClassId) return;
     setMappingSaving(true);
-    console.log(mappingData, "mappingdata");
     try {
-      // await api.post('/api/classmapping/save', {
-      //   classId: mappingClassId,
-      //   academicYear: getAcademicYear(),
-      //   classTeacher: mappingData?.classTeacher || null,
-      //   subjectTeachers: mappingData?.subjectTeachers || {},
-      //   students: mappingData?.students || [],
-      // });
+      await api.post('/api/classmapping/save', {
+        classId: mappingClassId,
+        academicYear: getAcademicYear(),
+        classTeacher: mappingData?.classTeacher || null,
+        subjectTeachers: mappingData?.subjectTeachers || {},
+        students: mappingData?.students || [],
+      });
       toast.success('Class mapping saved!');
       setMappingEditMode(false);
       fetchClasses();
       fetchGlobalAssignedStudents();
+      await handleMappingClassChange(mappingClassId);
     } catch {
       toast.error('Failed to save mapping');
     } finally {
@@ -1363,6 +1367,56 @@ const Classes = () => {
 
           {mappingClassId ? (
             <>
+              {/* Teacher Assignment */}
+              <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Teacher Assignment</h3>
+                <div className="space-y-4">
+                  {/* Class Teacher — read-only, set via Add/Edit Class */}
+                  <div className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <span className="text-sm text-[#64748B] w-32 shrink-0">Class Teacher:</span>
+                    <span className="text-sm font-semibold text-[#0F172A]">
+                      {teachers.find(t => t._id === mappingData?.classTeacher)?.name || '—'}
+                    </span>
+                    <span className="ml-auto text-xs text-[#94A3B8]">Set from class settings</span>
+                  </div>
+                  {/* Subject Teachers */}
+                  {mappingClassInfo?.subjects?.length > 0 ? (
+                    <div>
+                      <p className="text-sm font-medium text-[#0F172A] mb-3">Subject Teachers</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {mappingClassInfo.subjects.map(subject => (
+                          <div key={subject}>
+                            <label htmlFor={`m-subj-${subject}`} className="block text-xs font-medium text-[#64748B] mb-1">{subject}</label>
+                            {mappingEditMode ? (
+                              <select
+                                id={`m-subj-${subject}`}
+                                value={mappingData?.subjectTeachers?.[subject] || ''}
+                                onChange={e => setMappingData(prev => ({
+                                  ...prev,
+                                  subjectTeachers: { ...prev.subjectTeachers, [subject]: e.target.value },
+                                }))}
+                                className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                              >
+                                <option value="">Select Teacher</option>
+                                {teachers.map(t => (
+                                  <option key={t._id} value={t._id}>{t.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <p className="text-sm font-medium text-[#0F172A] px-3 py-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                                {teachers.find(t => t._id === mappingData?.subjectTeachers?.[subject])?.name || '—'}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#64748B]">No subjects assigned to this class yet. Add subjects via class settings.</p>
+                  )}
+                </div>
+              </div>
+
               {/* Student Assignment */}
               <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-[#0F172A] mb-4">

@@ -72,6 +72,11 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [commSending, setCommSending] = useState(false);
   const [commAnnouncements, setCommAnnouncements] = useState([]);
 
+  // PTM State
+  const [ptmList, setPtmList] = useState([]);
+  const [ptmLoading, setPtmLoading] = useState(false);
+  const [ptmForm, setPtmForm] = useState({ title: '', date: '', time: '', venue: '', targetAudience: 'all', classIds: [], notes: '' });
+
   // Academic Content State
   const [lessonPlans, setLessonPlans] = useState([]);
   const [studyMaterials, setStudyMaterials] = useState([]);
@@ -164,10 +169,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       fetchMyTimetable();
       fetchSubstitutions();
       fetchExamDuties();
-      // Fetch school events for Holiday Calendar + School Events panels
-      api.get('/api/school-events/user-events')
-        .then(res => setSchoolEvents(res?.data || []))
-        .catch(() => { });
+      fetchSchoolEventsData();
     }
     if (module === 'leave') {
       fetchingRef.current = { ...fetchingRef.current, balance: false, leaves: false, staff: false, approvals: false };
@@ -204,6 +206,8 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (module === 'communication') {
       fetchCommClasses();
       fetchAnnouncements();
+      fetchPtmList();
+      fetchSchoolEventsData();
     }
     if (module === 'library') {
       api.get('/api/library/my-issues')
@@ -2800,11 +2804,60 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     } catch { /* ignore */ }
   };
 
+  const fetchSchoolEventsData = async () => {
+    try {
+      const res = await api.get('/api/school-events/user-events');
+      setSchoolEvents(res.data || []);
+    } catch { /* ignore */ }
+  };
+
   const fetchAnnouncements = async () => {
     try {
       const res = await api.get('/api/communication/announcements?audience=staff');
       setCommAnnouncements(res.data || []);
     } catch { /* ignore */ }
+  };
+
+  const fetchPtmList = async () => {
+    try {
+      const res = await api.get('/api/ptm');
+      setPtmList(res.data?.data || []);
+    } catch { /* ignore */ }
+  };
+
+  const handlePtmSubmit = async (e) => {
+    e.preventDefault();
+    const { title, date, time, venue, targetAudience, classIds, notes } = ptmForm;
+    if (!title || !date || !time || !venue) { toast.error('Title, date, time and venue are required'); return; }
+    if (targetAudience === 'class' && classIds.length === 0) { toast.error('Select at least one class'); return; }
+    setPtmLoading(true);
+    try {
+      await api.post('/api/ptm', { title, date, time, venue, targetAudience, classIds, notes });
+      toast.success('PTM scheduled successfully');
+      setPtmForm({ title: '', date: '', time: '', venue: '', targetAudience: 'all', classIds: [], notes: '' });
+      fetchPtmList();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to schedule PTM');
+    } finally {
+      setPtmLoading(false);
+    }
+  };
+
+  const handleDeletePtm = async (id) => {
+    try {
+      await api.delete(`/api/ptm/${id}`);
+      toast.success('PTM deleted');
+      setPtmList(prev => prev.filter(p => p._id !== id));
+    } catch { toast.error('Failed to delete PTM'); }
+  };
+
+  const togglePtmClass = (classId) => {
+    setPtmForm(prev => ({
+      ...prev,
+      classIds: prev.classIds.includes(classId)
+        ? prev.classIds.filter(id => id !== classId)
+        : [...prev.classIds, classId],
+    }));
   };
 
   const fetchCommContacts = async (classId) => {
@@ -2822,52 +2875,54 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   };
 
   const handleSendMessage = async (channel) => {
-    const { classId, messageTo, selectedParentIdx, message } = commForm;
+    const { classId, messageTo, selectedParentIdx, messageType, message } = commForm;
     if (!classId) { toast.error('Please select a class'); return; }
     if (!message.trim()) { toast.error('Please enter a message'); return; }
     if (messageTo === 'individual_parent' && selectedParentIdx === '') { toast.error('Please select a parent'); return; }
 
-    let targets = commContacts;
-    if (messageTo === 'individual_parent') {
-      targets = [commContacts[Number(selectedParentIdx)]];
-    }
-    const emails = targets.map(c => c.parentEmail).filter(Boolean);
+    const targets = messageTo === 'individual_parent'
+      ? [commContacts[Number(selectedParentIdx)]]
+      : commContacts;
     const phones = targets.map(c => c.parentPhone).filter(Boolean);
 
-    if ((channel === 'email' || channel === 'all') && emails.length === 0) {
-      toast.error('No parent email addresses found for this class');
-      if (channel === 'email') return;
-    }
-    if ((channel === 'whatsapp' || channel === 'sms' || channel === 'all') && phones.length === 0) {
+    if ((channel === 'whatsapp' || channel === 'sms') && phones.length === 0) {
       toast.error('No parent phone numbers found for this class');
-      if (channel !== 'all') return;
+      return;
     }
 
     setCommSending(true);
     try {
       const results = [];
+
       if (channel === 'email' || channel === 'all') {
-        if (emails.length > 0) {
-          await api.post('/api/communication/send-email', { recipients: emails, subject: commForm.messageType, message });
-          results.push(`Email sent to ${emails.length} parent(s)`);
+        const recipientType = messageTo === 'individual_parent' ? 'single' : 'class-parents';
+        const toEmail = messageTo === 'individual_parent'
+          ? commContacts[Number(selectedParentIdx)]?.parentEmail
+          : undefined;
+        if (recipientType === 'single' && !toEmail) {
+          toast.error('No email address for the selected parent');
+        } else {
+          const res = await api.post('/api/communication/send-email', {
+            recipientType,
+            ...(toEmail ? { toEmail } : { classId }),
+            subject: messageType,
+            body: message,
+          });
+          results.push(res.data?.message || 'Email sent');
         }
       }
-      if (channel === 'sms' || channel === 'all') {
-        if (phones.length > 0) {
-          await api.post('/api/communication/send-sms', { recipients: phones, message });
-          results.push(`SMS sent to ${phones.length} parent(s)`);
-        }
+      if ((channel === 'sms' || channel === 'all') && phones.length > 0) {
+        await api.post('/api/communication/send-sms', { recipients: phones, message });
+        results.push(`SMS sent to ${phones.length} parent(s)`);
       }
-      if (channel === 'whatsapp' || channel === 'all') {
-        if (phones.length > 0) {
-          await api.post('/api/communication/send-whatsapp', { recipients: phones, message });
-          results.push(`WhatsApp sent to ${phones.length} parent(s)`);
-        }
+      if ((channel === 'whatsapp' || channel === 'all') && phones.length > 0) {
+        await api.post('/api/communication/send-whatsapp', { recipients: phones, message });
+        results.push(`WhatsApp sent to ${phones.length} parent(s)`);
       }
-      toast.success(results.join(', ') || 'Messages sent!');
+      if (results.length > 0) toast.success(results.join(', '));
       setCommForm(prev => ({ ...prev, message: '' }));
-    } catch {
-      toast.error('Failed to send message');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send message');
     } finally {
       setCommSending(false);
     }
@@ -3139,6 +3194,144 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
             ))}
           </div>
         </div> */}
+
+      {/* PTM Scheduling */}
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <Calendar className="text-[#4F46E5]" size={20} />
+          Schedule Parent-Teacher Meeting (PTM)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Form */}
+          <form onSubmit={handlePtmSubmit} className="space-y-3">
+            <div>
+              <label htmlFor="ptm-title" className="block text-xs font-semibold text-[#64748B] mb-1">Title</label>
+              <input
+                id="ptm-title"
+                type="text"
+                className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. Term 1 PTM"
+                value={ptmForm.title}
+                onChange={e => setPtmForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="ptm-date" className="block text-xs font-semibold text-[#64748B] mb-1">Date</label>
+                <input
+                  id="ptm-date"
+                  type="date"
+                  className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm"
+                  value={ptmForm.date}
+                  onChange={e => setPtmForm(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="ptm-time" className="block text-xs font-semibold text-[#64748B] mb-1">Time</label>
+                <input
+                  id="ptm-time"
+                  type="time"
+                  className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm"
+                  value={ptmForm.time}
+                  onChange={e => setPtmForm(prev => ({ ...prev, time: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="ptm-venue" className="block text-xs font-semibold text-[#64748B] mb-1">Venue</label>
+              <input
+                id="ptm-venue"
+                type="text"
+                className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. School Auditorium"
+                value={ptmForm.venue}
+                onChange={e => setPtmForm(prev => ({ ...prev, venue: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label htmlFor="ptm-audience" className="block text-xs font-semibold text-[#64748B] mb-1">Target Audience</label>
+              <select
+                id="ptm-audience"
+                className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm"
+                value={ptmForm.targetAudience}
+                onChange={e => setPtmForm(prev => ({ ...prev, targetAudience: e.target.value, classIds: [] }))}
+              >
+                <option value="all">All Parents</option>
+                <option value="class">Specific Classes</option>
+              </select>
+            </div>
+            {ptmForm.targetAudience === 'class' && commClasses.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-[#64748B] mb-1">Select Classes</p>
+                <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border-2 border-[#FCD34D] rounded-lg p-2">
+                  {commClasses.map(c => (
+                    <label key={c._id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={ptmForm.classIds.includes(c._id)}
+                        onChange={() => togglePtmClass(c._id)}
+                        className="accent-[#4F46E5]"
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <label htmlFor="ptm-notes" className="block text-xs font-semibold text-[#64748B] mb-1">Notes (optional)</label>
+              <textarea
+                id="ptm-notes"
+                className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2 text-sm h-20 resize-none"
+                placeholder="Additional details for parents..."
+                value={ptmForm.notes}
+                onChange={e => setPtmForm(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={ptmLoading}
+              className="w-full bg-[#4F46E5] text-white py-2 rounded-lg font-semibold text-sm disabled:opacity-50"
+            >
+              {ptmLoading ? 'Scheduling...' : 'Schedule PTM'}
+            </button>
+          </form>
+
+          {/* List */}
+          <div>
+            <p className="text-xs font-semibold text-[#64748B] mb-3">Scheduled PTMs</p>
+            {ptmList.length === 0 ? (
+              <p className="text-sm text-[#64748B] text-center py-8">No PTMs scheduled yet</p>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {ptmList.map(ptm => (
+                  <div key={ptm._id} className="p-4 border-2 border-[#E2E8F0] rounded-lg">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[#0F172A] truncate">{ptm.title}</p>
+                        <p className="text-xs text-[#64748B] mt-0.5">
+                          {new Date(ptm.date).toLocaleDateString()} at {ptm.time} &bull; {ptm.venue}
+                        </p>
+                        <p className="text-xs text-[#64748B]">
+                          Audience: {ptm.targetAudience === 'all' ? 'All Parents' : `${ptm.classIds?.length || 0} class(es)`}
+                        </p>
+                        {ptm.notes && <p className="text-xs text-[#64748B] mt-1 italic">{ptm.notes}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleDeletePtm(ptm._id)}
+                        className="ml-3 text-[#DC2626] hover:text-[#B91C1C] flex-shrink-0"
+                        title="Delete PTM"
+                      >
+                        <XCircle size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 

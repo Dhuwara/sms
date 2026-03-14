@@ -60,7 +60,7 @@ const Login = () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <h3 className="font-semibold mb-4">Demo Credentials:</h3>
             <div className="space-y-2 text-sm">
-              <p><strong>Admin:</strong> admin@school.com / Admin@123</p>
+              <p><strong>Admin:</strong> dhuwadhuruvan@gmail.com / Admin@123</p>
               <p><strong>Staff:</strong> john.smith@school.com / Staff@123</p>
               <p><strong>Student:</strong> STU2026002 / Dhuwa@123</p>
               <p><strong>Parent:</strong> parent1@school.com / Parent@123</p>
@@ -191,7 +191,7 @@ const Login = () => {
             <div className="mt-6 p-4 bg-[#F8FAFC] rounded-lg lg:hidden">
               <p className="text-xs text-[#64748B] font-semibold mb-2">Demo Credentials:</p>
               <div className="space-y-1 text-xs text-[#64748B]">
-                <p>Admin: admin@school.com / Admin@123</p>
+                <p>Admin: dhuwadhuruvan@gmail.com.com / Admin@123</p>
                 <p>Staff: john.smith@school.com / Staff@123</p>
                 <p>Student: student1@school.com / Student@123</p>
                 <p>Parent: parent1@school.com / Parent@123</p>

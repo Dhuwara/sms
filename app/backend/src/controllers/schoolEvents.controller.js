@@ -184,13 +184,15 @@ export const getEventsForUser = async (req, res, next) => {
       userTargetAudience = ['all', 'students', 'staff', 'parents'];
     }
 
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    // Show events for the current academic year (last 12 months → next 12 months)
+    const from = new Date();
+    from.setFullYear(from.getFullYear() - 1);
+    from.setHours(0, 0, 0, 0);
 
-    const filter = { 
+    const filter = {
       isActive: true,
       targetAudience: { $in: userTargetAudience },
-      startDate: { $gte: today }
+      startDate: { $gte: from }
     };
 
     const events = await SchoolEvent.find(filter)

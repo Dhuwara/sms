@@ -129,8 +129,8 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Student Overview', path: '/parent/overview', icon: Users },
     { name: 'Attendance', path: '/parent/attendance', icon: Calendar },
     { name: 'Academic Progress', path: '/parent/academic', icon: GraduationCap },
+    { name: 'Fees', path: '/parent/fees', icon: DollarSign },
     { name: 'Communication', path: '/parent/communication', icon: MessageSquare },
-
     // { name: 'Transport', path: '/parent/transport', icon: Bus },
     { name: 'Settings', path: '/parent/settings', icon: Settings },
   ];

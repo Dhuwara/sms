@@ -19,7 +19,7 @@ router.post('/messages', sendMessage);
 router.put('/messages/:id/read', markMessageRead);
 
 router.get('/class-contacts/:classId', authorize('admin', 'staff'), getClassContacts);
-router.post('/send-email', authorize('admin', 'staff'), sendEmail);
+router.post('/send-email', authorize('admin', 'staff', 'parent'), sendEmail);
 router.post('/send-sms', authorize('admin', 'staff'), sendSms);
 router.post('/send-whatsapp', authorize('admin', 'staff'), sendWhatsApp);
 router.post('/circular', authorize('admin', 'staff'), sendCircular);
