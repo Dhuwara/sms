@@ -87,7 +87,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Communication', path: '/communication', icon: Mail },
     { name: 'Calendar Events', path: '/calendar-events', icon: CalendarDays },
     { name: 'Substitutions', path: '/substitutions', icon: UserCheck },
-    // { name: 'Scholarships', path: '/scholarships', icon: Award },
+    { name: 'Scholarships & Awards', path: '/scholarships', icon: Award },
     { name: 'Payroll', path: '/payroll', icon: DollarSign },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
@@ -132,6 +132,7 @@ const Layout = ({ children, user, onLogout }) => {
     { name: 'Fees', path: '/parent/fees', icon: DollarSign },
     { name: 'Communication', path: '/parent/communication', icon: MessageSquare },
     // { name: 'Transport', path: '/parent/transport', icon: Bus },
+    { name: 'Scholarships & Awards', path: '/parent/activities', icon: Award },
     { name: 'Settings', path: '/parent/settings', icon: Settings },
   ];
 

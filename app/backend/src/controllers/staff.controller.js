@@ -510,6 +510,39 @@ export const getStaffTimetable = async (req, res, next) => {
 
 // GET /api/staff/timetable-assignments
 // Returns classes the staff teaches + subjects per class derived from PeriodConfig
+// GET /api/staff/my-academic-classes
+// Returns all classes the staff is associated with — homeroom (classesAssigned) + subject teacher (timetable)
+export const getMyAcademicClasses = async (req, res, next) => {
+  try {
+    const staff = await getStaffProfile(req.user.userId);
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    const academicYear = currentMonth >= 5 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+
+    // 1. Homeroom classes from classesAssigned
+    const homeroomClasses = await Class.find({ _id: { $in: staff.classesAssigned || [] } }).lean();
+
+    // 2. Classes from timetable where this staff teaches
+    const periodConfigs = await PeriodConfig.find({
+      academicYear,
+      'periods.teacher': staff._id,
+    }).populate('classId', 'name section');
+
+    const timetableClasses = periodConfigs
+      .filter(pc => pc.classId)
+      .map(pc => ({ _id: pc.classId._id.toString(), name: pc.classId.name, section: pc.classId.section }));
+
+    // 3. Merge and deduplicate by _id
+    const classMap = new Map();
+    homeroomClasses.forEach(c => classMap.set(c._id.toString(), { _id: c._id, name: c.name, section: c.section }));
+    timetableClasses.forEach(c => { if (!classMap.has(c._id)) classMap.set(c._id, { _id: c._id, name: c.name, section: c.section }); });
+
+    res.json({ success: true, data: Array.from(classMap.values()) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getTimetableAssignments = async (req, res, next) => {
   try {
     const staff = await getStaffProfile(req.user.userId);

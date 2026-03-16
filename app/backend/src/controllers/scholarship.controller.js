@@ -37,6 +37,18 @@ export const getMyScholarships = async (req, res, next) => {
   }
 };
 
+// GET /api/scholarships/child/:studentId — parent views child's scholarships
+export const getChildScholarships = async (req, res, next) => {
+  try {
+    const scholarships = await populate(
+      Scholarship.find({ studentId: req.params.studentId }).sort({ createdAt: -1 })
+    );
+    res.json({ success: true, data: scholarships });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // POST /api/scholarships
 export const createScholarship = async (req, res, next) => {
   try {

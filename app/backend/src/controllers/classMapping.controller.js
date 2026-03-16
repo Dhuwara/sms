@@ -30,6 +30,14 @@ export const saveMapping = async (req, res, next) => {
     const { classId, academicYear, classTeacher, subjectTeachers, students } =
       req.body;
 
+    const classDoc = await Class.findById(classId).select('capacity');
+    if (classDoc?.capacity && students && students.length > classDoc.capacity) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot assign ${students.length} students. Class capacity is ${classDoc.capacity}.`,
+      });
+    }
+
     const oldMapping = await ClassMapping.findOne({
       classId,
       academicYear,

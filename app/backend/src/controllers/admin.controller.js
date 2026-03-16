@@ -165,11 +165,18 @@ export const getSubjects = async (req, res, next) => {
 
 export const createSubject = async (req, res, next) => {
   try {
-    const { name, code, description, classId, staffId } = req.body;
+    const { name, code, description, standard, classId, staffId } = req.body;
+    if (code) {
+      const existing = await Subject.findOne({ code: code.trim() });
+      if (existing) {
+        return res.status(400).json({ success: false, message: `Subject with code "${code.trim()}" already exists` });
+      }
+    }
     const subject = await Subject.create({
       name,
       code: code || '',
       description: description || '',
+      standard: standard || '',
       classId: classId || undefined,
       staffId: staffId || undefined,
     });
@@ -181,11 +188,12 @@ export const createSubject = async (req, res, next) => {
 
 export const updateSubject = async (req, res, next) => {
   try {
-    const { name, code, description } = req.body;
+    const { name, code, description, standard } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (code !== undefined) update.code = code;
     if (description !== undefined) update.description = description;
+    if (standard !== undefined) update.standard = standard;
     const subject = await Subject.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!subject) return res.status(404).json({ success: false, message: 'Subject not found' });
     res.json({ success: true, data: subject });

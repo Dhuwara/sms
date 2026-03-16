@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const componentSchema = new mongoose.Schema({
   name:   { type: String, required: true },
   amount: { type: Number, required: true },
+  dueDate: { type: Date, default: null },
 }, { _id: false });
 
 const feeStructureSchema = new mongoose.Schema({

@@ -11,6 +11,7 @@ import {
   getPendingApprovals, approveRejectLeave,
   getStaffTimetable, getStaffSubstitutions, getStaffExamDuties,
   getTimetableAssignments,
+  getMyAcademicClasses,
 } from '../controllers/staff.controller.js';
 
 const router = Router();
@@ -52,6 +53,7 @@ router.get('/leave-approvals', getPendingApprovals);
 router.put('/leaves/:leaveId/action', approveRejectLeave);
 
 // Staff Timetable routes
+router.get('/my-academic-classes', getMyAcademicClasses);
 router.get('/timetable-assignments', getTimetableAssignments);
 router.get('/my-timetable', getStaffTimetable);
 router.get('/my-substitutions', getStaffSubstitutions);
