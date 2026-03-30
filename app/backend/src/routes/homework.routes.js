@@ -22,7 +22,24 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+const ALLOWED_TYPES = [
+  'application/pdf', 'image/jpeg', 'image/png', 'image/gif',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'application/zip',
+];
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_TYPES.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only documents, images, and archives are allowed.'));
+    }
+    cb(null, true);
+  },
+});
 
 const router = Router();
 router.use(protect);
@@ -35,7 +52,7 @@ router.delete('/:id', authorize('admin', 'staff'), deleteHomework);
 router.get('/my-homework', authorize('student'), getMyHomework);
 router.get('/my-assigned', authorize('staff', 'admin'), getMyAssignedHomework);
 router.get('/:id/submissions', authorize('admin', 'staff'), getSubmissions);
-router.get('/:id/attachments/:filename', downloadAttachment);
+router.get('/:id/attachments/:filename', authorize('admin', 'staff', 'student'), downloadAttachment);
 router.post('/:id/submit', authorize('student'), submitHomework);
 router.put('/submissions/:submissionId/grade', authorize('admin', 'staff'), gradeSubmission);
 

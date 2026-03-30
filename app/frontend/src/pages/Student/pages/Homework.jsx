@@ -10,9 +10,9 @@ const Homework = ({ homeworkData, lessonPlansData, studyMaterialsData, handleDow
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Homework & Assignments</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">Homework & Assignments</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-4 bg-[#FEE2E2] rounded-xl border-2 border-[#DC2626]">
           <p className="text-sm text-[#64748B]">Pending</p>
           <p className="text-2xl font-bold text-[#991B1B]">{pending.length}</p>
@@ -43,12 +43,12 @@ const Homework = ({ homeworkData, lessonPlansData, studyMaterialsData, handleDow
             <table className="w-full">
               <thead className="bg-[#FEF3C7]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Due Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Files</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Grade</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Title</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Due Date</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Files</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Status</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Grade</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">

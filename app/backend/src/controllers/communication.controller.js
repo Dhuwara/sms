@@ -2,8 +2,11 @@ import Announcement from '../models/Announcement.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import Student from '../models/Student.js';
+import Staff from '../models/Staff.js';
+import Parent from '../models/Parent.js';
 import Class from '../models/Class.js';
 import { sendMail } from '../utils/mailer.js';
+import { sendWhatsAppText, sendWhatsAppBulk } from '../utils/whatsapp.js';
 
 // Normalize class name like "Grade XII" → "12", "Grade 1" → "1", "LKG" → "LKG"
 const ROMAN = { I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10,XI:11,XII:12 };
@@ -23,7 +26,7 @@ const normalizeStandard = (className) => {
 export const getAnnouncements = async (req, res, next) => {
   try {
     const { audience } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (audience) filter.$or = [{ targetAudience: audience }, { targetAudience: 'all' }];
     const announcements = await Announcement.find(filter)
       .populate('createdBy', 'name role')
@@ -41,7 +44,40 @@ export const createAnnouncement = async (req, res, next) => {
     const announcement = await Announcement.create({
       title, message, priority, targetAudience,
       createdBy: req.user.userId,
+      schoolId: req.user.schoolId,
     });
+
+    // WhatsApp: Notify targeted audience (fire-and-forget)
+    const schoolId = req.user.schoolId;
+    const priorityLabel = priority === 'urgent' ? '🚨 URGENT' : priority === 'high' ? '⚠️ Important' : '📢';
+    const waMessage = `${priorityLabel} Announcement\n\n${title}\n\n${message}\n\n- School Management`;
+
+    (async () => {
+      try {
+        let users = [];
+        if (targetAudience === 'all' || targetAudience === 'parents') {
+          const parentUsers = await User.find({ role: 'parent', schoolId }).select('name phone');
+          users = users.concat(parentUsers);
+        }
+        if (targetAudience === 'all' || targetAudience === 'staff' || targetAudience === 'teachers') {
+          const staffUsers = await User.find({ role: 'staff', schoolId }).select('name phone');
+          users = users.concat(staffUsers);
+        }
+        if (targetAudience === 'all' || targetAudience === 'students') {
+          const studentUsers = await User.find({ role: 'student', schoolId }).select('name phone');
+          users = users.concat(studentUsers);
+        }
+
+        const recipients = users
+          .filter(u => u.phone)
+          .map(u => ({ phone: u.phone, message: `Dear ${u.name || 'User'},\n\n${waMessage}` }));
+
+        if (recipients.length > 0) await sendWhatsAppBulk(recipients);
+      } catch (err) {
+        console.error('Announcement WhatsApp failed:', err.message);
+      }
+    })();
+
     res.status(201).json({ success: true, data: announcement });
   } catch (err) {
     next(err);
@@ -64,6 +100,7 @@ export const getMessages = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const messages = await Message.find({
+      schoolId: req.user.schoolId,
       $or: [{ fromUserId: userId }, { toUserId: userId }],
     })
       .populate('fromUserId', 'name role')
@@ -79,9 +116,21 @@ export const sendMessage = async (req, res, next) => {
   try {
     const { toUserId, content } = req.body;
     if (!toUserId || !content) return res.status(400).json({ success: false, message: 'Recipient and content are required' });
-    const to = await User.findById(toUserId);
+    const to = await User.findById(toUserId).select('name phone role');
     if (!to) return res.status(404).json({ success: false, message: 'Recipient not found' });
-    const msg = await Message.create({ fromUserId: req.user.userId, toUserId, content });
+    const from = await User.findById(req.user.userId).select('name role');
+    const msg = await Message.create({ fromUserId: req.user.userId, toUserId, content, schoolId: req.user.schoolId });
+
+    // WhatsApp: Notify recipient of new message (fire-and-forget)
+    if (to.phone) {
+      const senderName = from?.name || 'School Admin';
+      const senderRole = from?.role ? from.role.charAt(0).toUpperCase() + from.role.slice(1) : '';
+      sendWhatsAppText(
+        to.phone,
+        `Dear ${to.name || 'User'},\n\nYou have a new message from ${senderName} (${senderRole}):\n\n"${content.length > 200 ? content.substring(0, 200) + '...' : content}"\n\nLogin to the portal to view and reply.\n\n- School Management`
+      ).catch(err => console.error('Message WhatsApp alert failed:', err.message));
+    }
+
     res.status(201).json({ success: true, data: msg });
   } catch (err) {
     next(err);
@@ -103,7 +152,7 @@ export const markMessageRead = async (req, res, next) => {
 export const getClassContacts = async (req, res, next) => {
   try {
     const { classId } = req.params;
-    const students = await Student.find({ classId, status: 'active' })
+    const students = await Student.find({ classId, status: 'active', schoolId: req.user.schoolId })
       .populate({ path: 'userId', select: 'name email phone' })
       .populate({ path: 'classId', select: 'name' })
       .populate({ path: 'parentId', populate: { path: 'userId', select: 'name email phone' } });
@@ -156,7 +205,7 @@ export const sendEmail = async (req, res, next) => {
 
     } else if (recipientType === 'standard-parents') {
       if (!standard) return res.status(400).json({ success: false, message: 'standard is required' });
-      const allClasses = await Class.find({});
+      const allClasses = await Class.find({ schoolId: req.user.schoolId });
       const matchingClassIds = allClasses
         .filter(c => normalizeStandard(c.name) === standard)
         .map(c => c._id);
@@ -165,15 +214,15 @@ export const sendEmail = async (req, res, next) => {
       emails = [...new Set(students.map(s => s.parentId?.userId?.email).filter(Boolean))];
 
     } else if (recipientType === 'all-parents') {
-      const users = await User.find({ role: 'parent' }).select('email');
+      const users = await User.find({ role: 'parent', schoolId: req.user.schoolId }).select('email');
       emails = users.map(u => u.email).filter(Boolean);
 
     } else if (recipientType === 'all-staff') {
-      const users = await User.find({ role: 'staff' }).select('email');
+      const users = await User.find({ role: 'staff', schoolId: req.user.schoolId }).select('email');
       emails = users.map(u => u.email).filter(Boolean);
 
     } else if (recipientType === 'admin') {
-      const users = await User.find({ role: 'admin' }).select('email');
+      const users = await User.find({ role: 'admin', schoolId: req.user.schoolId }).select('email');
       emails = users.map(u => u.email).filter(Boolean);
 
     } else if (recipientType === 'specific-students-parents') {
@@ -220,12 +269,54 @@ export const sendSms = async (req, res, next) => {
 
 export const sendWhatsApp = async (req, res, next) => {
   try {
-    const { recipient, recipients, message } = req.body;
-    const phones = recipients || (recipient ? [recipient] : []);
-    if (phones.length === 0 || !message) return res.status(400).json({ success: false, message: 'recipients and message are required' });
-    // TODO: integrate WhatsApp Business API (e.g. Twilio WhatsApp, Meta Cloud API)
-    phones.forEach(phone => console.log(`[WHATSAPP] To: ${phone} | Message: ${message}`));
-    res.json({ success: true, message: `WhatsApp sent to ${phones.length} recipient(s)`, data: { sent: phones.length } });
+    const { recipientType, recipient, recipients, classId, standard, message } = req.body;
+    if (!message) return res.status(400).json({ success: false, message: 'message is required' });
+
+    let phones = [];
+
+    // If explicit phone numbers provided, use them directly
+    if (recipients?.length > 0 || recipient) {
+      phones = recipients || [recipient];
+    } else if (recipientType) {
+      // Resolve phone numbers from recipientType
+      if (recipientType === 'all-parents') {
+        const users = await User.find({ role: 'parent', schoolId: req.user.schoolId }).select('name phone');
+        phones = users.filter(u => u.phone).map(u => ({ phone: u.phone, name: u.name }));
+      } else if (recipientType === 'class-parents' && classId) {
+        const students = await Student.find({ classId, status: 'active' }).select('parentId');
+        const parentIds = [...new Set(students.map(s => s.parentId).filter(Boolean).map(String))];
+        const parents = await Parent.find({ _id: { $in: parentIds } }).populate('userId', 'name phone');
+        phones = parents.filter(p => p.userId?.phone).map(p => ({ phone: p.userId.phone, name: p.userId.name }));
+      } else if (recipientType === 'standard-parents' && standard) {
+        const allClasses = await Class.find({ schoolId: req.user.schoolId });
+        const matchingClassIds = allClasses.filter(c => normalizeStandard(c.name) === standard).map(c => c._id);
+        const students = await Student.find({ classId: { $in: matchingClassIds }, status: 'active' }).select('parentId');
+        const parentIds = [...new Set(students.map(s => s.parentId).filter(Boolean).map(String))];
+        const parents = await Parent.find({ _id: { $in: parentIds } }).populate('userId', 'name phone');
+        phones = parents.filter(p => p.userId?.phone).map(p => ({ phone: p.userId.phone, name: p.userId.name }));
+      } else if (recipientType === 'all-staff') {
+        const users = await User.find({ role: 'staff', schoolId: req.user.schoolId }).select('name phone');
+        phones = users.filter(u => u.phone).map(u => ({ phone: u.phone, name: u.name }));
+      } else if (recipientType === 'admin') {
+        const users = await User.find({ role: 'admin', schoolId: req.user.schoolId }).select('name phone');
+        phones = users.filter(u => u.phone).map(u => ({ phone: u.phone, name: u.name }));
+      }
+    }
+
+    if (phones.length === 0) {
+      return res.status(400).json({ success: false, message: 'No recipients with phone numbers found' });
+    }
+
+    // Build recipients array
+    const waRecipients = phones.map(p => {
+      if (typeof p === 'string') return { phone: p, message: `${message}\n\n- School Management` };
+      return { phone: p.phone, message: `Dear ${p.name || 'User'},\n\n${message}\n\n- School Management` };
+    });
+
+    // Fire-and-forget
+    sendWhatsAppBulk(waRecipients).catch(err => console.error('Communication WhatsApp failed:', err.message));
+
+    res.json({ success: true, message: `WhatsApp sending to ${waRecipients.length} recipient(s)`, data: { sent: waRecipients.length } });
   } catch (err) {
     next(err);
   }
@@ -240,6 +331,7 @@ export const sendCircular = async (req, res, next) => {
       targetAudience: recipients === 'all' ? 'all' : recipients,
       priority: 'normal',
       createdBy: req.user.userId,
+      schoolId: req.user.schoolId,
     });
     res.status(201).json({ success: true, data: announcement });
   } catch (err) {

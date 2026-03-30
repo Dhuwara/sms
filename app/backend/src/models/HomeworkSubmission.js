@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const homeworkSubmissionSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   homeworkId: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   submittedAt: { type: Date, default: Date.now },

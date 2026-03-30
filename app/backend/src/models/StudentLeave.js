@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const studentLeaveSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },

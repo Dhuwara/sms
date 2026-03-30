@@ -40,9 +40,9 @@ const Marks = ({
       <h2 className="text-2xl font-bold text-[#0F172A]">Marks & Assessment</h2>
 
       {/* Selection Panel */}
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <div className="flex flex-wrap gap-4 mb-4">
-          <div className="flex-1 min-w-[180px]">
+          <div className="flex-1 min-w-0 sm:min-w-[180px]">
             <label className="block text-xs font-semibold text-[#64748B] mb-1">Class</label>
             <select
               value={marksClassId}
@@ -56,7 +56,7 @@ const Marks = ({
             </select>
           </div>
 
-          <div className="flex-1 min-w-[220px]">
+          <div className="flex-1 min-w-0 sm:min-w-[220px]">
             <label className="block text-xs font-semibold text-[#64748B] mb-1">Exam</label>
             <select
               value={marksExamId}
@@ -93,7 +93,7 @@ const Marks = ({
 
       {/* Marks Entry Table */}
       {marksLoaded && marksStudents.length > 0 && (
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-[#0F172A]">
               Enter Marks — {selectedExam?.examType} · {selectedExam?.subject}
@@ -112,7 +112,7 @@ const Marks = ({
                   <th className="px-4 py-3 text-left font-bold text-sm text-[#0F172A]">Grade</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody >
                 {marksStudents.map(student => {
                   const raw = marksEntries[student._id];
                   const marks = raw !== '' && raw !== undefined ? Number(raw) : null;
@@ -168,12 +168,12 @@ const Marks = ({
 
       {/* Performance Analysis — shown after save */}
       {marksAnalysis && (
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
           <h3 className="font-bold text-[#0F172A] mb-4">
             Performance Analysis — {marksAnalysis.examType} · {marksAnalysis.subject}
           </h3>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-[#FEF3C7] rounded-xl text-center">
               <p className="text-xs text-[#64748B] mb-1">Class Average</p>
               <p className="text-2xl font-bold text-[#0F172A]">{marksAnalysis.avg}</p>

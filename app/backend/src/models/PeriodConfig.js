@@ -11,6 +11,7 @@ const periodSchema = new mongoose.Schema({
 }, { _id: false });
 
 const periodConfigSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   academicYear: { type: String, required: true },
   periods: [periodSchema],

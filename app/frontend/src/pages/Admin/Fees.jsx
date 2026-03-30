@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '@/utils/api';
-import { Plus, Pencil, Trash2, X, Check, Clock, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Clock, Search, Download, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useDispatch, useSelector } from 'react-redux';
@@ -138,6 +138,24 @@ const Fees = () => {
     } finally {
       setStructureLoading(false);
     }
+  };
+
+  const handleNotifyParents = (structure) => {
+    const displayName = getDisplayName(structure);
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Notify Parents',
+      message: `Send fee notification (Email + WhatsApp) to all parents of ${displayName} (${structure.academicYear})?\n\nTotal Fees: ₹${structure.totalFees.toLocaleString()}`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.post(`/api/fee-structure/${structure._id}/notify`);
+          toast.success('Notifications sent to parents successfully!');
+        } catch {
+          toast.error('Failed to send notifications');
+        }
+      },
+    });
   };
 
   const handleDeleteStructure = (id) => {
@@ -285,9 +303,9 @@ const Fees = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Fees & Finance Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Fees & Finance Management</h1>
           <p className="text-[#64748B] mt-1">Standard-wise fee structure management</p>
         </div>
         {activeTab === 'structure' && (
@@ -345,6 +363,9 @@ const Fees = () => {
                     <td className="px-6 py-4 font-bold text-[#0F172A]">₹{s.totalFees.toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button onClick={() => handleNotifyParents(s)} title="Notify Parents" className="p-1.5 text-[#F59E0B] hover:bg-[#FEF3C7] rounded-lg transition-colors">
+                          <Bell size={15} />
+                        </button>
                         <button onClick={() => openEditStructure(s)} className="p-1.5 text-[#4F46E5] hover:bg-[#EEF2FF] rounded-lg transition-colors">
                           <Pencil size={15} />
                         </button>
@@ -372,8 +393,8 @@ const Fees = () => {
         <div className="space-y-4">
           {/* Filters */}
           <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Student Fee Payments</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold">Student Fee Payments</h2>
               {sfStudentFees.length > 0 && (
                 <button
                   onClick={handleExportExcel}

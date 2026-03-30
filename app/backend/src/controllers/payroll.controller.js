@@ -6,7 +6,7 @@ import Staff from '../models/Staff.js';
 export const getPayrolls = async (req, res, next) => {
   try {
     const { month, year } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (req.user.role === 'staff') {
       const staff = await Staff.findOne({ userId: req.user.userId });
       if (!staff) return res.status(404).json({ success: false, message: 'Staff profile not found' });
@@ -25,7 +25,7 @@ export const getPayrolls = async (req, res, next) => {
 // POST /api/payroll — admin only: create/generate payroll
 export const createPayroll = async (req, res, next) => {
   try {
-    const payroll = await Payroll.create(req.body);
+    const payroll = await Payroll.create({ ...req.body, schoolId: req.user.schoolId });
     res.status(201).json({ success: true, data: payroll });
   } catch (err) { next(err); }
 };

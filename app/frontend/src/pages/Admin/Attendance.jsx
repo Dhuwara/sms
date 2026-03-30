@@ -138,7 +138,7 @@ const Attendance = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold text-[#0F172A]">Attendance Management</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Attendance Management</h1>
         <p className="text-[#64748B] mt-1">Mark and manage student attendance</p>
       </div>
 
@@ -173,17 +173,17 @@ const Attendance = () => {
         </div>
 
         {selectedClass && (
-          <div className="flex gap-3 pt-4 border-t-2 border-[#FCD34D]">
+          <div className="flex flex-wrap gap-3 pt-4 border-t-2 border-[#FCD34D]">
             <button
               onClick={handleMarkAllPresent}
-              className="flex items-center gap-2 px-4 py-2 bg-[#10B981] text-white hover:bg-[#059669] rounded-lg font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-[#10B981] text-white hover:bg-[#059669] rounded-lg font-semibold text-sm sm:text-base"
             >
               <Check size={18} />
               Mark All Present
             </button>
             <button
               onClick={exportExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-lg font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-lg font-semibold text-sm sm:text-base"
             >
               <Download size={18} />
               Export Excel
@@ -191,7 +191,7 @@ const Attendance = () => {
             <button
               onClick={handleSaveAttendance}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-[#DC2626] text-white hover:bg-[#B91C1C] rounded-lg font-semibold disabled:opacity-50 ml-auto"
+              className="flex items-center gap-2 px-6 py-2 bg-[#DC2626] text-white hover:bg-[#B91C1C] rounded-lg font-semibold disabled:opacity-50 sm:ml-auto text-sm sm:text-base w-full sm:w-auto justify-center"
             >
               <Plus size={18} />
               {loading ? 'Saving...' : 'Save Attendance'}
@@ -217,38 +217,38 @@ const Attendance = () => {
                     <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{student.rollNumber || '-'}</td>
                     <td className="px-6 py-4 text-sm text-[#0F172A]">{student.name}</td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-3">
+                      <div className="flex items-center justify-center gap-1 sm:gap-3 flex-wrap">
                         <button
                           onClick={() => handleAttendanceChange(student._id, 'present')}
-                          className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                          className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                             attendance[student._id] === 'present'
                               ? 'bg-[#10B981] text-white'
                               : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
                           }`}
                         >
-                          <Check size={16} />
+                          <Check size={14} className="sm:w-4 sm:h-4" />
                           Present
                         </button>
                         <button
                           onClick={() => handleAttendanceChange(student._id, 'absent')}
-                          className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                          className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                             attendance[student._id] === 'absent'
                               ? 'bg-[#DC2626] text-white'
                               : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
                           }`}
                         >
-                          <X size={16} />
+                          <X size={14} className="sm:w-4 sm:h-4" />
                           Absent
                         </button>
                         <button
                           onClick={() => handleAttendanceChange(student._id, 'half-day')}
-                          className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                          className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${
                             attendance[student._id] === 'half-day'
                               ? 'bg-[#F59E0B] text-white'
                               : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
                           }`}
                         >
-                          <Check size={16} />
+                          <Check size={14} className="sm:w-4 sm:h-4" />
                           Half-day
                         </button>
                       </div>

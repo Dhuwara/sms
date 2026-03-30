@@ -2,11 +2,9 @@ import PeriodConfig from '../models/PeriodConfig.js';
 import Timetable from '../models/Timetable.js';
 
 export const getPeriodConfig = async (req, res, next) => {
-  console.log("hitsspretioddd")
   try {
     const { classId, academicYear } = req.params;
-    const config = await PeriodConfig.findOne({ classId, academicYear });
-    console.log(config,"conifffff")
+    const config = await PeriodConfig.findOne({ classId, academicYear, schoolId: req.user.schoolId });
     res.json({ success: true, data: config || { classId, academicYear, periods: [] } });
   } catch (err) {
     next(err);
@@ -23,8 +21,8 @@ export const savePeriodConfig = async (req, res, next) => {
       return p;
     });
     const config = await PeriodConfig.findOneAndUpdate(
-      { classId, academicYear },
-      { periods: cleanedPeriods },
+      { classId, academicYear, schoolId: req.user.schoolId },
+      { periods: cleanedPeriods, schoolId: req.user.schoolId },
       { upsert: true, new: true }
     );
     res.json({ success: true, data: config });
@@ -36,7 +34,7 @@ export const savePeriodConfig = async (req, res, next) => {
 export const getTimetable = async (req, res, next) => {
   try {
     const { classId, academicYear } = req.params;
-    const tt = await Timetable.findOne({ classId, academicYear });
+    const tt = await Timetable.findOne({ classId, academicYear, schoolId: req.user.schoolId });
     res.json({ success: true, data: tt || { classId, academicYear, schedule: {} } });
   } catch (err) {
     next(err);
@@ -47,8 +45,8 @@ export const saveTimetable = async (req, res, next) => {
   try {
     const { classId, academicYear, schedule } = req.body;
     const tt = await Timetable.findOneAndUpdate(
-      { classId, academicYear },
-      { schedule: schedule || {} },
+      { classId, academicYear, schoolId: req.user.schoolId },
+      { schedule: schedule || {}, schoolId: req.user.schoolId },
       { upsert: true, new: true }
     );
     res.json({ success: true, data: tt });

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const documentSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   title: { type: String, required: true },
   category: { type: String, enum: ['policy', 'handbook', 'circular', 'training', 'general'], default: 'general' },
   description: { type: String },

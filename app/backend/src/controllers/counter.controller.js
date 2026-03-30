@@ -14,9 +14,9 @@ const formatDate = (format) => {
   }
 };
 
-export const generateNextId = async (name) => {
+export const generateNextId = async (name, schoolId) => {
   const counter = await Counter.findOneAndUpdate(
-    { name },
+    { name, schoolId },
     { $inc: { current: 1 } },
     { new: true }
   );
@@ -31,11 +31,12 @@ export const generateNextId = async (name) => {
 export const configureCounter = async (req, res, next) => {
   try {
     const { name, prefix, format, start, padding } = req.body;
+    const schoolId = req.user.schoolId;
     if (!name) return res.status(400).json({ success: false, message: 'Counter name is required' });
 
     const counter = await Counter.findOneAndUpdate(
-      { name },
-      { prefix: prefix || '', format: format || '{{YYYY}}', start: start ?? 1, padding: padding ?? 3, current: 0 },
+      { name, schoolId },
+      { prefix: prefix || '', format: format || '{{YYYY}}', start: start ?? 1, padding: padding ?? 3, current: 0, schoolId },
       { upsert: true, new: true }
     );
 
@@ -47,7 +48,8 @@ export const configureCounter = async (req, res, next) => {
 
 export const getCounter = async (req, res, next) => {
   try {
-    const counter = await Counter.findOne({ name: req.params.name });
+    const schoolId = req.user.schoolId;
+    const counter = await Counter.findOne({ name: req.params.name, schoolId });
     if (!counter) return res.status(404).json({ success: false, message: 'Counter not found' });
     res.json({ success: true, data: counter });
   } catch (err) {

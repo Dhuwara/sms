@@ -59,7 +59,7 @@ const Behavior = ({ selectedChild, childSelector }) => {
                 <th className="px-4 py-3 text-left font-bold text-sm">Teacher Comment</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {[
                 { category: 'Punctuality', rating: 'Excellent', comment: 'Always on time' },
                 { category: 'Class Participation', rating: 'Very Good', comment: 'Actively participates in discussions' },

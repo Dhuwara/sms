@@ -61,8 +61,8 @@ const LandingPage = () => {
                 className="h-12 w-12 object-contain rounded-lg"
               />
               <div>
-                <span className="text-2xl font-bold text-[#0F172A]">AJM International Institution</span>
-                <p className="text-xs text-[#64748B]">(AJM Silicon Valley)</p>
+                <span className="text-base sm:text-2xl font-bold text-[#0F172A]">AJM International Institution</span>
+                <p className="text-xs text-[#64748B] hidden sm:block">(AJM Silicon Valley)</p>
               </div>
             </div>
 
@@ -71,6 +71,12 @@ const LandingPage = () => {
               <button onClick={() => scrollToSection('about')} className="text-[#0F172A] hover:text-[#F59E0B] font-medium transition-colors">About</button>
               <button onClick={() => scrollToSection('features')} className="text-[#0F172A] hover:text-[#F59E0B] font-medium transition-colors">Features</button>
               <button onClick={() => scrollToSection('contact')} className="text-[#0F172A] hover:text-[#F59E0B] font-medium transition-colors">Contact</button>
+              <Link
+                to="/signup"
+                className="bg-white text-[#DC2626] border-2 border-[#DC2626] hover:bg-[#DC2626] hover:text-white px-6 py-2.5 rounded-lg font-semibold transition-all"
+              >
+                Register School
+              </Link>
               <Link
                 to="/login"
                 data-testid="nav-login-button"
@@ -94,6 +100,7 @@ const LandingPage = () => {
               <button onClick={() => scrollToSection('about')} className="block w-full text-left text-[#0F172A] hover:text-[#F59E0B] font-medium py-2">About</button>
               <button onClick={() => scrollToSection('features')} className="block w-full text-left text-[#0F172A] hover:text-[#F59E0B] font-medium py-2">Features</button>
               <button onClick={() => scrollToSection('contact')} className="block w-full text-left text-[#0F172A] hover:text-[#F59E0B] font-medium py-2">Contact</button>
+              <Link to="/signup" className="block bg-white text-[#DC2626] border-2 border-[#DC2626] px-6 py-2.5 rounded-lg font-semibold text-center">Register School</Link>
               <Link to="/login" className="block bg-[#DC2626] text-white px-6 py-2.5 rounded-lg font-semibold text-center">Login</Link>
             </div>
           )}
@@ -109,11 +116,11 @@ const LandingPage = () => {
                 <CheckCircle size={16} />
                 Trusted by 500+ Schools
               </div>
-              <h1 className="text-5xl lg:text-6xl font-bold text-[#0F172A] mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-[#0F172A] mb-6 leading-tight">
                 Complete School Management Software for 
                 <span className="text-[#DC2626]"> Modern Schools</span>
               </h1>
-              <p className="text-xl text-[#0F172A]/80 mb-8 leading-relaxed">
+              <p className="text-base sm:text-xl text-[#0F172A]/80 mb-8 leading-relaxed">
                 Streamline attendance, fees, exams, timetables, and parent communication with our comprehensive platform designed for Indian and International schools.
               </p>
               <div className="flex flex-wrap gap-4">
@@ -155,7 +162,7 @@ const LandingPage = () => {
               <Shield size={16} />
               Why Choose Us
             </div>
-            <h2 className="text-4xl font-bold text-[#0F172A] mb-4">Why AJM Silicon Valley?</h2>
+            <h2 className="text-2xl sm:text-4xl font-bold text-[#0F172A] mb-4">Why AJM Silicon Valley?</h2>
             <p className="text-[#64748B] text-lg max-w-2xl mx-auto">Everything you need to run a modern school efficiently with dedicated support</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -181,7 +188,7 @@ const LandingPage = () => {
               <BarChart size={16} />
               Core Features
             </div>
-            <h2 className="text-4xl font-bold text-[#0F172A] mb-4">Everything You Need in One Platform</h2>
+            <h2 className="text-2xl sm:text-4xl font-bold text-[#0F172A] mb-4">Everything You Need in One Platform</h2>
             <p className="text-[#64748B] text-lg max-w-2xl mx-auto">Comprehensive tools designed specifically for Indian schools to manage all operations efficiently</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -228,7 +235,7 @@ const LandingPage = () => {
               <MessageSquare size={16} />
               Get In Touch
             </div>
-            <h2 className="text-4xl font-bold text-[#0F172A] mb-4">Ready to Transform Your School?</h2>
+            <h2 className="text-2xl sm:text-4xl font-bold text-[#0F172A] mb-4">Ready to Transform Your School?</h2>
             <p className="text-[#64748B] text-lg max-w-2xl mx-auto">Contact us today for a free demo and see how we can help streamline your school operations</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

@@ -5,8 +5,7 @@ import Subject from '../models/Subject.js';
 import FeeRecord from '../models/FeeRecord.js';
 
 const getStudentProfile = async (userId) => {
-  const student = await Student.findOne({ userId }).populate('classId');
-  console.log(userId, "studenttttt");
+  const student = await Student.findOne({ userId }).populate('classId').populate('userId', 'name email');
   if (!student) throw Object.assign(new Error('Student profile not found'), { status: 404 });
   return student;
 };
@@ -40,7 +39,6 @@ export const getMyAttendance = async (req, res, next) => {
 export const getMySchedule = async (req, res, next) => {
   try {
     const student = await getStudentProfile(req.user.userId);
-    console.log(student,"studeennn")
     const subjects = await Subject.find({ classId: student.classId })
       .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } });
     res.json({ success: true, data: { class: student.classId, subjects } });
@@ -62,7 +60,10 @@ export const getMyFees = async (req, res, next) => {
 };
 
 export const getMyInfo = async(req,res,next)=>{
-  const student = await getStudentProfile(req.user.userId);
-  console.log(student,"studenenene")
-  res.json({ success: true, data: {student} });
+  try {
+    const student = await getStudentProfile(req.user.userId);
+    res.json({ success: true, data: {student} });
+  } catch (err) {
+    next(err);
+  }
 }

@@ -188,7 +188,7 @@ const Communication = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold text-[#0F172A]">Communication & Notifications</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Communication & Notifications</h1>
         <p className="text-[#64748B] mt-1">Email, SMS, WhatsApp, Announcements & Messages</p>
       </div>
 
@@ -570,7 +570,7 @@ const Communication = () => {
                 <label htmlFor="ptm-title" className="block text-sm font-medium text-[#0F172A] mb-2">Title</label>
                 <input id="ptm-title" type="text" required value={ptmForm.title} onChange={e => setPtmForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Term 1 Parent-Teacher Meeting" className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="ptm-date" className="block text-sm font-medium text-[#0F172A] mb-2">Date</label>
                   <input id="ptm-date" type="date" required value={ptmForm.date} onChange={e => setPtmForm(p => ({ ...p, date: e.target.value }))} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />

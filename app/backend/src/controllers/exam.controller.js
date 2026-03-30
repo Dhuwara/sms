@@ -2,13 +2,16 @@ import Exam from '../models/Exam.js';
 import ExamResult from '../models/ExamResult.js';
 import Student from '../models/Student.js';
 import Class from '../models/Class.js';
+import Parent from '../models/Parent.js';
+import { sendWhatsAppBulk, getParentPhones } from '../utils/whatsapp.js';
+import { resolveGrade } from './gradeConfig.controller.js';
 
 // ── Exams ─────────────────────────────────────────────────────────────────────
 
 export const getExams = async (req, res, next) => {
   try {
     const { classId, examType, invigilatorId } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (classId) filter.classId = classId;
     if (examType) filter.examType = examType;
     if (invigilatorId) filter.invigilatorId = invigilatorId;
@@ -44,7 +47,27 @@ export const getClassSubjects = async (req, res, next) => {
 
 export const createExam = async (req, res, next) => {
   try {
-    const exam = await Exam.create({ ...req.body, createdBy: req.user.userId });
+    const exam = await Exam.create({ ...req.body, createdBy: req.user.userId, schoolId: req.user.schoolId });
+
+    // WhatsApp: Notify parents that an exam has been scheduled (fire-and-forget)
+    if (exam.classId) {
+      const cls = await Class.findById(exam.classId).select('name section');
+      const className = cls ? `${cls.name} ${cls.section || ''}`.trim() : '';
+      const dateStr = exam.date ? new Date(exam.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const studentsInClass = await Student.find({ classId: exam.classId, status: 'active' }).select('_id');
+      const studentIds = studentsInClass.map(s => s._id);
+
+      getParentPhones(Student, Parent, studentIds)
+        .then((parentData) => {
+          const recipients = parentData.map(p => ({
+            phone: p.phone,
+            message: `Dear ${p.parentName},\n\nExam scheduled for ${className}:\n\n📝 ${exam.name || exam.examType || 'Exam'}\n📚 Subject: ${exam.subject || '—'}\n📅 Date: ${dateStr}\n⏰ Time: ${exam.startTime || '—'}\n📊 Max Score: ${exam.maxScore || 100}\n\nPlease ensure ${p.studentName} is well prepared.\n\n- School Management`,
+          }));
+          return sendWhatsAppBulk(recipients);
+        })
+        .catch(err => console.error('Exam scheduled WhatsApp alert failed:', err.message));
+    }
+
     res.status(201).json({ success: true, data: exam });
   } catch (err) {
     next(err);
@@ -108,26 +131,42 @@ export const bulkAddResults = async (req, res, next) => {
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
     const maxScore = exam.maxScore || 100;
-    const calcGrade = (marks) => {
+    const calcGrade = async (marks) => {
       const pct = (marks / maxScore) * 100;
-      if (pct >= 90) return 'A+';
-      if (pct >= 80) return 'A';
-      if (pct >= 70) return 'B+';
-      if (pct >= 60) return 'B';
-      if (pct >= 50) return 'C';
-      if (pct >= 35) return 'D';
-      return 'F';
+      return resolveGrade(req.user.schoolId, pct);
     };
 
     const saved = await Promise.all(
-      results.map(r =>
-        ExamResult.findOneAndUpdate(
+      results.map(async r => {
+        const grade = await calcGrade(r.marks);
+        return ExamResult.findOneAndUpdate(
           { examId: req.params.id, studentId: r.studentId },
-          { examId: req.params.id, studentId: r.studentId, marks: r.marks, grade: calcGrade(r.marks), remarks: r.remarks || '' },
+          { examId: req.params.id, studentId: r.studentId, marks: r.marks, grade, remarks: r.remarks || '' },
           { upsert: true, new: true }
-        )
-      )
+        );
+      })
     );
+
+    // WhatsApp: Notify parents of exam results (fire-and-forget)
+    const studentIds = results.map(r => r.studentId);
+    const cls = await Class.findById(exam.classId).select('name section');
+    const className = cls ? `${cls.name} ${cls.section || ''}`.trim() : '';
+
+    getParentPhones(Student, Parent, studentIds)
+      .then(async (parentData) => {
+        const recipients = await Promise.all(parentData.map(async (p) => {
+          const result = results.find(r => String(r.studentId) === String(p.studentId));
+          const marks = result?.marks ?? '—';
+          const grade = await resolveGrade(req.user.schoolId, ((result?.marks || 0) / maxScore) * 100);
+          return {
+            phone: p.phone,
+            message: `Dear ${p.parentName},\n\n${p.studentName} (${className}) exam results:\n\n📝 ${exam.name || exam.examType || 'Exam'}\n📊 Subject: ${exam.subject || '—'}\n✅ Marks: ${marks}/${maxScore}\n🎯 Grade: ${grade}\n\n- School Management`,
+          };
+        }));
+        return sendWhatsAppBulk(recipients);
+      })
+      .catch((err) => console.error('Exam result WhatsApp alert failed:', err.message));
+
     res.json({ success: true, data: saved });
   } catch (err) {
     next(err);

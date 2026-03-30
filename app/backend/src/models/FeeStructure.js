@@ -7,6 +7,7 @@ const componentSchema = new mongoose.Schema({
 }, { _id: false });
 
 const feeStructureSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   standard:     { type: String, required: true },  // e.g. 'LKG', 'UKG', '1', '11'
   classId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null }, // only for 11 & 12
   academicYear: { type: String, required: true },  // e.g. '2025-26'

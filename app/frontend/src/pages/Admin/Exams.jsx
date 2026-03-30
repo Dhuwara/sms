@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '@/utils/api';
-import { Plus, Edit, Trash2, Download, FileText, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, FileText, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import html2pdf from 'html2pdf.js';
 import * as XLSX from 'xlsx';
@@ -10,15 +10,22 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 
 const EXAM_TYPES = ['CAT-1', 'CAT-2', 'Quarterly', 'Half Yearly', 'Revision-1', 'Revision-2', 'Annual'];
 
-const GRADE_RULES = {
-  'A+': { min: 90, max: 100, points: 10 },
-  'A': { min: 80, max: 89, points: 9 },
-  'B+': { min: 70, max: 79, points: 8 },
-  'B': { min: 60, max: 69, points: 7 },
-  'C': { min: 50, max: 59, points: 6 },
-  'D': { min: 40, max: 49, points: 5 },
-  'E': { min: 35, max: 39, points: 4 },
-  'F': { min: 0, max: 34, points: 0 },
+const DEFAULT_GRADE_RULES = [
+  { label: 'A+', minPercent: 90, maxPercent: 100, points: 10 },
+  { label: 'A',  minPercent: 80, maxPercent: 89,  points: 9  },
+  { label: 'B+', minPercent: 70, maxPercent: 79,  points: 8  },
+  { label: 'B',  minPercent: 60, maxPercent: 69,  points: 7  },
+  { label: 'C',  minPercent: 50, maxPercent: 59,  points: 6  },
+  { label: 'D',  minPercent: 40, maxPercent: 49,  points: 5  },
+  { label: 'E',  minPercent: 35, maxPercent: 39,  points: 4  },
+  { label: 'F',  minPercent: 0,  maxPercent: 34,  points: 0  },
+];
+
+const calcGradeFromRules = (percent, rules) => {
+  for (const g of rules) {
+    if (percent >= g.minPercent && percent <= g.maxPercent) return g.label;
+  }
+  return '-';
 };
 
 const Exams = () => {
@@ -27,19 +34,23 @@ const Exams = () => {
   const classesStatus = useSelector(s => s.classes.status);
 
   const [activeTab, setActiveTab] = useState('Exam Settings');
+  const [gradeRules, setGradeRules] = useState(DEFAULT_GRADE_RULES);
 
   useEffect(() => {
     if (classesStatus === 'idle') dispatch(fetchClasses());
+    api.get('/api/grade-config').then(res => {
+      if (res.data?.data?.length) setGradeRules(res.data.data);
+    }).catch(() => {});
   }, [classesStatus, dispatch]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold text-[#0F172A]">Exam Management</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Exam Management</h1>
         <p className="text-[#64748B] mt-1">Manage exams, marks, grades, and generate reports</p>
       </div>
 
-      <div className="flex gap-1 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-1 border-b-2 border-[#FCD34D] overflow-x-auto">
         {['Exam Settings', 'Marks', 'Grades', 'Reports'].map((tab) => (
           <button
             key={tab}
@@ -57,9 +68,9 @@ const Exams = () => {
       </div>
 
       {activeTab === 'Exam Settings' && <ExamSettingsTab classes={classes} />}
-      {activeTab === 'Marks' && <MarksTab classes={classes} />}
-      {activeTab === 'Grades' && <GradesTab />}
-      {activeTab === 'Reports' && <ReportsTab classes={classes} />}
+      {activeTab === 'Marks' && <MarksTab classes={classes} gradeRules={gradeRules} />}
+      {activeTab === 'Grades' && <GradesTab gradeRules={gradeRules} setGradeRules={setGradeRules} />}
+      {activeTab === 'Reports' && <ReportsTab classes={classes} gradeRules={gradeRules} />}
     </div>
   );
 };
@@ -230,6 +241,7 @@ const ExamSettingsTab = ({ classes }) => {
         ...formData,
         endTime,
         duration: Number(formData.duration),
+        invigilatorId: formData.invigilatorId || undefined,
       };
       if (isEditing && selectedExam) {
         await api.put(`/api/exams/${selectedExam._id}`, submitData);
@@ -694,7 +706,7 @@ const ExamSettingsTab = ({ classes }) => {
 
 // ─── Marks Tab ──────────────────────────────────────────────────────────────
 
-const MarksTab = ({ classes }) => {
+const MarksTab = ({ classes, gradeRules }) => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedExam, setSelectedExam] = useState('');
   const [students, setStudents] = useState([]);
@@ -742,11 +754,10 @@ const MarksTab = ({ classes }) => {
 
   const calculateGrade = (marksValue) => {
     if (marksValue === undefined || marksValue === null || marksValue === '') return '-';
-    const val = Number(marksValue);
-    for (const [grade, rule] of Object.entries(GRADE_RULES)) {
-      if (val >= rule.min && val <= rule.max) return grade;
-    }
-    return '-';
+    const examObj = exams.find(e => e._id === selectedExam);
+    const maxScore = examObj?.maxScore || 100;
+    const pct = (Number(marksValue) / maxScore) * 100;
+    return calcGradeFromRules(pct, gradeRules);
   };
 
   const handleMarkChange = (studentId, value) => {
@@ -899,19 +910,181 @@ const MarksTab = ({ classes }) => {
 
 // ─── Grades Tab ──────────────────────────────────────────────────────────────
 
-const GradesTab = () => {
+const EMPTY_GRADE_ROW = { label: '', minPercent: '', maxPercent: '', points: '' };
+
+const GradesTab = ({ gradeRules, setGradeRules }) => {
+  const [draft, setDraft] = useState(gradeRules.map(g => ({ ...g })));
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [newRow, setNewRow] = useState(EMPTY_GRADE_ROW);
+  const [editIdx, setEditIdx] = useState(null);
+
+  useEffect(() => { setDraft(gradeRules.map(g => ({ ...g }))); }, [gradeRules]);
+
+  const handleSave = async () => {
+    const validated = draft.map(g => ({
+      label: g.label.trim(),
+      minPercent: Number(g.minPercent),
+      maxPercent: Number(g.maxPercent),
+      points: Number(g.points),
+    }));
+    if (validated.some(g => !g.label || isNaN(g.minPercent) || isNaN(g.maxPercent))) {
+      toast.error('All fields are required for each grade');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.post('/api/grade-config', { grades: validated });
+      setGradeRules(res.data.data);
+      toast.success('Grade configuration saved');
+    } catch {
+      toast.error('Failed to save grade configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = (idx) => {
+    setDraft(draft.filter((_, i) => i !== idx));
+  };
+
+  const handleAddRow = () => {
+    if (!newRow.label.trim() || newRow.minPercent === '' || newRow.maxPercent === '') {
+      toast.error('Label, min % and max % are required');
+      return;
+    }
+    setDraft([...draft, { label: newRow.label.trim(), minPercent: Number(newRow.minPercent), maxPercent: Number(newRow.maxPercent), points: Number(newRow.points) || 0 }]);
+    setNewRow(EMPTY_GRADE_ROW);
+    setShowForm(false);
+  };
+
+  const handleEditCell = (idx, field, value) => {
+    setDraft(draft.map((g, i) => i === idx ? { ...g, [field]: value } : g));
+  };
+
   return (
-    <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-      <h2 className="text-2xl font-bold text-[#0F172A] mb-6">Grade Configuration</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {Object.entries(GRADE_RULES).map(([grade, rule]) => (
-          <div key={grade} className="p-4 bg-[#FEF3C7] rounded-lg">
-            <p className="font-bold text-lg text-[#0F172A]">{grade}</p>
-            <p className="text-sm text-[#64748B]">{rule.min} - {rule.max} marks</p>
-            <p className="text-xs text-[#0F172A] mt-2">Points: {rule.points}/10</p>
-          </div>
-        ))}
+    <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-[#0F172A]">Grade Configuration</h2>
+          <p className="text-sm text-[#64748B] mt-1">Define your school's grading system. All exam grades will use this.</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowForm(true); setNewRow(EMPTY_GRADE_ROW); }}
+            className="flex items-center gap-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] px-4 py-2 rounded-lg font-semibold text-sm"
+          >
+            <Plus size={16} /> Add Grade
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-[#DC2626] text-white hover:bg-[#B91C1C] px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Grade</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Min %</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Max %</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Points</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {draft.map((g, idx) => (
+              <tr key={idx} className="hover:bg-[#FFFBEB]">
+                <td className="px-4 py-3">
+                  {editIdx === idx ? (
+                    <input value={g.label} onChange={e => handleEditCell(idx, 'label', e.target.value)}
+                      className="w-20 h-8 px-2 border border-[#FCD34D] rounded text-sm" />
+                  ) : (
+                    <span className="font-bold text-[#0F172A]">{g.label}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {editIdx === idx ? (
+                    <input type="number" value={g.minPercent} onChange={e => handleEditCell(idx, 'minPercent', e.target.value)}
+                      className="w-20 h-8 px-2 border border-[#FCD34D] rounded text-sm" />
+                  ) : (
+                    <span className="text-sm text-[#64748B]">{g.minPercent}%</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {editIdx === idx ? (
+                    <input type="number" value={g.maxPercent} onChange={e => handleEditCell(idx, 'maxPercent', e.target.value)}
+                      className="w-20 h-8 px-2 border border-[#FCD34D] rounded text-sm" />
+                  ) : (
+                    <span className="text-sm text-[#64748B]">{g.maxPercent}%</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {editIdx === idx ? (
+                    <input type="number" value={g.points} onChange={e => handleEditCell(idx, 'points', e.target.value)}
+                      className="w-20 h-8 px-2 border border-[#FCD34D] rounded text-sm" />
+                  ) : (
+                    <span className="text-sm text-[#0F172A]">{g.points}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    {editIdx === idx ? (
+                      <button onClick={() => setEditIdx(null)} className="p-1.5 text-green-600 hover:bg-green-50 rounded">
+                        <Save size={16} />
+                      </button>
+                    ) : (
+                      <button onClick={() => setEditIdx(idx)} className="p-1.5 text-[#F59E0B] hover:bg-[#FEF3C7] rounded">
+                        <Edit size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => handleDelete(idx)} className="p-1.5 text-[#DC2626] hover:bg-[#FEE2E2] rounded">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && (
+        <div className="bg-[#FEF3C7] p-4 rounded-lg border border-[#FCD34D]">
+          <p className="font-semibold text-[#0F172A] mb-3">Add New Grade</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-[#64748B] mb-1 block">Grade Label *</label>
+              <input value={newRow.label} onChange={e => setNewRow({ ...newRow, label: e.target.value })}
+                placeholder="e.g. A+" className="w-full h-9 px-3 border border-[#FCD34D] rounded text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#64748B] mb-1 block">Min % *</label>
+              <input type="number" value={newRow.minPercent} onChange={e => setNewRow({ ...newRow, minPercent: e.target.value })}
+                placeholder="0" className="w-full h-9 px-3 border border-[#FCD34D] rounded text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#64748B] mb-1 block">Max % *</label>
+              <input type="number" value={newRow.maxPercent} onChange={e => setNewRow({ ...newRow, maxPercent: e.target.value })}
+                placeholder="100" className="w-full h-9 px-3 border border-[#FCD34D] rounded text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#64748B] mb-1 block">Points</label>
+              <input type="number" value={newRow.points} onChange={e => setNewRow({ ...newRow, points: e.target.value })}
+                placeholder="0" className="w-full h-9 px-3 border border-[#FCD34D] rounded text-sm" />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={handleAddRow} className="bg-[#DC2626] text-white hover:bg-[#B91C1C] px-4 py-1.5 rounded text-sm font-semibold">Add</button>
+            <button onClick={() => setShowForm(false)} className="bg-gray-200 text-[#0F172A] hover:bg-gray-300 px-4 py-1.5 rounded text-sm font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1120,7 +1293,7 @@ const ReportsTab = ({ classes }) => {
                     <p className="text-[#64748B] mt-2">Academic Year 2025-2026</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-[#64748B]">Student Name</p>
                       <p className="text-lg font-bold text-[#0F172A]">{student.name}</p>

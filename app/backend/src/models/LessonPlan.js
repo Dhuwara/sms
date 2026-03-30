@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const lessonPlanSchema = new mongoose.Schema({
+    schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
     title: { type: String, required: true },
     classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
     subject: { type: String, required: true },

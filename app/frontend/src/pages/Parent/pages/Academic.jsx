@@ -48,7 +48,7 @@ const Academic = ({ selectedChild, childGrades, childExams, childSelector, forma
                   <th className="px-4 py-3 text-left font-bold text-sm">Max Score</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody >
                 {childExams.map((exam, idx) => (
                   <tr key={exam._id || idx} className="border-b border-[#E2E8F0]">
                     <td className="px-4 py-3 text-sm font-semibold">{exam.examType}</td>
@@ -83,7 +83,7 @@ const Academic = ({ selectedChild, childGrades, childExams, childSelector, forma
                 <th className="px-4 py-3 text-left font-bold text-sm">Term</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {grades.length > 0 ? grades.map((g, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm font-semibold">{g.subjectId?.name || 'Subject'}</td>

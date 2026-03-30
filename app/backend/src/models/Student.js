@@ -2,8 +2,10 @@ import mongoose from 'mongoose';
 
 const studentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent' },
+  standard: { type: String, default: '' },
   rollNumber: { type: String },
   dateOfBirth: { type: Date },
   gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },

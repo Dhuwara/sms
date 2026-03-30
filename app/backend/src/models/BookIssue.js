@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const bookIssueSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book', required: true },
   issuedToType: { type: String, enum: ['student', 'staff'], default: 'student' },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },

@@ -20,6 +20,7 @@ export const createOnlineClass = async (req, res, next) => {
     const onlineClass = await OnlineClass.create({
       ...req.body,
       staffId,
+      schoolId: req.user.schoolId,
     });
 
     res.status(201).json({ success: true, data: onlineClass });
@@ -33,7 +34,7 @@ export const createOnlineClass = async (req, res, next) => {
 // @access  Private (Staff/Admin)
 export const getOnlineClasses = async (req, res, next) => {
   try {
-    const onlineClasses = await OnlineClass.find({ classId: req.params.classId })
+    const onlineClasses = await OnlineClass.find({ classId: req.params.classId, schoolId: req.user.schoolId })
       .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } })
       .sort({ date: 1, time: 1 });
       

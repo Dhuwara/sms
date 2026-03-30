@@ -9,7 +9,7 @@ import Class from '../models/Class.js';
 
 export const getFeeTypes = async (req, res, next) => {
   try {
-    const types = await FeeType.find().sort({ createdAt: -1 });
+    const types = await FeeType.find({ schoolId: req.user.schoolId }).sort({ createdAt: -1 });
     res.json({ success: true, data: types });
   } catch (err) {
     next(err);
@@ -20,7 +20,7 @@ export const createFeeType = async (req, res, next) => {
   try {
     const { name, amount, due_date, description, category, frequency } = req.body;
     if (!name || !amount) return res.status(400).json({ success: false, message: 'Name and amount are required' });
-    const type = await FeeType.create({ name, amount, dueDate: due_date, description, category, frequency });
+    const type = await FeeType.create({ name, amount, dueDate: due_date, description, category, frequency, schoolId: req.user.schoolId });
     res.status(201).json({ success: true, data: type });
   } catch (err) {
     next(err);
@@ -52,7 +52,7 @@ export const deleteFeeType = async (req, res, next) => {
 export const getFeeRecords = async (req, res, next) => {
   try {
     const { studentId, status, classId } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (studentId) filter.studentId = studentId;
     if (status) filter.status = status;
 
@@ -76,7 +76,7 @@ export const getFeeRecords = async (req, res, next) => {
 
 export const createFeeRecord = async (req, res, next) => {
   try {
-    const record = await FeeRecord.create(req.body);
+    const record = await FeeRecord.create({ ...req.body, schoolId: req.user.schoolId });
     res.status(201).json({ success: true, data: record });
   } catch (err) {
     next(err);
@@ -227,12 +227,11 @@ export const getFeeStructuresByClass = async (req, res, next) => {
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
 
     const standard = normalizeStandard(cls.name);
+    const schoolId = req.user.schoolId;
 
-    // Find class-specific and standard-wide structures
-    const structures = await FeeStructure.find({
-      standard,
-      $or: [{ classId: req.params.classId }, { classId: null }],
-    }).sort({ createdAt: -1 });
+    // Match all fee structures for this standard — classId on the structure is
+    // just the section it was originally created for, not a strict filter
+    const structures = await FeeStructure.find({ schoolId, standard }).sort({ createdAt: -1 });
 
     res.json({ success: true, data: structures });
   } catch (err) {

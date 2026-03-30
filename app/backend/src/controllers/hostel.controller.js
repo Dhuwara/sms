@@ -5,7 +5,7 @@ import HostelAllocation from '../models/HostelAllocation.js';
 
 export const getRooms = async (req, res, next) => {
   try {
-    const rooms = await HostelRoom.find().sort({ roomNumber: 1 });
+    const rooms = await HostelRoom.find({ schoolId: req.user.schoolId }).sort({ roomNumber: 1 });
     res.json({ success: true, data: rooms });
   } catch (err) {
     next(err);
@@ -19,6 +19,7 @@ export const createRoom = async (req, res, next) => {
       roomNumber: room_no || rest.roomNumber,
       capacity: capacity || rest.capacity || 2,
       ...rest,
+      schoolId: req.user.schoolId,
     });
     res.status(201).json({ success: true, data: room });
   } catch (err) {
@@ -51,7 +52,7 @@ export const deleteRoom = async (req, res, next) => {
 
 export const getAllocations = async (req, res, next) => {
   try {
-    const allocations = await HostelAllocation.find({ status: 'active' })
+    const allocations = await HostelAllocation.find({ status: 'active', schoolId: req.user.schoolId })
       .populate({ path: 'studentId', populate: { path: 'userId', select: 'name' } })
       .populate('roomId', 'roomNumber floor type');
     res.json({ success: true, data: allocations });
@@ -67,7 +68,7 @@ export const createAllocation = async (req, res, next) => {
     if (!room || room.occupancy >= room.capacity) {
       return res.status(400).json({ success: false, message: 'Room is full or not found' });
     }
-    const allocation = await HostelAllocation.create({ studentId, roomId });
+    const allocation = await HostelAllocation.create({ studentId, roomId, schoolId: req.user.schoolId });
     await HostelRoom.findByIdAndUpdate(roomId, {
       $inc: { occupancy: 1 },
       ...(room.occupancy + 1 >= room.capacity && { status: 'full' }),

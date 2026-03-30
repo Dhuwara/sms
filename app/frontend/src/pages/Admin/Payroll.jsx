@@ -122,7 +122,7 @@ const Payroll = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Payroll Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Payroll Management</h1>
           <p className="text-[#64748B] mt-1">Manage staff salary and payments</p>
         </div>
         <button onClick={openCreate} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-5 py-2.5 rounded-lg font-semibold transition-colors">

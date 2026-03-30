@@ -265,7 +265,7 @@ const Academic = ({
                 <th className="px-4 py-3 text-left font-bold text-sm">Max Marks</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {examDuties.length > 0 ? examDuties.map((exam, idx) => (
                 <tr key={exam._id || idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm font-semibold">{exam.examType}</td>
@@ -369,7 +369,7 @@ const Academic = ({
                 <label className="block text-sm font-medium text-[#0F172A] mb-1">Title</label>
                 <input type="text" required value={onlineClassForm.title} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, title: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0F172A] mb-1">Platform</label>
                   <select required value={onlineClassForm.platform} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, platform: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
@@ -396,7 +396,7 @@ const Academic = ({
                 <label className="block text-sm font-medium text-[#0F172A] mb-1">Meeting Link</label>
                 <input type="url" required placeholder="https://..." value={onlineClassForm.link} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, link: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0F172A] mb-1">Date</label>
                   <input type="date" required value={onlineClassForm.date} onChange={(ev) => setOnlineClassForm({ ...onlineClassForm, date: ev.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />

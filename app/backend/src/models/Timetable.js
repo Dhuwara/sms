@@ -7,6 +7,7 @@ const dayEntrySchema = new mongoose.Schema({
 }, { _id: false });
 
 const timetableSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   academicYear: { type: String, required: true },
   schedule: {

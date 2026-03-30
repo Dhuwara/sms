@@ -1,7 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { fetchAdminStatsApi } from '../../services/staffService';
 
-export const fetchAdminStats = createAsyncThunk('dashboard/fetchStats', fetchAdminStatsApi);
+export const fetchAdminStats = createAsyncThunk(
+  'dashboard/fetchStats',
+  fetchAdminStatsApi,
+  { condition: (_, { getState }) => getState().dashboard.status !== 'loading' }
+);
 
 const dashboardSlice = createSlice({
   name: 'dashboard',
@@ -12,8 +16,15 @@ const dashboardSlice = createSlice({
       total_teachers: 0,
       total_staff: 0,
       pending_fees: 0,
-      present_today: 0,
-      absent_today: 0,
+      student_present_today: 0,
+      student_absent_today: 0,
+      staff_present_today: 0,
+      staff_late_today: 0,
+      staff_absent_today: 0,
+      fee_total_expected: 0,
+      fee_total_collected: 0,
+      fee_total_pending: 0,
+      fee_total_overdue: 0,
     },
     status: 'idle',
     error: null,

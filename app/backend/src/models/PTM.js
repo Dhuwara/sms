@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const ptmSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   title:          { type: String, required: true },
   date:           { type: Date, required: true },
   time:           { type: String, required: true },  // e.g. "10:00 AM - 1:00 PM"

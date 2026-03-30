@@ -11,8 +11,15 @@ const Dashboard = ({ user }) => {
   const dispatch = useDispatch();
   const stats = useSelector(s => s.dashboard.stats);
   const dashboardStatus = useSelector(s => s.dashboard.status);
-  const [todayAttendance, setTodayAttendance] = useState({
+  const [studentAttendance, setStudentAttendance] = useState({
     present: 0,
+    absent: 0,
+    total: 0,
+    percentage: 0
+  });
+  const [teacherAttendance, setTeacherAttendance] = useState({
+    present: 0,
+    late: 0,
     absent: 0,
     total: 0,
     percentage: 0
@@ -83,46 +90,38 @@ const Dashboard = ({ user }) => {
   const fetchAttendance = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
-      // Fetch attendance for today across all classes
-      const response = await api.get(`/api/attendance`);
-      
+      const response = await api.get(`/api/attendance?date=${today}`);
+
       if (response.data && response.data.length > 0) {
-        const attendanceRecords = response.data;
-        
-        // Count present and absent students
-        const presentCount = attendanceRecords.filter(record => record.status === 'present').length;
-        const absentCount = attendanceRecords.filter(record => record.status === 'absent').length;
-        const totalCount = attendanceRecords.length;
-        
-        // Calculate attendance percentage
-        const percentage = totalCount > 0 ? ((presentCount / totalCount) * 100).toFixed(1) : 0;
-        
-        setTodayAttendance({
-          present: presentCount,
-          absent: absentCount,
-          total: totalCount,
-          percentage: parseFloat(percentage)
-        });
-        
+        const records = response.data;
+        const presentCount = records.filter(r => r.status === 'present').length;
+        const absentCount = records.filter(r => r.status === 'absent').length;
+        const totalCount = records.length;
+        const percentage = totalCount > 0 ? parseFloat(((presentCount / totalCount) * 100).toFixed(1)) : 0;
+
+        setStudentAttendance({ present: presentCount, absent: absentCount, total: totalCount, percentage });
       } else {
-        // No attendance records for today
-        setTodayAttendance({
-          present: 0,
-          absent: 0,
-          total: 0,
-          percentage: 0
-        });
+        setStudentAttendance({ present: 0, absent: 0, total: 0, percentage: 0 });
       }
     } catch (error) {
-      console.error('Failed to load attendance:', error);
-      // Set default values on error
-      setTodayAttendance({
-        present: 0,
-        absent: 0,
-        total: 0,
-        percentage: 0
-      });
+      console.error('Failed to load student attendance:', error);
+      setStudentAttendance({ present: 0, absent: 0, total: 0, percentage: 0 });
+    }
+
+    try {
+      const response = await api.get('/api/admin/stats');
+      if (response.data) {
+        const d = response.data;
+        const present = d.staff_present_today || 0;
+        const late = d.staff_late_today || 0;
+        const absent = d.staff_absent_today || 0;
+        const total = present + late + absent;
+        const percentage = total > 0 ? parseFloat((((present + late) / total) * 100).toFixed(1)) : 0;
+        setTeacherAttendance({ present, late, absent, total, percentage });
+      }
+    } catch (error) {
+      console.error('Failed to load teacher attendance:', error);
+      setTeacherAttendance({ present: 0, late: 0, absent: 0, total: 0, percentage: 0 });
     }
   };
 
@@ -217,7 +216,7 @@ const Dashboard = ({ user }) => {
     },
     {
       title: 'Pending Fees',
-      value: `₹${stats.pending_fees || 0}`,
+      value: `₹${(stats.fee_total_expected - stats.fee_total_collected || 0).toLocaleString('en-IN')}`,
       icon: DollarSign,
       color: 'text-[#DC2626]',
       bg: 'bg-[#FEE2E2]',
@@ -241,7 +240,7 @@ const Dashboard = ({ user }) => {
           Welcome back, {user?.full_name}! 👋
         </h1>
         <p className="text-lg text-[#64748B]">
-          Here's what's happening in AJM International Institution today.
+          Here's what's happening in {user?.schoolName || 'your school'} today.
         </p>
       </div>
 
@@ -269,29 +268,60 @@ const Dashboard = ({ user }) => {
         })}
       </div>
 
-      {/* Attendance Summary */}
+      {/* Student Attendance Summary */}
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
         <h2 className="text-2xl font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
-          <Calendar className="text-[#F59E0B]" size={28} />
-          Today's Attendance Summary
+          <Users className="text-[#F59E0B]" size={28} />
+          Student Attendance Summary
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#064E3B] font-medium">Present</p>
-            <p className="text-3xl font-bold text-[#10B981]">{todayAttendance.present}</p>
+            <p className="text-3xl font-bold text-[#10B981]">{studentAttendance.present}</p>
           </div>
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
             <p className="text-sm text-[#7F1D1D] font-medium">Absent</p>
-            <p className="text-3xl font-bold text-[#DC2626]">{todayAttendance.absent}</p>
+            <p className="text-3xl font-bold text-[#DC2626]">{studentAttendance.absent}</p>
           </div>
           <div className="p-4 bg-[#FEF3C7] rounded-lg">
             <p className="text-sm text-[#78350F] font-medium">Attendance Rate</p>
-            <p className="text-3xl font-bold text-[#F59E0B]">{todayAttendance.percentage}%</p>
+            <p className="text-3xl font-bold text-[#F59E0B]">{studentAttendance.percentage}%</p>
           </div>
         </div>
-        {todayAttendance.total === 0 && (
+        {studentAttendance.total === 0 && (
           <div className="mt-4 p-3 bg-[#FEF3C7] rounded-lg">
-            <p className="text-sm text-[#78350F]">No attendance records found for today. Attendance may not have been marked yet.</p>
+            <p className="text-sm text-[#78350F]">No student attendance records found for today. Attendance may not have been marked yet.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Teacher Attendance Summary */}
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
+          <GraduationCap className="text-[#10B981]" size={28} />
+          Teacher Attendance Summary
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-[#D1FAE5] rounded-lg">
+            <p className="text-sm text-[#064E3B] font-medium">Present</p>
+            <p className="text-3xl font-bold text-[#10B981]">{teacherAttendance.present}</p>
+          </div>
+          <div className="p-4 bg-[#FEF3C7] rounded-lg">
+            <p className="text-sm text-[#78350F] font-medium">Late</p>
+            <p className="text-3xl font-bold text-[#F59E0B]">{teacherAttendance.late}</p>
+          </div>
+          <div className="p-4 bg-[#FEE2E2] rounded-lg">
+            <p className="text-sm text-[#7F1D1D] font-medium">Absent</p>
+            <p className="text-3xl font-bold text-[#DC2626]">{teacherAttendance.absent}</p>
+          </div>
+          <div className="p-4 bg-[#E0E7FF] rounded-lg">
+            <p className="text-sm text-[#312E81] font-medium">Attendance Rate</p>
+            <p className="text-3xl font-bold text-[#4F46E5]">{teacherAttendance.percentage}%</p>
+          </div>
+        </div>
+        {teacherAttendance.total === 0 && (
+          <div className="mt-4 p-3 bg-[#FEF3C7] rounded-lg">
+            <p className="text-sm text-[#78350F]">No teacher attendance records found for today. Teachers may not have checked in yet.</p>
           </div>
         )}
       </div>
@@ -305,19 +335,19 @@ const Dashboard = ({ user }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="p-4 bg-[#D1FAE5] rounded-lg">
             <p className="text-sm text-[#064E3B] font-medium">Collected</p>
-            <p className="text-2xl font-bold text-[#10B981]">₹4,50,000</p>
+            <p className="text-2xl font-bold text-[#10B981]">₹{(stats.fee_total_collected || 0).toLocaleString('en-IN')}</p>
           </div>
           <div className="p-4 bg-[#FEF3C7] rounded-lg">
             <p className="text-sm text-[#78350F] font-medium">Pending</p>
-            <p className="text-2xl font-bold text-[#F59E0B]">₹75,000</p>
+            <p className="text-2xl font-bold text-[#F59E0B]">₹{(stats.fee_total_pending || 0).toLocaleString('en-IN')}</p>
           </div>
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
             <p className="text-sm text-[#7F1D1D] font-medium">Overdue</p>
-            <p className="text-2xl font-bold text-[#DC2626]">₹25,000</p>
+            <p className="text-2xl font-bold text-[#DC2626]">₹{(stats.fee_total_overdue || 0).toLocaleString('en-IN')}</p>
           </div>
           <div className="p-4 bg-[#E0E7FF] rounded-lg">
             <p className="text-sm text-[#312E81] font-medium">Total Expected</p>
-            <p className="text-2xl font-bold text-[#4F46E5]">₹5,50,000</p>
+            <p className="text-2xl font-bold text-[#4F46E5]">₹{(stats.fee_total_expected || 0).toLocaleString('en-IN')}</p>
           </div>
         </div>
       </div>

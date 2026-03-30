@@ -62,42 +62,105 @@ const Timetable = ({
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Timetable & Scheduling</h2>
 
-      {myTimetable && myTimetable.length > 0 ? myTimetable.map((tt, ttIdx) => {
-        // Get unique period slots from the first day that has data (all days share the same period structure)
-        const sampleDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].find((d) => tt.schedule?.[d]?.length > 0);
-        const allSlots = sampleDay ? tt.schedule[sampleDay] : [];
-        // Filter out break/lunch/assembly — only show class/lab/sports periods
-        const classSlotIndices = allSlots.map((s, i) => ({ ...s, _idx: i })).filter((s) => s.type !== 'break' && s.type !== 'lunch' && s.type !== 'assembly');
+      {myTimetable && myTimetable.length > 0 ? (() => {
+        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const staffId = staffData?._id?.toString();
+
+        // Collect all teacher's periods across all classes, keyed by day + startTime
+        // Map: day -> startTime -> { name, startTime, endTime, subject, className, section }
+        const dayMap = {};
+        const allTimeSlots = new Set();
+
+        myTimetable.forEach((tt) => {
+          DAYS.forEach((day) => {
+            const dayPeriods = tt.schedule?.[day] || [];
+            dayPeriods.forEach((p) => {
+              if (p.type === 'break' || p.type === 'lunch' || p.type === 'assembly') return;
+              const isMyPeriod = p.teacher?.toString() === staffId;
+              if (!isMyPeriod) return;
+              const key = p.startTime;
+              allTimeSlots.add(key);
+              if (!dayMap[day]) dayMap[day] = {};
+              dayMap[day][key] = {
+                name: p.name,
+                startTime: p.startTime,
+                endTime: p.endTime,
+                subject: p.subject || '',
+                className: tt.className,
+                section: tt.section,
+              };
+            });
+          });
+        });
+
+        // Also collect ALL unique time slots from ALL classes (including ones teacher isn't assigned to)
+        // so we can show "Free Period" for gaps
+        myTimetable.forEach((tt) => {
+          DAYS.forEach((day) => {
+            const dayPeriods = tt.schedule?.[day] || [];
+            dayPeriods.forEach((p) => {
+              if (p.type === 'break' || p.type === 'lunch' || p.type === 'assembly') return;
+              allTimeSlots.add(p.startTime);
+            });
+          });
+        });
+
+        // Sort time slots chronologically
+        const sortedSlots = [...allTimeSlots].sort((a, b) => {
+          const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+          return toMin(a) - toMin(b);
+        });
+
+        // Build a lookup for slot metadata (name, endTime) from any class
+        const slotMeta = {};
+        myTimetable.forEach((tt) => {
+          DAYS.forEach((day) => {
+            (tt.schedule?.[day] || []).forEach((p) => {
+              if (p.type === 'break' || p.type === 'lunch' || p.type === 'assembly') return;
+              if (!slotMeta[p.startTime]) {
+                slotMeta[p.startTime] = { name: p.name, endTime: p.endTime };
+              }
+            });
+          });
+        });
+
         return (
-          <div key={ttIdx} className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-            <h3 className="font-bold mb-4">{tt.className} - {tt.section}</h3>
+          <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+            <h3 className="font-bold mb-4">My Teaching Schedule</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold text-sm">Day</th>
-                    {classSlotIndices.length > 0 ? classSlotIndices.map((slot, idx) => (
-                      <th key={idx} className="px-4 py-3 text-left font-bold text-sm">{slot.name}<br /><span className="font-normal text-xs">{slot.startTime}-{slot.endTime}</span></th>
-                    )) : (
-                      <th className="px-4 py-3 text-left font-bold text-sm">Periods not configured</th>
-                    )}
+                    {sortedSlots.map((time) => (
+                      <th key={time} className="px-4 py-3 text-left font-bold text-sm">
+                        {slotMeta[time]?.name || 'Period'}<br />
+                        <span className="font-normal text-xs">{time} - {slotMeta[time]?.endTime || ''}</span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
+                  {DAYS.map((day) => (
                     <tr key={day} className="border-b border-[#E2E8F0]">
                       <td className="px-4 py-3 font-semibold">{day}</td>
-                      {tt.schedule?.[day]?.length > 0 ? classSlotIndices.map((slot, idx) => {
-                        const entry = tt.schedule[day]?.[slot._idx];
-                        const isMyPeriod = entry?.teacher?.toString() === staffData?._id?.toString();
+                      {sortedSlots.map((time) => {
+                        const entry = dayMap[day]?.[time];
+                        if (entry) {
+                          return (
+                            <td key={time} className="px-4 py-3 text-sm">
+                              <span className="font-semibold text-[#4F46E5]">{entry.className} {entry.section}</span>
+                              <br />
+                              <span className="text-[#64748B]">{entry.subject}</span>
+                            </td>
+                          );
+                        }
                         return (
-                          <td key={idx} className="px-4 py-3 text-sm">
-                            {isMyPeriod ? (entry?.subject || '-') : '-'}
+                          <td key={time} className="px-4 py-3 text-sm text-[#10B981] italic">
+                            Free Period
                           </td>
                         );
-                      }) : (
-                        <td colSpan={classSlotIndices.length || 1} className="px-4 py-3 text-sm text-[#64748B]">No schedule</td>
-                      )}
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -105,7 +168,7 @@ const Timetable = ({
             </div>
           </div>
         );
-      }) : (
+      })() : (
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 text-center text-[#64748B]">
           <p>No timetable assigned yet</p>
         </div>

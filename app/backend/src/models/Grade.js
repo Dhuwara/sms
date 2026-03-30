@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const gradeSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
   marks: { type: Number, required: true },

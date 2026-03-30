@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const classMappingSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   academicYear: { type: String, required: true },
   classTeacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', default: null },

@@ -52,9 +52,9 @@ const Transport = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Transport Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Transport Management</h1>
           <p className="text-[#64748B] mt-1">Routes, drivers, student assignments & fees</p>
         </div>
         <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-6 py-3 rounded-lg font-semibold transition-all shadow-md">
@@ -62,7 +62,7 @@ const Transport = () => {
         </button>
       </div>
 
-      <div className="flex gap-2 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-2 border-b-2 border-[#FCD34D] overflow-x-auto">
         {['routes', 'assignments', 'fees'].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 font-semibold transition-all capitalize ${activeTab === tab ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg' : 'text-[#64748B] hover:text-[#0F172A]'}`}>
             {tab}

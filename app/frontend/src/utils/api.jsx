@@ -8,6 +8,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve();
+  });
+  failedQueue = [];
+};
+
 // Auto-unwrap { success: true, data: ... } so every page can just use response.data
 api.interceptors.response.use(
   (response) => {
@@ -16,11 +27,42 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
-    const isAuthCheck = error.config?.url?.includes('/api/auth/me');
-    if (error.response?.status === 401 && !isAuthCheck && window.location.pathname !== '/login') {
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+    const isAuthCheck = originalRequest?.url?.includes('/api/auth/me');
+    const isRefreshCall = originalRequest?.url?.includes('/api/auth/refresh');
+
+    // If 401 and not a refresh call itself, try refreshing the token
+    if (error.response?.status === 401 && !isRefreshCall && !originalRequest._retry) {
+      if (isAuthCheck) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // Queue this request until refresh completes
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => api(originalRequest));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await axios.post(`${API_URL}/api/auth/refresh`, {}, { withCredentials: true });
+        processQueue(null);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );

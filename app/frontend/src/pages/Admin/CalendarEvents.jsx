@@ -167,8 +167,8 @@ const AdminCalendarEvents = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-[#0F172A]">School Calendar Events</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#0F172A]">School Calendar Events</h1>
         <button
           onClick={() => { resetForm(); setShowModal(true); }}
           className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-[#4338CA] transition-colors"
@@ -273,7 +273,7 @@ const AdminCalendarEvents = () => {
 
       {/* Add/Edit Event Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-[#0F172A]">

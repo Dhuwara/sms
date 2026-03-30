@@ -42,7 +42,7 @@ const Fees = ({ feesData, getAcademicYear, formatDate }) => {
                 <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {fees.map((fee, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm">{fee.description || '—'}</td>

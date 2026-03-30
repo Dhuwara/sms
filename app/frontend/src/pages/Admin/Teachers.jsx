@@ -177,7 +177,7 @@ const Teachers = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Teachers Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Teachers Management</h1>
           <p className="text-[#64748B] mt-1">Manage teacher profiles, subjects & workload</p>
         </div>
         <button
@@ -490,7 +490,7 @@ const Teachers = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B]">Email</p>
                   <p className="font-semibold">{selectedTeacher.email}</p>

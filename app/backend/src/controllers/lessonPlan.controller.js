@@ -73,7 +73,8 @@ export const uploadLessonPlan = async (req, res, next) => {
             filename: req.file.filename,
             originalName: req.file.originalname,
             mimeType: req.file.mimetype,
-            size: req.file.size
+            size: req.file.size,
+            schoolId: req.user.schoolId,
         });
 
         const populated = await LessonPlan.findById(newPlan._id).populate('classId', 'name section');

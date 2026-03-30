@@ -2,11 +2,11 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import Student from '../models/Student.js';
+import School from '../models/School.js';
 
-const generateTokens = (userId, role) => {
-  const accessToken = jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId, role }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+const generateTokens = (userId, role, schoolId) => {
+  const accessToken = jwt.sign({ userId, role, schoolId }, process.env.JWT_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ userId, role, schoolId }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
   return { accessToken, refreshToken };
 };
 
@@ -20,34 +20,79 @@ const setCookies = (res, accessToken, refreshToken) => {
   });
 };
 
-export const login = async (req, res, next) => {
-
+export const signup = async (req, res, next) => {
   try {
-    let { email, rollNumber, password } = req.body;
+    const { schoolName, schoolType, address1, address2, city, state, adminName, adminEmail, adminPhone, password } = req.body;
 
-    email = email?.trim();
-    rollNumber = rollNumber?.trim();
+    if (!schoolName || !address1 || !city || !state || !adminEmail || !adminPhone || !password) {
+      return res.status(400).json({ success: false, message: 'All required fields must be filled' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
 
-    if ((!email && !rollNumber) || !password) {
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: adminEmail.trim().toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    // Create school
+    const school = await School.create({
+      name: schoolName.trim(),
+      schoolType: schoolType || 'other',
+      address1: address1.trim(),
+      address2: (address2 || '').trim(),
+      city: city.trim(),
+      state: state.trim(),
+      phone: (adminPhone || '').trim(),
+      email: adminEmail.trim(),
+    });
+
+    // Create admin user for this school
+    const passwordHash = await bcrypt.hash(password, 12);
+    await User.create({
+      name: (adminName || schoolName).trim(),
+      email: adminEmail.trim(),
+      phone: (adminPhone || '').trim(),
+      passwordHash,
+      role: 'admin',
+      schoolId: school._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'School registered successfully. Please login to continue.',
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+    next(err);
+  }
+};
+
+export const getSchools = async (req, res, next) => {
+  try {
+    const schools = await School.find({ status: 'active' }).select('name address').sort({ name: 1 });
+    res.json({ success: true, data: schools });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email or Roll Number and password are required",
+        message: "Email and password are required",
       });
     }
 
-    let user;
-    let student;
-
-    if (email) {
-      user = await User.findOne({ email }).select("+passwordHash");
-    } else if (rollNumber) {
-      student = await Student.findOne({ rollNumber });
-
-      if (student) {
-        user = await User.findById(student.userId).select("+passwordHash");
-      }
-    }
-
+    const user = await User.findOne({ email: email.trim().toLowerCase() }).select("+passwordHash");
 
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({
@@ -56,8 +101,10 @@ export const login = async (req, res, next) => {
       });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id, user.role);
+    const { accessToken, refreshToken } = generateTokens(user._id, user.role, user.schoolId);
     setCookies(res, accessToken, refreshToken);
+
+    const school = await School.findById(user.schoolId).select('name');
 
     res.json({
       success: true,
@@ -65,7 +112,9 @@ export const login = async (req, res, next) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        schoolId: user.schoolId,
+        schoolName: school?.name || '',
       },
     });
 
@@ -87,7 +136,7 @@ export const refresh = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.userId);
     if (!user) return res.status(401).json({ success: false, message: 'User not found' });
-    const { accessToken, refreshToken } = generateTokens(user._id, user.role);
+    const { accessToken, refreshToken } = generateTokens(user._id, user.role, user.schoolId);
     setCookies(res, accessToken, refreshToken);
     res.json({ success: true });
   } catch {
@@ -99,7 +148,8 @@ export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    const school = await School.findById(user.schoolId).select('name');
+    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role, schoolId: user.schoolId, schoolName: school?.name || '' } });
   } catch (err) {
     next(err);
   }
@@ -128,13 +178,19 @@ export const forgotPassword = async (req, res, next) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password/${rawToken}`;
 
-    // In production, send this via email. For now, return in response.
-    console.log(`[PASSWORD RESET] Reset link for ${email}: ${resetUrl}`);
+    // Send reset link via email
+    const { sendMail } = await import('../utils/mailer.js');
+    await sendMail({
+      fromEmail: process.env.SMTP_USER,
+      fromName: process.env.SMTP_FROM_NAME || 'School Management System',
+      to: [email],
+      subject: 'Password Reset Request',
+      text: `You requested a password reset.\n\nClick the link below to reset your password:\n${resetUrl}\n\nThis link expires in 1 hour.\n\nIf you did not request this, please ignore this email.`,
+    });
 
     res.json({
       success: true,
-      message: 'Password reset link generated.',
-      resetUrl, // Remove this in production (send via email instead)
+      message: 'Password reset link has been sent to your email.',
     });
   } catch (err) {
     next(err);

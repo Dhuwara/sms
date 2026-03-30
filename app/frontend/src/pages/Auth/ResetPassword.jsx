@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
 
@@ -10,6 +10,8 @@ const ResetPassword = () => {
   const [formData, setFormData] = useState({ password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,29 +69,39 @@ const ResetPassword = () => {
                   <label htmlFor="password" className="block text-sm font-medium text-[#0F172A] mb-2">
                     New Password
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
-                    placeholder="At least 6 characters"
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showNewPwd ? 'text' : 'password'}
+                      required
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full h-10 px-3 pr-10 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
+                      placeholder="At least 6 characters"
+                    />
+                    <button type="button" onClick={() => setShowNewPwd(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#64748B]">
+                      {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="confirm" className="block text-sm font-medium text-[#0F172A] mb-2">
                     Confirm Password
                   </label>
-                  <input
-                    id="confirm"
-                    type="password"
-                    required
-                    value={formData.confirm}
-                    onChange={(e) => setFormData({ ...formData, confirm: e.target.value })}
-                    className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
-                    placeholder="Repeat new password"
-                  />
+                  <div className="relative">
+                    <input
+                      id="confirm"
+                      type={showConfirmPwd ? 'text' : 'password'}
+                      required
+                      value={formData.confirm}
+                      onChange={(e) => setFormData({ ...formData, confirm: e.target.value })}
+                      className="w-full h-10 px-3 pr-10 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
+                      placeholder="Repeat new password"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPwd(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#64748B]">
+                      {showConfirmPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="submit"

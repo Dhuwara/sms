@@ -37,6 +37,7 @@ export const uploadStudyMaterial = async (req, res, next) => {
             originalName: req.file.originalname,
             mimeType: req.file.mimetype,
             size: req.file.size,
+            schoolId: req.user.schoolId,
         });
 
         const populated = await StudyMaterial.findById(material._id).populate('classId', 'name section');

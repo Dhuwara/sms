@@ -90,7 +90,7 @@ export const markAttendance = async (req, res, next) => {
       records.map(r =>
         Attendance.findOneAndUpdate(
           { studentId: r.studentId, date: new Date(r.date) },
-          { ...r, markedBy: staff._id },
+          { ...r, markedBy: staff._id, schoolId: req.user.schoolId },
           { upsert: true, new: true }
         )
       )
@@ -131,7 +131,7 @@ export const getGrades = async (req, res, next) => {
 
 export const createGrade = async (req, res, next) => {
   try {
-    const grade = await Grade.create(req.body);
+    const grade = await Grade.create({ ...req.body, schoolId: req.user.schoolId });
     res.status(201).json({ success: true, data: grade });
   } catch (err) {
     next(err);
@@ -177,7 +177,7 @@ export const getStaffProfileByUserId = async (req, res, next) => {
 
 export const getAllStaff = async (req, res, next) => {
   try {
-    const staff = await Staff.find({ status: 'active' })
+    const staff = await Staff.find({ status: 'active', schoolId: req.user.schoolId })
       .populate('userId', 'name email');
     res.json({ success: true, data: staff });
   } catch (err) {
@@ -188,11 +188,11 @@ export const getAllStaff = async (req, res, next) => {
 export const getApprovers = async (req, res, next) => {
   try {
     // Get all active staff
-    const staff = await Staff.find({ status: 'active' })
+    const staff = await Staff.find({ status: 'active', schoolId: req.user.schoolId })
       .populate('userId', 'name email');
 
     // Get all admin users
-    const admins = await User.find({ role: 'admin' })
+    const admins = await User.find({ role: 'admin', schoolId: req.user.schoolId })
       .select('_id name email');
 
     // Format staff data for approvers
@@ -381,7 +381,8 @@ export const applyLeave = async (req, res, next) => {
       endDate: new Date(endDate),
       reason,
       approvers: approverList,
-      status: 'pending'
+      status: 'pending',
+      schoolId: req.user.schoolId,
     });
 
     // Notify all approvers via Message model
@@ -459,7 +460,6 @@ export const getLeaveBalance = async (req, res, next) => {
 };
 
 export const getStaffTimetable = async (req, res, next) => {
-  console.log(req.user.userId,"useriodidididdii")
   try {
     const staff = await getStaffProfile(req.user.userId);
     const currentYear = new Date().getFullYear();
@@ -500,8 +500,6 @@ export const getStaffTimetable = async (req, res, next) => {
         periods: config.periods || []
       };
     });
-      console.log(result,"Resulttlttltl")
-
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -549,25 +547,64 @@ export const getTimetableAssignments = async (req, res, next) => {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
     const academicYear = currentMonth >= 5 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+    const staffIdStr = staff._id.toString();
 
+    // Map: classId string -> { classId object, subjects: Set }
+    const assignmentMap = new Map();
+
+    // 1. From PeriodConfig (timetable schedule)
     const periodConfigs = await PeriodConfig.find({
       academicYear,
       'periods.teacher': staff._id,
     }).populate('classId', 'name section');
 
-    const assignments = periodConfigs.map((config) => {
-      // Collect unique subjects this staff teaches in this class
-      const subjects = [...new Set(
-        (config.periods || [])
-          .filter(p => p.teacher?.toString() === staff._id.toString() && p.subject)
-          .map(p => p.subject)
-      )];
-      return {
-        classId: config.classId,   // { _id, name, section }
-        academicYear: config.academicYear,
-        subjects,
-      };
-    }).filter(a => a.subjects.length > 0);
+    periodConfigs.forEach((config) => {
+      if (!config.classId) return;
+      const cIdStr = config.classId._id.toString();
+      const subjects = (config.periods || [])
+        .filter(p => p.teacher?.toString() === staffIdStr && p.subject)
+        .map(p => p.subject);
+      if (!assignmentMap.has(cIdStr)) {
+        assignmentMap.set(cIdStr, { classId: config.classId, subjects: new Set() });
+      }
+      subjects.forEach(s => assignmentMap.get(cIdStr).subjects.add(s));
+    });
+
+    // 2. From ClassMapping (class teacher + subject teachers)
+    const classMappings = await ClassMapping.find({
+      schoolId: req.user.schoolId,
+      academicYear,
+    }).populate('classId', 'name section');
+
+    classMappings.forEach((mapping) => {
+      if (!mapping.classId) return;
+      const cIdStr = mapping.classId._id.toString();
+      const mappingSubjects = [];
+
+      // Subject teacher assignments
+      if (mapping.subjectTeachers) {
+        for (const [subject, teacherId] of mapping.subjectTeachers) {
+          if (String(teacherId) === staffIdStr) {
+            mappingSubjects.push(subject);
+          }
+        }
+      }
+
+      // Class teacher or subject teacher in this mapping
+      const isClassTeacher = mapping.classTeacher?.toString() === staffIdStr;
+      if (!isClassTeacher && mappingSubjects.length === 0) return;
+
+      if (!assignmentMap.has(cIdStr)) {
+        assignmentMap.set(cIdStr, { classId: mapping.classId, subjects: new Set() });
+      }
+      mappingSubjects.forEach(s => assignmentMap.get(cIdStr).subjects.add(s));
+    });
+
+    const assignments = Array.from(assignmentMap.values()).map(a => ({
+      classId: a.classId,
+      academicYear,
+      subjects: Array.from(a.subjects),
+    }));
 
     res.json({ success: true, data: assignments });
   } catch (err) {

@@ -3,6 +3,8 @@ import Student from '../models/Student.js';
 import Parent from '../models/Parent.js';
 import Class from '../models/Class.js';
 import Staff from '../models/Staff.js';
+import User from '../models/User.js';
+import { sendWhatsAppText } from '../utils/whatsapp.js';
 
 // @desc    Student applies for leave
 // @route   POST /api/student-leaves/apply
@@ -40,7 +42,8 @@ export const applyLeave = async (req, res, next) => {
       endDate,
       reason,
       leaveType,
-      status: 'pending_parent'
+      status: 'pending_parent',
+      schoolId: req.user.schoolId,
     });
 
     res.status(201).json({ success: true, data: leave });
@@ -119,6 +122,20 @@ export const parentAction = async (req, res, next) => {
     }
 
     await leave.save();
+
+    // WhatsApp: Notify student about parent's decision (fire-and-forget)
+    const student = await Student.findById(leave.studentId).populate('userId', 'name');
+    const studentUser = await User.findById(student?.userId?._id).select('phone');
+    if (studentUser?.phone) {
+      const startStr = new Date(leave.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const endStr = new Date(leave.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const statusText = action === 'approve' ? 'approved by parent. Awaiting class teacher approval.' : 'denied by parent.';
+      sendWhatsAppText(
+        studentUser.phone,
+        `Dear ${student.userId.name},\n\nYour leave request (${startStr} - ${endStr}) has been ${statusText}\n\n- School Management`
+      ).catch(err => console.error('Leave parent-action WhatsApp failed:', err.message));
+    }
+
     res.status(200).json({ success: true, data: leave });
   } catch (error) {
     next(error);
@@ -178,6 +195,26 @@ export const staffAction = async (req, res, next) => {
     }
 
     await leave.save();
+
+    // WhatsApp: Notify student and parent about staff's final decision (fire-and-forget)
+    const student = await Student.findById(leave.studentId).populate('userId', 'name');
+    const startStr = new Date(leave.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const endStr = new Date(leave.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const statusText = action === 'approve' ? 'APPROVED' : 'DENIED';
+    const msg = `Leave update for ${student?.userId?.name || 'Student'}:\n\nLeave (${startStr} - ${endStr}) has been ${statusText} by class teacher.\n\n- School Management`;
+
+    // Notify student
+    const studentUser = await User.findById(student?.userId?._id).select('phone');
+    if (studentUser?.phone) {
+      sendWhatsAppText(studentUser.phone, msg).catch(err => console.error('Leave staff-action student WhatsApp failed:', err.message));
+    }
+
+    // Notify parent
+    const parentDoc = await Parent.findById(leave.parentId).populate('userId', 'phone name');
+    if (parentDoc?.userId?.phone) {
+      sendWhatsAppText(parentDoc.userId.phone, `Dear ${parentDoc.userId.name || 'Parent'},\n\n${msg}`).catch(err => console.error('Leave staff-action parent WhatsApp failed:', err.message));
+    }
+
     res.status(200).json({ success: true, data: leave });
   } catch (error) {
     next(error);

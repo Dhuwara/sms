@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const homeworkSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   title: { type: String, required: true },
   description: { type: String },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },

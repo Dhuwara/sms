@@ -4,13 +4,16 @@ import Homework from '../models/Homework.js';
 import HomeworkSubmission from '../models/HomeworkSubmission.js';
 import Staff from '../models/Staff.js';
 import Student from '../models/Student.js';
+import Parent from '../models/Parent.js';
+import ClassMapping from '../models/ClassMapping.js';
+import { sendWhatsAppBulk, getParentPhones } from '../utils/whatsapp.js';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'homework');
 
 export const getHomework = async (req, res, next) => {
   try {
     const { classId, status } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (classId) filter.classId = classId;
     if (status) filter.status = status;
 
@@ -43,9 +46,26 @@ export const createHomework = async (req, res, next) => {
 
     const homework = await Homework.create({
       title, description, classId, subject, dueDate: new Date(dueDate),
-      assignedBy: staff._id, attachments,
+      assignedBy: staff._id, attachments, schoolId: req.user.schoolId,
     });
     const populated = await Homework.findById(homework._id).populate('classId', 'name section');
+
+    // WhatsApp: Notify parents about new homework (fire-and-forget)
+    const className = populated.classId ? `${populated.classId.name} ${populated.classId.section || ''}`.trim() : '';
+    const dueDateStr = new Date(dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const mapping = await ClassMapping.findOne({ classId }).select('students');
+    if (mapping?.students?.length > 0) {
+      getParentPhones(Student, Parent, mapping.students)
+        .then((parentData) => {
+          const recipients = parentData.map((p) => ({
+            phone: p.phone,
+            message: `Dear ${p.parentName},\n\nNew ${subject} homework assigned for ${className}:\n\n📝 ${title}\n📅 Due: ${dueDateStr}\n\nPlease ensure your child completes it on time.\n\n- School Management`,
+          }));
+          return sendWhatsAppBulk(recipients);
+        })
+        .catch((err) => console.error('Homework WhatsApp alert failed:', err.message));
+    }
+
     res.status(201).json({ success: true, data: populated });
   } catch (err) {
     next(err);
@@ -82,20 +102,16 @@ export const deleteHomework = async (req, res, next) => {
 // GET /api/homework/:id/attachments/:filename — download attachment
 export const downloadAttachment = async (req, res, next) => {
   try {
-    console.log('Download request:', { id: req.params.id, filename: req.params.filename });
-
     const homework = await Homework.findById(req.params.id);
     if (!homework) return res.status(404).json({ success: false, message: 'Homework not found' });
-
-    console.log('Homework attachments:', homework.attachments);
 
     const att = homework.attachments.find(a => a.filename === req.params.filename);
     if (!att) return res.status(404).json({ success: false, message: 'Attachment not found' });
 
     const filePath = path.join(UPLOAD_DIR, att.filename);
-    console.log('Looking for file at:', filePath);
-    console.log('Upload directory:', UPLOAD_DIR);
-    console.log('File exists:', fs.existsSync(filePath));
+    if (!path.resolve(filePath).startsWith(path.resolve(UPLOAD_DIR))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found on server' });
 
@@ -178,11 +194,9 @@ export const getMyHomework = async (req, res, next) => {
   try {
     const student = await Student.findOne({ userId: req.user.userId });
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
-    console.log(student, "studenttt")
     const homework = await Homework.find({ classId: student.classId, status: 'active' })
       .populate({ path: 'assignedBy', populate: { path: 'userId', select: 'name' } })
       .sort({ dueDate: 1 });
-    console.log(homework, "homework")
     const submissions = await HomeworkSubmission.find({
       studentId: student._id,
       homeworkId: { $in: homework.map(h => h._id) }
@@ -195,7 +209,6 @@ export const getMyHomework = async (req, res, next) => {
       ...h.toObject(),
       submission: submissionMap[h._id.toString()] || null,
     }));
-    console.log(result, "resultt")
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

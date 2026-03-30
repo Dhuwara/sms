@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import {
   getAllFeeStructures, upsertFeeStructure, updateFeeStructure,
-  deleteFeeStructure, getFeeStructureForClass,
+  deleteFeeStructure, getFeeStructureForClass, notifyParents,
 } from '../controllers/feeStructure.controller.js';
 
 const router = Router();
@@ -12,6 +12,7 @@ router.use(protect);
 router.get('/class/:classId', authorize('admin', 'parent', 'student'), getFeeStructureForClass);
 router.get('/',       authorize('admin'), getAllFeeStructures);
 router.put('/',       authorize('admin'), upsertFeeStructure);
+router.post('/:id/notify', authorize('admin'), notifyParents);
 router.put('/:id',    authorize('admin'), updateFeeStructure);
 router.delete('/:id', authorize('admin'), deleteFeeStructure);
 

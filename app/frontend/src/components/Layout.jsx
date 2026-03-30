@@ -8,6 +8,7 @@ import {
 import api from '../utils/api';
 
 const Layout = ({ children, user, onLogout }) => {
+  console.log(children,"children")
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -152,7 +153,7 @@ const Layout = ({ children, user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      <div className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-6 flex items-center justify-between">
+      <div className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-3 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showFullSidebar && (
             <button
@@ -163,7 +164,7 @@ const Layout = ({ children, user, onLogout }) => {
               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           )}
-          <h1 className="text-2xl font-semibold text-[#4F46E5]">
+          <h1 className="text-lg sm:text-2xl font-semibold text-[#4F46E5]">
             {user?.role === 'admin' ? 'Admin Portal' :
               user?.role === 'staff' ? 'Staff Portal' :
                 user?.role === 'student' ? 'Student Portal' :
@@ -192,7 +193,7 @@ const Layout = ({ children, user, onLogout }) => {
             </button>
 
             {showNotifDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[320px] bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                   <span className="font-semibold text-[#0F172A] text-sm">Notifications</span>
                   {unreadCount > 0 && (
@@ -277,7 +278,7 @@ const Layout = ({ children, user, onLogout }) => {
           />
         )}
 
-        <main className={`flex-1 p-6 md:p-8 ${showFullSidebar ? 'lg:p-12' : 'lg:p-8'}`}>
+        <main className={`flex-1 p-3 sm:p-6 md:p-8 ${showFullSidebar ? 'lg:p-12' : 'lg:p-8'}`}>
           <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>

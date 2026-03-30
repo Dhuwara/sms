@@ -8,7 +8,7 @@ const populate = (q) => q
 // GET /api/awards?academicYear=&category=&studentId=
 export const getAwards = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (req.query.academicYear) filter.academicYear = req.query.academicYear;
     if (req.query.category) filter.category = req.query.category;
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -26,7 +26,7 @@ export const getMyAwards = async (req, res, next) => {
     const student = await Student.findOne({ userId: req.user.userId });
     if (!student) return res.status(404).json({ success: false, message: 'Student profile not found' });
 
-    const awards = await populate(Award.find({ studentId: student._id }).sort({ awardDate: -1 }));
+    const awards = await populate(Award.find({ studentId: student._id, schoolId: req.user.schoolId }).sort({ awardDate: -1 }));
     res.json({ success: true, data: awards });
   } catch (err) {
     next(err);
@@ -37,7 +37,7 @@ export const getMyAwards = async (req, res, next) => {
 export const getChildAwards = async (req, res, next) => {
   try {
     const awards = await populate(
-      Award.find({ studentId: req.params.studentId }).sort({ awardDate: -1 })
+      Award.find({ studentId: req.params.studentId, schoolId: req.user.schoolId }).sort({ awardDate: -1 })
     );
     res.json({ success: true, data: awards });
   } catch (err) {
@@ -56,6 +56,7 @@ export const createAward = async (req, res, next) => {
       title, description, category, awardDate, academicYear,
       studentId, classId, position, eventName, remarks,
       createdBy: req.user.userId,
+      schoolId: req.user.schoolId,
     });
     const populated = await populate(Award.findById(award._id));
     res.status(201).json({ success: true, data: populated });

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const substitutionSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   originalTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   substituteTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },

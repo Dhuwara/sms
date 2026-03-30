@@ -10,6 +10,7 @@ const toFlat = (s) => ({
   userId: s.userId?._id,
   name: s.userId?.name || '',
   email: s.userId?.email || '',
+  standard: s.standard || '',
   roll_no: s.rollNumber,
   class: s.classId ? `${s.classId.name}-${s.classId.section}` : '',
   classId: s.classId?._id,
@@ -28,7 +29,7 @@ const toFlat = (s) => ({
 
 export const getStudents = async (req, res, next) => {
   try {
-    const { classId, status, search } = req.query;
+    const { classId, status, search, standard } = req.query;
     let studentIds = null;
 
     // If classId is provided, fetch student IDs from ClassMapping
@@ -37,9 +38,10 @@ export const getStudents = async (req, res, next) => {
       studentIds = mapping?.students || [];
     }
 
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (studentIds) filter._id = { $in: studentIds };
     if (status) filter.status = status;
+    if (standard) filter.standard = standard;
 
     let students = await Student.find(filter)
       .populate('userId', 'name email')
@@ -64,18 +66,22 @@ export const getStudents = async (req, res, next) => {
 
 export const createStudent = async (req, res, next) => {
   try {
-    const { name, dob, gender, parent_contact, parent_occupation, address, classId, parent_name, parent_email, password, parent_password, status, studentType, bloodGroup } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Name is required' });
+    const { name, email, dob, gender, parent_contact, parent_occupation, address, classId, parent_name, parent_email, password, parent_password, status, studentType, bloodGroup, standard } = req.body;
+    if (!name || !email) return res.status(400).json({ success: false, message: 'Name and email are required' });
 
-    const rollNumber = await generateNextId('rollNumber');
-    console.log(rollNumber,"rllll")
-    const email = `${name.toLowerCase().replaceAll(/\s+/g, '.')}${Date.now()}@student.school.com`;
+    const schoolId = req.user.schoolId;
+    const exists = await User.findOne({ email: email.trim().toLowerCase() });
+    if (exists) return res.status(400).json({ success: false, message: 'Email already in use' });
+
+    const rollNumber = await generateNextId('rollNumber', schoolId);
     const passwordHash = await bcrypt.hash(password || 'Student@123', 12);
-    const user = await User.create({ name, email, passwordHash, role: 'student' });
+    const user = await User.create({ name, email, passwordHash, role: 'student', schoolId });
 
     const student = await Student.create({
       userId: user._id,
+      schoolId,
       classId: classId || undefined,
+      standard: standard || '',
       rollNumber,
       dateOfBirth: dob || undefined,
       gender: gender || 'male',
@@ -93,11 +99,11 @@ export const createStudent = async (req, res, next) => {
       let parentUser = existingParentUser;
       if (!parentUser) {
         const ph = await bcrypt.hash(parent_password || 'Parent@123', 12);
-        parentUser = await User.create({ name: parent_name, email: parent_email, passwordHash: ph, role: 'parent' });
+        parentUser = await User.create({ name: parent_name, email: parent_email, passwordHash: ph, role: 'parent', schoolId });
       }
       let parent = await Parent.findOne({ userId: parentUser._id });
       if (!parent) {
-        parent = await Parent.create({ userId: parentUser._id, children: [student._id] });
+        parent = await Parent.create({ userId: parentUser._id, schoolId, children: [student._id] });
       } else {
         await Parent.findByIdAndUpdate(parent._id, { $addToSet: { children: student._id } });
       }
@@ -117,17 +123,19 @@ export const createStudent = async (req, res, next) => {
 
 export const updateStudent = async (req, res, next) => {
   try {
-    const { name, dob, gender, parent_contact, parent_occupation, address, classId, password, status, studentType, bloodGroup } = req.body;
+    const { name, email, dob, gender, parent_contact, parent_occupation, address, classId, password, status, studentType, bloodGroup, standard } = req.body;
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const userUpdate = {};
     if (name) userUpdate.name = name;
+    if (email) userUpdate.email = email;
     if (password) userUpdate.passwordHash = await bcrypt.hash(password, 12);
     if (Object.keys(userUpdate).length > 0) await User.findByIdAndUpdate(student.userId, userUpdate);
 
     await Student.findByIdAndUpdate(req.params.id, {
       ...(classId && { classId }),
+      ...(standard !== undefined && { standard }),
       ...(dob && { dateOfBirth: dob }),
       ...(gender && { gender }),
       ...(address !== undefined && { address }),

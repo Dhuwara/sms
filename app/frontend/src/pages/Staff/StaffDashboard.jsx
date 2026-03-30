@@ -208,7 +208,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       fetchClassHomework('');
       fetchOnlineClasses('');
       api.get('/api/staff/my-academic-classes')
-        .then(res => setAcademicClasses(res.data?.data || res.data || []))
+        .then(res => setAcademicClasses(res?.data  || []))
         .catch(() => setAcademicClasses([]));
     }
     if (module === 'marks') {
@@ -279,15 +279,19 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (!user?.id) return;
     try {
       const response = await api.get(`/api/staff/profile/${user.id}`);
-      const classResponse = await api.get(`/api/staff/classes/`);
-      SetClassDetail(classResponse.data);
       setStaffData(response.data);
       setContactForm({ contact: response.data?.contact || '' });
     } catch (error) {
-      console.error('Error fetching staff data:', error);
-      toast.error('Failed to load staff data');
+      console.error('Error fetching staff profile:', error);
+      toast.error('Failed to load staff profile');
     } finally {
       setLoading(false);
+    }
+    try {
+      const classResponse = await api.get('/api/staff/classes');
+      SetClassDetail(classResponse.data);
+    } catch (error) {
+      console.error('Error fetching staff classes:', error);
     }
   };
 
@@ -1387,7 +1391,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] rounded-2xl p-6 border-2 border-[#FCD34D]">
         <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
-        <p className="text-base text-[#64748B]">Staff Portal - AJM International Institution</p>
+        <p className="text-base text-[#64748B]">Staff Portal - {user?.schoolName || 'Your School'}</p>
       </div>
 
       <div>
@@ -1520,7 +1524,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
             <div className="flex-1 overflow-y-auto bg-white rounded-xl border-2 border-[#E2E8F0] shadow-sm">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] sticky top-0 z-10">
+                <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A]">Roll No</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A]">Student Name</th>

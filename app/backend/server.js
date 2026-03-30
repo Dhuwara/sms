@@ -20,6 +20,7 @@ import teachersRoutes from './src/routes/teachers.routes.js';
 import classesRoutes from './src/routes/classes.routes.js';
 import attendanceRoutes from './src/routes/attendance.routes.js';
 import examsRoutes from './src/routes/exams.routes.js';
+import gradeConfigRoutes from './src/routes/gradeConfig.routes.js';
 import feesRoutes from './src/routes/fees.routes.js';
 import feeStructureRoutes from './src/routes/feeStructure.routes.js';
 import libraryRoutes from './src/routes/library.routes.js';
@@ -43,13 +44,29 @@ import schoolEventsRoutes from './src/routes/schoolEvents.routes.js';
 import studentLeaveRoutes from './src/routes/studentLeave.routes.js';
 import onlineClassRoutes from './src/routes/onlineClass.routes.js';
 import ptmRoutes from './src/routes/ptm.routes.js';
+import paymentRoutes from './src/routes/payment.routes.js';
+import whatsappRoutes from './src/routes/whatsapp.routes.js';
+import { apiLimiter } from './src/middleware/rateLimiter.js';
+import { tenantScope } from './src/middleware/auth.js';
 
 const app = express();
 
 await connectDB();
 startChangeStreams();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+    },
+  },
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -60,6 +77,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(tenantScope);
+app.use('/api/', apiLimiter);
 
 // Role-scoped routes
 app.use('/api/auth', authRoutes);
@@ -82,6 +101,7 @@ app.use('/api/hostel', hostelRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/counter', counterRoutes);
 app.use('/api/class-config', classConfigRoutes);
+app.use('/api/grade-config', gradeConfigRoutes);
 app.use('/api/classmapping', classMappingRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/homework', homeworkRoutes);
@@ -97,6 +117,8 @@ app.use('/api/school-events', schoolEventsRoutes);
 app.use('/api/student-leaves', studentLeaveRoutes);
 app.use('/api/online-classes', onlineClassRoutes);
 app.use('/api/ptm', ptmRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 app.use(errorHandler);
 

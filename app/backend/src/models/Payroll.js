@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const payrollSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   month: { type: Number, required: true, min: 1, max: 12 },
   year: { type: Number, required: true },

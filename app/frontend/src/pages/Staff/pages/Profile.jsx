@@ -1,5 +1,5 @@
-import React from 'react';
-import { Mail, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, User, Eye, EyeOff } from 'lucide-react';
 
 const Profile = ({
   staffData,
@@ -15,12 +15,17 @@ const Profile = ({
   setContactForm,
   handleUpdateContact,
   submitting,
-}) => (
+}) => {
+  const [showCurrPwd, setShowCurrPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+
+  return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">
         Staff Profile & Account
       </h2>
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <div className="flex items-center gap-6 mb-6">
           <div className="w-24 h-24 bg-gradient-to-br from-[#FEF3C7] to-[#FEE2E2] rounded-full flex items-center justify-center text-4xl font-bold text-[#0F172A]">
             {staffData?.userId?.name?.charAt(0) || "S"}
@@ -107,7 +112,7 @@ const Profile = ({
       {/* Password Change Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-md w-full p-4 sm:p-6">
             <h3 className="text-2xl font-bold text-[#0F172A] mb-4">
               Change Password
             </h3>
@@ -116,52 +121,52 @@ const Profile = ({
                 <label className="block text-sm font-medium text-[#0F172A] mb-2">
                   Current Password
                 </label>
-                <input
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      currentPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Enter current password"
-                  className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                />
+                <div className="relative">
+                  <input
+                    type={showCurrPwd ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    placeholder="Enter current password"
+                    className="w-full h-10 px-3 pr-10 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  />
+                  {showCurrPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#0F172A] mb-2">
                   New Password
                 </label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      newPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Enter new password"
-                  className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPwd ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    placeholder="Enter new password"
+                    className="w-full h-10 px-3 pr-10 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  />
+                  {showNewPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#0F172A] mb-2">
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Confirm new password"
-                  className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPwd ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Confirm new password"
+                    className="w-full h-10 px-3 pr-10 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  />
+                  {showConfirmPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />}
+                </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
@@ -187,7 +192,7 @@ const Profile = ({
       {/* Contact Update Modal */}
       {showContactModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-md w-full p-4 sm:p-6">
             <h3 className="text-2xl font-bold text-[#0F172A] mb-4">
               Update Contact Information
             </h3>
@@ -228,5 +233,6 @@ const Profile = ({
       )}
     </div>
   );
+};
 
 export default Profile;

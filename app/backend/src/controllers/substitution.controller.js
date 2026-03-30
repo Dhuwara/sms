@@ -18,7 +18,7 @@ const getDefaultAcademicYear = () => {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   const startYear = month >= 6 ? year : year - 1;
-  return `${startYear}-${String(startYear + 1)}`;
+  return `${startYear}-${startYear + 1}`;
 };
 
 const getDayName = (dateStr) => {
@@ -30,7 +30,7 @@ const getDayName = (dateStr) => {
 // GET /api/substitutions?date=&classId=
 export const getSubstitutions = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (req.query.date) {
       const d = new Date(req.query.date);
       const start = new Date(d.setHours(0, 0, 0, 0));
@@ -78,6 +78,7 @@ export const createSubstitution = async (req, res, next) => {
       date: new Date(date), periodIndex, periodName, subject, reason,
       status: 'pending',
       createdBy: req.user.userId,
+      schoolId: req.user.schoolId,
     });
 
     const populated = await Substitution.findById(substitution._id).populate(POPULATE_FIELDS);
@@ -123,14 +124,10 @@ export const getPeriodsByClassAndDate = async (req, res, next) => {
     }
 
     const dayName = getDayName(date);
-    console.log(dayName,"dayname")
-    console.log(classId,"classId")
     const academicYear = getDefaultAcademicYear();
-        console.log(academicYear, "academicYear");
 
     // Get period structure (names, times, types) from PeriodConfig
     const config = await PeriodConfig.findOne({ classId, academicYear });
-    console.log(config,"configg")
     if (!config) return res.json({ success: true, data: [] });
 
     // Get timetable schedule for actual teacher/subject assignments

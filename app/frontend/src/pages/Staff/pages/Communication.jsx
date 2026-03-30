@@ -22,8 +22,8 @@ const Communication = ({
       <h2 className="text-2xl font-bold text-[#0F172A]">Communication Tools</h2>
 
       {/* Communication Channels - WhatsApp, Email, SMS */}
-      <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-xl p-6 text-white">
-        <h3 className="font-bold text-xl mb-4">Send Notifications via Multiple Channels</h3>
+      <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-xl p-4 sm:p-6 text-white">
+        <h3 className="font-bold text-lg sm:text-xl mb-4">Send Notifications via Multiple Channels</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 cursor-pointer transition-all">
             <div className="flex items-center gap-3 mb-2">
@@ -67,7 +67,7 @@ const Communication = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
+        <div className="p-4 sm:p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <Bell className="text-[#DC2626]" size={20} />
             Messages from Management
@@ -304,7 +304,7 @@ const Communication = ({
                 onChange={e => setPtmForm(prev => ({ ...prev, title: e.target.value }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="ptm-date" className="block text-xs font-semibold text-[#64748B] mb-1">Date</label>
                 <input
@@ -352,7 +352,7 @@ const Communication = ({
             {ptmForm.targetAudience === 'class' && commClasses.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-[#64748B] mb-1">Select Classes</p>
-                <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border-2 border-[#FCD34D] rounded-lg p-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-32 overflow-y-auto border-2 border-[#FCD34D] rounded-lg p-2">
                   {commClasses.map(c => (
                     <label key={c._id} className="flex items-center gap-2 text-sm cursor-pointer">
                       <input

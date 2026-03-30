@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const announcementSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   title: { type: String, required: true },
   message: { type: String, required: true },
   priority: { type: String, enum: ['low', 'normal', 'high', 'urgent'], default: 'normal' },

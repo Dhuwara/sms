@@ -8,7 +8,7 @@ const populate = (q) => q
 // GET /api/scholarships?academicYear=&status=&studentId=
 export const getScholarships = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (req.query.academicYear) filter.academicYear = req.query.academicYear;
     if (req.query.status) filter.status = req.query.status;
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -29,7 +29,7 @@ export const getMyScholarships = async (req, res, next) => {
     if (!student) return res.status(404).json({ success: false, message: 'Student profile not found' });
 
     const scholarships = await populate(
-      Scholarship.find({ studentId: student._id }).sort({ createdAt: -1 })
+      Scholarship.find({ studentId: student._id, schoolId: req.user.schoolId }).sort({ createdAt: -1 })
     );
     res.json({ success: true, data: scholarships });
   } catch (err) {
@@ -41,7 +41,7 @@ export const getMyScholarships = async (req, res, next) => {
 export const getChildScholarships = async (req, res, next) => {
   try {
     const scholarships = await populate(
-      Scholarship.find({ studentId: req.params.studentId }).sort({ createdAt: -1 })
+      Scholarship.find({ studentId: req.params.studentId, schoolId: req.user.schoolId }).sort({ createdAt: -1 })
     );
     res.json({ success: true, data: scholarships });
   } catch (err) {
@@ -58,7 +58,7 @@ export const createScholarship = async (req, res, next) => {
     }
     const scholarship = await Scholarship.create({
       name, description, amount, type, criteria, academicYear,
-      studentId, classId, remarks, createdBy: req.user.userId,
+      studentId, classId, remarks, createdBy: req.user.userId, schoolId: req.user.schoolId,
     });
     const populated = await populate(Scholarship.findById(scholarship._id));
     res.status(201).json({ success: true, data: populated });

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const transportAssignmentSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true, unique: true },
   routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'TransportRoute', required: true },
   stopName: { type: String },

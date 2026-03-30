@@ -13,6 +13,12 @@ const ROMAN_MAP = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', '
 const toRoman = (n) => ROMAN_MAP[Number(n)] || n;
 const ROMAN_TO_NUM = Object.fromEntries(ROMAN_MAP.slice(1).map((r, i) => [r, String(i + 1)]));
 
+const SECTION_ALPHA = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+const SECTION_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+const getSectionOptions = (sectionFormat) =>
+  sectionFormat === 'roman' ? SECTION_ROMAN : SECTION_ALPHA;
+
 const formatStandard = (raw, fmt) => {
   if (raw === 'LKG' || raw === 'UKG') return raw;
   return fmt === 'roman' ? toRoman(raw) : raw;
@@ -66,12 +72,14 @@ const getAssignedStudents = (mappingData, studentList) => {
   return studentList.filter((s) => ids.has(s._id.toString()));
 };
 
-const getUnassignedStudents = (mappingData, studentList, globalAssignedIds) => {
+const getUnassignedStudents = (mappingData, studentList, globalAssignedIds, standard) => {
   const currentIds = new Set((mappingData?.students || []).map((id) => id.toString()));
   const globalIds = new Set(globalAssignedIds || []);
   return getAvailableStudents(studentList).filter((s) => {
     const id = s._id.toString();
-    return !currentIds.has(id) && !globalIds.has(id);
+    if (currentIds.has(id) || globalIds.has(id)) return false;
+    if (standard != null) return String(s.standard) === String(standard);
+    return true;
   });
 };
 
@@ -108,6 +116,7 @@ const initDayDraft = (periods, tt, day) => {
 const Classes = () => {
   const dispatch = useDispatch();
   const classes = useSelector(s => s.classes.list);
+  console.log(classes,"claseses")
   console.log(classes,"classes  ")
   const teachers = useSelector(s => s.classes.teachers);
   const students = useSelector(s => s.students.list);
@@ -236,7 +245,7 @@ const Classes = () => {
       const name = buildClassName(classForm.standard, classConfig);
       const payload = {
         name,
-        section: classForm.section,
+        section: classForm.section.toUpperCase(),
         capacity: Number(classForm.capacity),
         roomNumber: classForm.roomNumber,
         subjects: classForm.subjects,
@@ -407,22 +416,25 @@ const Classes = () => {
   };
 
   const handleStudentToggle = (studentId) => {
-    setMappingData((prev) => {
-      const current = prev?.students || [];
-      const exists = current.some((id) => id.toString() === studentId.toString());
-      if (!exists) {
-        const capacity = mappingClassInfo?.capacity;
-        if (capacity && current.length >= capacity) {
-          toast.error(`Class capacity is ${capacity}. Cannot add more students.`);
-          return prev;
-        }
+    const current = mappingData?.students || [];
+    const exists = current.some((id) => id.toString() === studentId.toString());
+    if (!exists) {
+      const capacity = mappingClassInfo?.capacity;
+      if (capacity && current.length >= capacity) {
+        toast.error(`Class capacity is ${capacity}. Cannot add more students.`);
+        return;
       }
-      return {
-        ...prev,
-        students: exists
-          ? current.filter((id) => id.toString() !== studentId.toString())
-          : [...current, studentId],
-      };
+    }
+    setMappingData((prev) => ({
+      ...prev,
+      students: exists
+        ? current.filter((id) => id.toString() !== studentId.toString())
+        : [...current, studentId],
+    }));
+    // Keep globalAssignedStudentIds in sync so available list updates immediately
+    setGlobalAssignedStudentIds((prev) => {
+      const sid = studentId.toString();
+      return exists ? prev.filter((id) => id !== sid) : [...prev, sid];
     });
   };
 
@@ -720,7 +732,7 @@ const Classes = () => {
   };
 
   const assignedStudents = getAssignedStudents(mappingData, students);
-  const unassignedStudents = getUnassignedStudents(mappingData, students, globalAssignedStudentIds);
+  const unassignedStudents = getUnassignedStudents(mappingData, students, globalAssignedStudentIds, mappingClassInfo ? parseStandard(mappingClassInfo.name, classConfig) : null);
 
   let classSubmitLabel = selectedClass ? 'Update Class' : 'Add Class';
   if (classLoading) classSubmitLabel = 'Saving...';
@@ -733,7 +745,7 @@ const Classes = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Academic Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Academic Management</h1>
           <p className="text-[#64748B] mt-1">Classes, Subjects, Timetable & Mapping</p>
         </div>
         {(activeTab === 'classes' || activeTab === 'subjects') && (
@@ -760,7 +772,7 @@ const Classes = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-2 border-b-2 border-[#FCD34D] overflow-x-auto">
         {[
           { key: 'classes', label: 'Classes' },
           { key: 'subjects', label: 'Subjects' },
@@ -884,7 +896,7 @@ const Classes = () => {
       {activeTab === 'timetable' && (
         <div className="space-y-4">
           {/* Sub-tabs */}
-          <div className="flex gap-1 border-b-2 border-[#FCD34D]">
+          <div className="flex gap-1 border-b-2 border-[#FCD34D] overflow-x-auto">
             {[{ key: 'periods', label: 'Period Setup' }, { key: 'schedule', label: 'Weekly Schedule' }].map(({ key, label }) => (
               <button
                 key={key}
@@ -1586,7 +1598,7 @@ const Classes = () => {
                   <select
                     id="c-standard"
                     value={classForm.standard}
-                    onChange={(e) => setClassForm({ ...classForm, standard: e.target.value })}
+                    onChange={(e) => setClassForm({ ...classForm, standard: e.target.value, section: '' })}
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   >
                     {STANDARDS.map((s) => (
@@ -1597,14 +1609,23 @@ const Classes = () => {
 
                 <div>
                   <label htmlFor="c-section" className="block text-sm font-medium text-[#0F172A] mb-2">Section *</label>
-                  <input
+                  <select
                     id="c-section"
-                    type="text"
                     value={classForm.section}
                     onChange={(e) => { setClassForm({ ...classForm, section: e.target.value }); setClassErrors({ ...classErrors, section: '' }); }}
-                    placeholder="e.g., A"
-                    className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B] uppercase"
-                  />
+                    className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                  >
+                    <option value="">Select Section</option>
+                    {getSectionOptions(classConfig.sectionFormat)
+                      .filter((sec) => {
+                        if (selectedClass && selectedClass.section === sec) return true;
+                        const currentName = buildClassName(classForm.standard, classConfig);
+                        return !classes.some((cls) => cls.name === currentName && cls.section === sec);
+                      })
+                      .map((sec) => (
+                        <option key={sec} value={sec}>{sec}</option>
+                      ))}
+                  </select>
                   {classErrors.section && <p className="text-red-500 text-xs mt-1">{classErrors.section}</p>}
                 </div>
 

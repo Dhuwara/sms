@@ -20,7 +20,6 @@ const transporter = nodemailer.createTransport({
  * @param {string}   opts.text       - Plain-text body
  */
 export const sendMail = async ({ fromEmail, fromName, to, subject, text }) => {
-  console.log(fromEmail, fromName, to, subject, text,"emaill");
   const from = `"${fromName}" <${fromEmail}>`;
   await transporter.sendMail({ from, to, subject, text });
 };

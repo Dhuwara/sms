@@ -4,7 +4,7 @@ import { Video } from 'lucide-react';
 const OnlineClasses = ({ onlineClasses, scheduleData }) => {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Online Classes</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">Online Classes</h2>
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">

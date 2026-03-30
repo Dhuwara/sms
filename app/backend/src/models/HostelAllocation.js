@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const hostelAllocationSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'HostelRoom', required: true },
   checkIn: { type: Date, default: Date.now },

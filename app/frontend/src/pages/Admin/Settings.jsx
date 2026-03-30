@@ -693,11 +693,11 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl font-bold text-[#0F172A]">Settings</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Settings</h1>
         <p className="text-[#64748B] mt-1">Configure system preferences</p>
       </div>
 
-      <div className="flex gap-1 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-1 border-b-2 border-[#FCD34D] overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab}

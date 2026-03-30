@@ -33,7 +33,7 @@ const Attendance = ({
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
+        <div className="p-4 sm:p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <Clock className="text-[#F59E0B]" size={20} />
             Today's Attendance
@@ -105,7 +105,7 @@ const Attendance = ({
           </div>
         </div>
 
-        <div className="p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
+        <div className="p-4 sm:p-6 bg-white rounded-xl border-2 border-[#FCD34D]">
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <Calendar className="text-[#F59E0B]" size={20} />
             Leave Balance
@@ -133,7 +133,7 @@ const Attendance = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <h3 className="font-bold mb-4">Leave Application Status</h3>
         <div className="space-y-3">
           {myLeaves.length > 0 ? (
@@ -177,7 +177,7 @@ const Attendance = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <h3 className="font-bold mb-4">Attendance History (Last 7 Days)</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -196,7 +196,7 @@ const Attendance = ({
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {attendanceHistory.length > 0 ? (
                 attendanceHistory.map((day, idx) => (
                   <tr key={idx} className="border-b border-[#E2E8F0]">
@@ -243,8 +243,8 @@ const Attendance = ({
       </div>
 
       {showLeaveModal && (
-        <div className="fixed inset-0 bg-black/50 bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-3xl  w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 max-w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-2xl lg:max-w-3xl  w-full mx-4 shadow-2xl">
             <h2 className="text-2xl font-bold mb-6 text-[#0F172A]">
               Apply for Leave
             </h2>
@@ -430,7 +430,7 @@ const Attendance = ({
         </div>
       )}
       {/* Pending Approvals - Leave requests from others that need your action */}
-      <div className="bg-white rounded-xl border-2 border-[#4F46E5] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#4F46E5] p-4 sm:p-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <ClipboardCheck className="text-[#4F46E5]" size={20} />
           Pending Leave Approvals ({pendingApprovals.length})
@@ -446,7 +446,7 @@ const Attendance = ({
                   </div>
                   <span className="px-2 py-1 bg-[#FEF3C7] text-[#92400E] rounded-full text-xs font-semibold capitalize">{leave.leaveType} Leave</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-sm">
                   <div><span className="text-[#64748B]">From:</span> <span className="font-semibold">{formatDate(leave.startDate)}</span></div>
                   <div><span className="text-[#64748B]">To:</span> <span className="font-semibold">{formatDate(leave.endDate)}</span></div>
                 </div>
@@ -467,7 +467,7 @@ const Attendance = ({
       </div>
 
       {/* Student Leave Approvals - Parent approved student leaves that need class teacher action */}
-      <div className="bg-white rounded-xl border-2 border-[#10B981] p-6 mt-6">
+      <div className="bg-white rounded-xl border-2 border-[#10B981] p-4 sm:p-6 mt-6">
         <h3 className="font-bold mb-4 flex items-center gap-2">
           <GraduationCap className="text-[#10B981]" size={20} />
           Student Leave Approvals ({pendingStudentLeaves.length})
@@ -483,7 +483,7 @@ const Attendance = ({
                   </div>
                   <span className="px-2 py-1 bg-[#D1FAE5] text-[#065F46] rounded-full text-xs font-semibold capitalize">{leave.leaveType} Leave</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-sm">
                   <div><span className="text-[#64748B]">From:</span> <span className="font-semibold">{formatDate(leave.startDate)}</span></div>
                   <div><span className="text-[#64748B]">To:</span> <span className="font-semibold">{formatDate(leave.endDate)}</span></div>
                 </div>

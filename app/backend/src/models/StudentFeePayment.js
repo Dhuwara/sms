@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const studentFeePaymentSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   feeStructureId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeStructure', required: true },
   componentName:  { type: String, required: true },

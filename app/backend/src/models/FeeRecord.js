@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const feeRecordSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   amount: { type: Number, required: true },
   description: { type: String, default: 'Tuition Fee' },

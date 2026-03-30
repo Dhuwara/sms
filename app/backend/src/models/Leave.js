@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const leaveSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   leaveType: { type: String, enum: ['casual', 'sick'], required: true },
   startDate: { type: Date, required: true },

@@ -200,17 +200,17 @@ const Library = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Library Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Library Management</h1>
           <p className="text-[#64748B] mt-1">Books, issue/return & fines</p>
         </div>
         {activeTab === 'books' && (
-          <div className="flex gap-3">
-            <button onClick={handleDownloadReport} className="flex items-center gap-2 bg-[#10B981] text-white hover:bg-[#059669] px-5 py-3 rounded-lg font-semibold transition-all shadow-md">
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleDownloadReport} className="flex items-center gap-2 bg-[#10B981] text-white hover:bg-[#059669] px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg font-semibold transition-all shadow-md text-sm sm:text-base">
               <Download size={18} /> Download Excel
             </button>
-            <button onClick={() => setShowAddBookModal(true)} className="flex items-center gap-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] px-6 py-3 rounded-lg font-semibold transition-all shadow-md">
+            <button onClick={() => setShowAddBookModal(true)} className="flex items-center gap-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold transition-all shadow-md text-sm sm:text-base">
               <Plus size={20} /> Add Book
             </button>
           </div>
@@ -235,7 +235,7 @@ const Library = () => {
         </div>
       )}
 
-      <div className="flex gap-2 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-2 border-b-2 border-[#FCD34D] overflow-x-auto">
         {['books', 'issue', 'fines'].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 font-semibold transition-all capitalize ${activeTab === tab ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg' : 'text-[#64748B] hover:text-[#0F172A]'}`}>
             {tab}

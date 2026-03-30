@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XCircle, X } from 'lucide-react';
+import { XCircle, X, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
 import Profile from './pages/Profile';
@@ -36,6 +36,40 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   const [sendMsgLoading, setSendMsgLoading] = useState(false);
   const [childScholarships, setChildScholarships] = useState([]);
   const [childAwards, setChildAwards] = useState([]);
+
+  // Password Change State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrPwd, setShowCurrPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await api.post('/api/auth/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      toast.success('Password changed successfully!');
+      setShowPasswordModal(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -193,7 +227,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
 
   const renderModule = () => {
     switch (module) {
-      case 'profile': return <Profile user={user} childrenList={children} selectedChild={selectedChild} childSelector={childSelector} />;
+      case 'profile': return <Profile user={user} childrenList={children} selectedChild={selectedChild} childSelector={childSelector} setShowPasswordModal={setShowPasswordModal} />;
       case 'overview': return <Overview selectedChild={selectedChild} overviewStats={overviewStats} childSelector={childSelector} formatDate={formatDate} />;
       case 'attendance': return <Attendance selectedChild={selectedChild} childAttendance={childAttendance} pendingLeaves={pendingLeaves} handleLeaveAction={handleLeaveAction} setIsDenyModalOpen={setIsDenyModalOpen} setSelectedLeaveId={setSelectedLeaveId} actionLoading={actionLoading} loading={loading} childSelector={childSelector} formatDate={formatDate} />;
       case 'academic': return <Academic selectedChild={selectedChild} childGrades={childGrades} childExams={childExams} childSelector={childSelector} formatDate={formatDate} getGradeBadge={getGradeBadge} />;
@@ -206,7 +240,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
       case 'health': return <Health selectedChild={selectedChild} user={user} childSelector={childSelector} />;
       case 'activities': return <Activities scholarships={childScholarships} awards={childAwards} selectedChild={selectedChild} childSelector={childSelector} />;
       case 'settings': return <Settings user={user} />;
-      default: return <Profile user={user} childrenList={children} selectedChild={selectedChild} childSelector={childSelector} />;
+      default: return <Profile user={user} childrenList={children} selectedChild={selectedChild} childSelector={childSelector} setShowPasswordModal={setShowPasswordModal} />;
     }
   };
 
@@ -214,7 +248,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
     <div className="space-y-6">
       <div className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE] rounded-2xl p-6 border-2 border-[#10B981]">
         <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.full_name}!</h1>
-        <p className="text-base text-[#64748B]">Parent Portal - AJM International Institution</p>
+        <p className="text-base text-[#64748B]">Parent Portal - {user?.schoolName || 'Your School'}</p>
       </div>
 
       {loading && (
@@ -226,6 +260,84 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
       <div>
         {renderModule()}
       </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border-2 border-[#10B981]">
+            <div className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE] px-6 py-4 flex justify-between items-center border-b border-[#E2E8F0]">
+              <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+                <Lock className="text-[#10B981]" size={20} />
+                Change Password
+              </h2>
+              <button onClick={() => setShowPasswordModal(false)} className="p-2 hover:bg-white/50 rounded-full transition-colors">
+                <X size={20} className="text-[#64748B]" />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showCurrPwd ? 'text' : 'password'}
+                    required
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#10B981] focus:outline-none transition-colors"
+                    placeholder="Enter current password"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showCurrPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showNewPwd ? 'text' : 'password'}
+                    required
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#10B981] focus:outline-none transition-colors"
+                    placeholder="Minimum 6 characters"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showNewPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#64748B] mb-1">Confirm New Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPwd ? 'text' : 'password'}
+                    required
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#10B981] focus:outline-none transition-colors"
+                    placeholder="Re-enter new password"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showConfirmPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />}
+                </div>
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 px-4 py-2 border-2 border-[#E2E8F0] text-[#64748B] font-bold rounded-xl hover:bg-[#F8FAFC] transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={passwordLoading} className="flex-1 px-4 py-2 bg-[#10B981] text-white font-bold rounded-xl hover:bg-[#059669] transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                  {passwordLoading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Deny Leave Modal */}
       {isDenyModalOpen && (

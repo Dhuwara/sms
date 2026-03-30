@@ -17,9 +17,9 @@ const Attendance = ({ attendanceData, studentLeaves, setIsLeaveModalOpen, format
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Attendance</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">Attendance</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-6 bg-[#D1FAE5] rounded-xl border-2 border-[#10B981]">
           <p className="text-sm text-[#64748B]">Total Present</p>
           <p className="text-3xl font-bold text-[#065F46]">{summary.present}</p>
@@ -70,13 +70,13 @@ const Attendance = ({ attendanceData, studentLeaves, setIsLeaveModalOpen, format
         <h3 className="font-bold mb-4">Recent Attendance Records</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE]">
+            <thead className="bg-gradient-to-r from-[#DBEAFE] to-[#EDE9FE]">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-sm">Date</th>
                 <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {records.slice(0, 20).map((r, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm">{formatDate(r.date)}</td>

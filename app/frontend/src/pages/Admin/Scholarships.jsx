@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Award, ChevronDown, Trophy, Medal } from 'lucide-react';
+import { Plus, Trash2, Award, ChevronDown, Trophy, Medal, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -27,7 +27,7 @@ const CATEGORY_COLORS = {
 
 const EMPTY_SCHOLARSHIP_FORM = {
   name: '', description: '', amount: '', type: 'partial',
-  criteria: '', academicYear: new Date().getFullYear().toString(),
+  academicYear: new Date().getFullYear().toString(),
   studentId: '', remarks: '',
 };
 
@@ -39,7 +39,10 @@ const EMPTY_AWARD_FORM = {
 
 const Scholarships = () => {
   const [activeTab, setActiveTab] = useState('scholarships');
-  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [schSelectedClass, setSchSelectedClass] = useState('');
+  const [awardSelectedClass, setAwardSelectedClass] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   // Scholarship State
@@ -51,6 +54,7 @@ const Scholarships = () => {
   const [schForm, setSchForm] = useState(EMPTY_SCHOLARSHIP_FORM);
   const [schSubmitting, setSchSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+  const [editingScholarship, setEditingScholarship] = useState(null);
 
   // Award State
   const [awards, setAwards] = useState([]);
@@ -94,21 +98,54 @@ const Scholarships = () => {
   useEffect(() => {
     fetchScholarships();
     fetchAwards();
-    api.get('/api/students').then(r => setStudents(r.data || [])).catch(() => {});
+    api.get('/api/classes').then(r => setClasses(r.data || [])).catch(() => {});
+    api.get('/api/students').then(r => setAllStudents(r.data || [])).catch(() => {});
   }, []);
 
+  const schStudents = schSelectedClass
+    ? allStudents.filter(s => s.classId === schSelectedClass || s.classId?._id === schSelectedClass)
+    : [];
+
+  const awardStudents = awardSelectedClass
+    ? allStudents.filter(s => s.classId === awardSelectedClass || s.classId?._id === awardSelectedClass)
+    : [];
+
   // --- Scholarship Handlers ---
-  const handleCreateScholarship = async (e) => {
+  const handleOpenEditScholarship = (s) => {
+    setEditingScholarship(s);
+    setSchSelectedClass(s.classId?._id || s.classId || '');
+    setSchForm({
+      name: s.name || '',
+      description: s.description || '',
+      amount: s.amount || '',
+      type: s.type || 'partial',
+      academicYear: s.academicYear || '',
+      studentId: s.studentId?._id || s.studentId || '',
+      remarks: s.remarks || '',
+    });
+    setShowSchModal(true);
+  };
+
+  const handleSubmitScholarship = async (e) => {
     e.preventDefault();
     setSchSubmitting(true);
     try {
-      const res = await api.post('/api/scholarships', { ...schForm, amount: Number(schForm.amount) });
-      setScholarships(prev => [res.data, ...prev]);
-      toast.success('Scholarship created');
+      const payload = { ...schForm, amount: Number(schForm.amount) };
+      if (editingScholarship) {
+        const res = await api.put(`/api/scholarships/${editingScholarship._id}`, payload);
+        setScholarships(prev => prev.map(s => s._id === editingScholarship._id ? res.data : s));
+        toast.success('Scholarship updated');
+      } else {
+        const res = await api.post('/api/scholarships', payload);
+        setScholarships(prev => [res.data, ...prev]);
+        toast.success('Scholarship created');
+      }
       setShowSchModal(false);
       setSchForm(EMPTY_SCHOLARSHIP_FORM);
+      setSchSelectedClass('');
+      setEditingScholarship(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create scholarship');
+      toast.error(err.response?.data?.message || 'Failed to save scholarship');
     } finally {
       setSchSubmitting(false);
     }
@@ -157,6 +194,7 @@ const Scholarships = () => {
       toast.success('Award created');
       setShowAwardModal(false);
       setAwardForm(EMPTY_AWARD_FORM);
+      setAwardSelectedClass('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create award');
     } finally {
@@ -199,7 +237,7 @@ const Scholarships = () => {
           <p className="text-[#64748B] mt-1">Manage student scholarships, prizes and awards</p>
         </div>
         <button
-          onClick={() => activeTab === 'scholarships' ? setShowSchModal(true) : setShowAwardModal(true)}
+          onClick={() => { if (activeTab === 'scholarships') { setEditingScholarship(null); setSchForm(EMPTY_SCHOLARSHIP_FORM); setSchSelectedClass(''); setShowSchModal(true); } else { setShowAwardModal(true); } }}
           className="flex items-center gap-2 bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#4338CA] transition-colors"
         >
           <Plus size={18} /> {activeTab === 'scholarships' ? 'Add Scholarship' : 'Add Award'}
@@ -278,7 +316,7 @@ const Scholarships = () => {
                 <table className="w-full">
                   <thead className="bg-[#F8FAFC] border-b border-slate-200">
                     <tr>
-                      {['Student', 'Class', 'Scholarship', 'Type', 'Amount', 'Year', 'Status', 'Approved On', ''].map(h => (
+                      {['Student', 'Class', 'Scholarship', 'Type', 'Amount', 'Year', 'Status', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -293,7 +331,6 @@ const Scholarships = () => {
                         <td className="px-4 py-3 text-sm text-[#64748B]">{s.classId?.name} {s.classId?.section}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium text-[#0F172A]">{s.name}</p>
-                          {s.criteria && <p className="text-xs text-[#64748B]">{s.criteria}</p>}
                         </td>
                         <td className="px-4 py-3 text-sm text-[#64748B] capitalize">{s.type}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-[#0F172A]">₹{s.amount?.toLocaleString('en-IN')}</td>
@@ -313,9 +350,14 @@ const Scholarships = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-[#64748B]">{formatDate(s.approvedOn)}</td>
                         <td className="px-4 py-3">
-                          <button onClick={() => handleDeleteScholarship(s._id)} className="p-1.5 text-[#EF4444] hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 size={15} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleOpenEditScholarship(s)} className="p-1.5 text-[#4F46E5] hover:bg-indigo-50 rounded-lg transition-colors">
+                              <Pencil size={15} />
+                            </button>
+                            <button onClick={() => handleDeleteScholarship(s._id)} className="p-1.5 text-[#EF4444] hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -428,22 +470,34 @@ const Scholarships = () => {
       {showSchModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-[#0F172A] mb-4">Add Scholarship</h2>
-            <form onSubmit={handleCreateScholarship} className="space-y-4">
+            <h2 className="text-xl font-bold text-[#0F172A] mb-4">{editingScholarship ? 'Edit Scholarship' : 'Add Scholarship'}</h2>
+            <form onSubmit={handleSubmitScholarship} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#0F172A] mb-1">Scholarship Name</label>
                 <input type="text" required value={schForm.name} onChange={e => setSchForm({ ...schForm, name: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" placeholder="e.g. Merit Excellence Award" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Student</label>
-                <select required value={schForm.studentId} onChange={e => setSchForm({ ...schForm, studentId: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
-                  <option value="">Select student</option>
-                  {students.map(s => <option key={s._id} value={s._id}>{s.name} ({s.class})</option>)}
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Class</label>
+                <select
+                  value={schSelectedClass}
+                  onChange={e => { setSchSelectedClass(e.target.value); setSchForm({ ...schForm, studentId: '' }); }}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                >
+                  <option value="">Select class</option>
+                  {classes.map(c => <option key={c._id} value={c._id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>)}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Student</label>
+                <select required disabled={!schSelectedClass} value={schForm.studentId} onChange={e => setSchForm({ ...schForm, studentId: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50">
+                  <option value="">{schSelectedClass ? 'Select student' : 'Select a class first'}</option>
+                  {schStudents.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0F172A] mb-1">Amount (₹)</label>
                   <input type="number" required min="1" value={schForm.amount} onChange={e => setSchForm({ ...schForm, amount: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" placeholder="5000" />
@@ -456,15 +510,9 @@ const Scholarships = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Academic Year</label>
-                  <input type="text" required value={schForm.academicYear} onChange={e => setSchForm({ ...schForm, academicYear: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" placeholder="2025" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Criteria (optional)</label>
-                  <input type="text" value={schForm.criteria} onChange={e => setSchForm({ ...schForm, criteria: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" placeholder="e.g. 90%+ marks" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Academic Year</label>
+                <input type="text" required value={schForm.academicYear} onChange={e => setSchForm({ ...schForm, academicYear: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" placeholder="2025" />
               </div>
 
               <div>
@@ -478,8 +526,8 @@ const Scholarships = () => {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowSchModal(false); setSchForm(EMPTY_SCHOLARSHIP_FORM); }} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
-                <button type="submit" disabled={schSubmitting} className="flex-1 h-10 bg-[#4F46E5] text-white rounded-lg font-medium disabled:opacity-50">{schSubmitting ? 'Saving...' : 'Create'}</button>
+                <button type="button" onClick={() => { setShowSchModal(false); setSchForm(EMPTY_SCHOLARSHIP_FORM); setSchSelectedClass(''); setEditingScholarship(null); }} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
+                <button type="submit" disabled={schSubmitting} className="flex-1 h-10 bg-[#4F46E5] text-white rounded-lg font-medium disabled:opacity-50">{schSubmitting ? 'Saving...' : editingScholarship ? 'Update' : 'Create'}</button>
               </div>
             </form>
           </div>
@@ -498,14 +546,26 @@ const Scholarships = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Student</label>
-                <select required value={awardForm.studentId} onChange={e => setAwardForm({ ...awardForm, studentId: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
-                  <option value="">Select student</option>
-                  {students.map(s => <option key={s._id} value={s._id}>{s.name} ({s.class})</option>)}
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Class</label>
+                <select
+                  value={awardSelectedClass}
+                  onChange={e => { setAwardSelectedClass(e.target.value); setAwardForm({ ...awardForm, studentId: '' }); }}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                >
+                  <option value="">Select class</option>
+                  {classes.map(c => <option key={c._id} value={c._id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>)}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Student</label>
+                <select required disabled={!awardSelectedClass} value={awardForm.studentId} onChange={e => setAwardForm({ ...awardForm, studentId: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50">
+                  <option value="">{awardSelectedClass ? 'Select student' : 'Select a class first'}</option>
+                  {awardStudents.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0F172A] mb-1">Category</label>
                   <select value={awardForm.category} onChange={e => setAwardForm({ ...awardForm, category: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]">
@@ -518,7 +578,7 @@ const Scholarships = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0F172A] mb-1">Award Date</label>
                   <input type="date" required value={awardForm.awardDate} onChange={e => setAwardForm({ ...awardForm, awardDate: e.target.value })} className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]" />
@@ -545,7 +605,7 @@ const Scholarships = () => {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowAwardModal(false); setAwardForm(EMPTY_AWARD_FORM); }} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
+                <button type="button" onClick={() => { setShowAwardModal(false); setAwardForm(EMPTY_AWARD_FORM); setAwardSelectedClass(''); }} className="flex-1 h-10 border border-slate-200 rounded-lg font-medium">Cancel</button>
                 <button type="submit" disabled={awardSubmitting} className="flex-1 h-10 bg-[#4F46E5] text-white rounded-lg font-medium disabled:opacity-50">{awardSubmitting ? 'Saving...' : 'Create'}</button>
               </div>
             </form>

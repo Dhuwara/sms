@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Lock, X, CalendarDays
+  Lock, X, CalendarDays, Eye, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
@@ -46,6 +46,9 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     confirmPassword: ''
   });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrPwd, setShowCurrPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   // Leave Request State
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -71,7 +74,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         if (module === 'profile' || module === 'timetable' || module === 'online-classes') {
           console.log(user, "hitssinside")
           const schedRes = await api.get("/api/student/me/schedule");
-          const userData = await api.get("api/student/me/info");
+          const userData = await api.get("/api/student/me/info");
 
           setScheduleData(schedRes.data);
           setUserInfo(userData.data.student)
@@ -361,9 +364,9 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   return (
     <>
       <div className="space-y-6">
-        <div className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE] rounded-2xl p-6 border-2 border-[#4F46E5]">
-          <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
-          <p className="text-base text-[#64748B]">Student Portal - AJM International Institution</p>
+        <div className="bg-gradient-to-r from-[#DBEAFE] to-[#EDE9FE] rounded-2xl p-4 sm:p-6 border-2 border-[#4F46E5]">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
+          <p className="text-base text-[#64748B]">Student Portal - {user?.schoolName || 'Your School'}</p>
         </div>
 
         {loading ? (
@@ -381,7 +384,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       {isPasswordModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border-2 border-[#4F46E5] overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE] px-6 py-4 flex justify-between items-center border-b border-[#E2E8F0]">
+            <div className="bg-gradient-to-r from-[#DBEAFE] to-[#EDE9FE] px-4 sm:px-6 py-4 flex justify-between items-center border-b border-[#E2E8F0]">
               <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
                 <Lock className="text-[#4F46E5]" size={20} />
                 Change Password
@@ -394,21 +397,24 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
               </button>
             </div>
 
-            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+            <form onSubmit={handlePasswordSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-[#64748B] mb-1">
                   Current Password
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showCurrPwd ? 'text' : 'password'}
                     required
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
                     placeholder="Enter current password"
                   />
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showCurrPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowCurrPwd(p => !p)} />}
                 </div>
               </div>
 
@@ -418,14 +424,17 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showNewPwd ? 'text' : 'password'}
                     required
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
                     placeholder="Minimum 6 characters"
                   />
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showNewPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowNewPwd(p => !p)} />}
                 </div>
               </div>
 
@@ -435,14 +444,17 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showConfirmPwd ? 'text' : 'password'}
                     required
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
+                    className="w-full pl-10 pr-10 py-2 border-2 border-[#E2E8F0] rounded-xl focus:border-[#4F46E5] focus:outline-hidden transition-colors"
                     placeholder="Re-enter new password"
                   />
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
+                  {showConfirmPwd
+                    ? <EyeOff size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />
+                    : <Eye size={18} className="absolute bottom-2.5 right-3 cursor-pointer text-[#64748B]" onClick={() => setShowConfirmPwd(p => !p)} />}
                 </div>
               </div>
 
@@ -475,7 +487,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       {isLeaveModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b-2 border-[#FEF3C7] flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-b-2 border-[#FEF3C7] flex justify-between items-center">
               <h3 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
                 <CalendarDays className="text-[#4F46E5]" size={24} />
                 Apply for Leave
@@ -485,8 +497,8 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
               </button>
             </div>
 
-            <form onSubmit={handleLeaveSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleLeaveSubmit} className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-[#64748B] mb-1">Start Date</label>
                   <input

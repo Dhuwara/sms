@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const staffSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   subjectsTaught: [{ type: String }],
   classesAssigned: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }],
   contact: { type: String },

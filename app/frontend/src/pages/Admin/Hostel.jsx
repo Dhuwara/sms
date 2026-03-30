@@ -86,7 +86,7 @@ const Hostel = () => {
         </button>
       </div>
 
-      <div className="flex gap-2 border-b-2 border-[#FCD34D]">
+      <div className="flex gap-2 border-b-2 border-[#FCD34D] overflow-x-auto">
         {['rooms', 'allocations'].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 font-semibold transition-all capitalize ${activeTab === tab ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg' : 'text-[#64748B] hover:text-[#0F172A]'}`}>
             {tab}

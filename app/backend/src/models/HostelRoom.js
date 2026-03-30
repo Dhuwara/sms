@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const hostelRoomSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   roomNumber: { type: String, required: true, unique: true },
   floor: { type: String },
   type: { type: String, enum: ['single', 'double', 'dormitory'], default: 'double' },

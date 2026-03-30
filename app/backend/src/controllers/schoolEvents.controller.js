@@ -3,18 +3,27 @@ import path from 'path';
 import SchoolEvent from '../models/SchoolEvent.js';
 import Staff from '../models/Staff.js';
 
+const safeParseArray = (str, fallback = []) => {
+  try {
+    const parsed = JSON.parse(str);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'events');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 export const getSchoolEvents = async (req, res, next) => {
   try {
     const { eventType, status, startDate, targetAudience } = req.query;
-    const filter = { isActive: true };
-    
+    const filter = { isActive: true, schoolId: req.user.schoolId };
+
     if (eventType) filter.eventType = eventType;
     if (status) filter.status = status;
     if (targetAudience) filter.targetAudience = { $in: [targetAudience, 'all'] };
-    
+
     if (startDate) {
       filter.startDate = { $gte: new Date(startDate) };
     }
@@ -23,7 +32,7 @@ export const getSchoolEvents = async (req, res, next) => {
       .populate('createdBy', 'name email')
       .populate('specificClasses', 'name section')
       .sort({ startDate: 1 });
-    
+
     res.json({ success: true, data: events });
   } catch (err) {
     next(err);
@@ -66,11 +75,12 @@ export const createSchoolEvent = async (req, res, next) => {
       title,
       eventType,
       startDate: new Date(startDate),
-      targetAudience: targetAudience ? JSON.parse(targetAudience) : ['all'],
-      specificClasses: specificClasses ? JSON.parse(specificClasses) : [],
+      targetAudience: targetAudience ? safeParseArray(targetAudience, ['all']) : ['all'],
+      specificClasses: specificClasses ? safeParseArray(specificClasses) : [],
       priority: priority || 'medium',
       attachments,
-      createdBy: req.user.userId
+      createdBy: req.user.userId,
+      schoolId: req.user.schoolId,
     };
 
     // Auto-set status based on dates
@@ -113,8 +123,8 @@ export const updateSchoolEvent = async (req, res, next) => {
     if (title) event.title = title;
     if (eventType) event.eventType = eventType;
     if (startDate) event.startDate = new Date(startDate);
-    if (targetAudience) event.targetAudience = JSON.parse(targetAudience);
-    if (specificClasses) event.specificClasses = JSON.parse(specificClasses);
+    if (targetAudience) event.targetAudience = safeParseArray(targetAudience, event.targetAudience);
+    if (specificClasses) event.specificClasses = safeParseArray(specificClasses, event.specificClasses);
     if (priority) event.priority = priority;
     if (status) event.status = status;
 
@@ -191,6 +201,7 @@ export const getEventsForUser = async (req, res, next) => {
 
     const filter = {
       isActive: true,
+      schoolId: req.user.schoolId,
       targetAudience: { $in: userTargetAudience },
       startDate: { $gte: from }
     };

@@ -6,18 +6,18 @@ const Profile = ({ userInfo, scheduleData, timetableData, periodConfig, schoolEv
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Student Profile</h2>
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">Student Profile</h2>
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <div className="flex items-center gap-6 mb-6">
           <div className="w-24 h-24 bg-gradient-to-br from-[#DBEAFE] to-[#EDE9FE] rounded-full flex items-center justify-center text-4xl font-bold text-[#4F46E5]">
             {userInfo?.name?.charAt(0) || "S"}
           </div>
           <div>
             <h3 className="text-2xl font-bold text-[#0F172A]">
-              {userInfo?.name || "Student User"}
+              {userInfo?.userId?.name || userInfo?.name || "Student User"}
             </h3>
             <p className="text-[#64748B]">
-              Student ID: {userInfo?.studentId || userInfo?.email || "—"}
+              Student ID: {userInfo?.rollNumber || userInfo?.studentId || "—"}
             </p>
             <span className="inline-block mt-2 px-3 py-1 bg-[#10B981] text-white text-xs font-semibold rounded-full">
               Active Student
@@ -39,7 +39,7 @@ const Profile = ({ userInfo, scheduleData, timetableData, periodConfig, schoolEv
           <div className="p-4 bg-[#FEF3C7] rounded-lg">
             <p className="text-sm text-[#64748B]">Roll Number</p>
             <p className="font-bold text-[#0F172A]">
-              {classInfo?.roomNumber || "—"}
+              {userInfo?.rollNumber || "—"}
             </p>
           </div>
           <div className="p-4 bg-[#FEE2E2] rounded-lg">
@@ -86,7 +86,7 @@ const Profile = ({ userInfo, scheduleData, timetableData, periodConfig, schoolEv
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
               <Mail className="text-[#64748B]" size={18} />
-              <span className="text-sm">{userInfo?.email || "—"}</span>
+              <span className="text-sm">{userInfo?.userId?.email || userInfo?.email || "—"}</span>
             </div>
             <div className="flex items-center gap-2 p-3 bg-[#F8FAFC] rounded-lg">
               <User className="text-[#64748B]" size={18} />

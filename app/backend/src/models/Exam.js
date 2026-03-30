@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const examSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   examType: { type: String, enum: ['CAT-1', 'CAT-2', 'Quarterly', 'Half Yearly', 'Revision-1', 'Revision-2', 'Annual'], required: true },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   subject: { type: String, required: true }, // Subject name as string

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const awardSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   title: { type: String, required: true, trim: true },
   description: { type: String },
   category: { type: String, enum: ['academic', 'sports', 'arts', 'science', 'leadership', 'community', 'other'], default: 'academic' },

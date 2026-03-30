@@ -11,7 +11,7 @@ const Classes = ({
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Class & Student Management</h2>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
         <h3 className="font-bold mb-4">My Assigned Classes</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {classDetail?.map((cls, idx) => (
@@ -33,8 +33,8 @@ const Classes = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-        <div className="flex justify-between items-center mb-4">
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <h3 className="font-bold">
             Student List
             {(() => {
@@ -66,7 +66,7 @@ const Classes = ({
                 <th className="px-4 py-3 text-left font-bold text-sm">Attendance</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {classStudents.length > 0 ? classStudents.map((student, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0] hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 text-sm font-semibold">{student.rollNumber || 'N/A'}</td>

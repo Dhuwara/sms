@@ -1,11 +1,15 @@
 import Attendance from '../models/Attendance.js';
+import StaffAttendance from '../models/StaffAttendance.js';
 import ClassMapping from '../models/ClassMapping.js';
 import Student from '../models/Student.js';
+import Parent from '../models/Parent.js';
+import Class from '../models/Class.js';
+import { sendWhatsAppBulk, getParentPhones } from '../utils/whatsapp.js';
 
 export const getAttendance = async (req, res, next) => {
   try {
     const { classId, date } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
 
     if (classId) filter.classId = classId;
     if (date) {
@@ -21,7 +25,6 @@ export const getAttendance = async (req, res, next) => {
       .populate('classId', 'name section')
       .populate('markedBy', 'name')
       .sort({ date: -1 });
-
     res.json({ success: true, data: attendance });
   } catch (err) {
     next(err);
@@ -47,11 +50,30 @@ export const markAttendance = async (req, res, next) => {
             date: new Date(date),
             status: record.status,
             markedBy: req.user.userId,
+            schoolId: req.user.schoolId,
           },
           { upsert: true, new: true, setDefaultsOnInsert: true }
         )
       )
     );
+
+    // WhatsApp: Notify parents of absent students (fire-and-forget)
+    const absentIds = records.filter((r) => r.status === 'absent').map((r) => r.studentId);
+    if (absentIds.length > 0) {
+      const cls = await Class.findById(classId).select('name section');
+      const className = cls ? `${cls.name} ${cls.section || ''}`.trim() : '';
+      const dateStr = new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      getParentPhones(Student, Parent, absentIds)
+        .then((parentData) => {
+          const recipients = parentData.map((p) => ({
+            phone: p.phone,
+            message: `Dear ${p.parentName},\n\nYour child ${p.studentName} (${className}) was marked absent on ${dateStr}.\n\nIf this is incorrect, please contact the school office.\n\n- School Management`,
+          }));
+          return sendWhatsAppBulk(recipients);
+        })
+        .catch((err) => console.error('Attendance WhatsApp alert failed:', err.message));
+    }
 
     res.status(201).json({ success: true, data: attendanceRecords });
   } catch (err) {
@@ -138,6 +160,7 @@ export const getAttendanceReport = async (req, res, next) => {
     const records = await Attendance.find({
       classId,
       date: { $gte: start, $lte: end },
+      schoolId: req.user.schoolId,
     })
       .populate({ path: 'studentId', populate: { path: 'userId', select: 'name' } })
       .sort({ date: 1, studentId: 1 });

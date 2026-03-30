@@ -1,7 +1,7 @@
 import React from 'react';
 import { Mail, Phone, MapPin } from 'lucide-react';
 
-const Profile = ({ user, childrenList, selectedChild, childSelector }) => {
+const Profile = ({ user, childrenList, selectedChild, childSelector, setShowPasswordModal }) => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-[#0F172A]">Parent Profile</h2>
@@ -91,7 +91,7 @@ const Profile = ({ user, childrenList, selectedChild, childSelector }) => {
         <div className="border-t border-[#E2E8F0] pt-4 mt-4">
           <h4 className="font-semibold mb-3">Login & Security Settings</h4>
           <div className="flex gap-3">
-            <button className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors">
+            <button onClick={() => setShowPasswordModal(true)} className="bg-[#4F46E5] text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#4338CA] transition-colors">
               Change Password
             </button>
             <button className="border-2 border-[#4F46E5] text-[#4F46E5] px-4 py-2 rounded-lg font-semibold text-sm hover:bg-[#EEF2FF] transition-colors">

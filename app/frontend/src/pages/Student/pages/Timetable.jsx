@@ -8,14 +8,14 @@ const Timetable = ({ timetableData, periodConfig, scheduleData, schoolEvents, fo
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-[#0F172A]">Timetable & Schedule</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A]">Timetable & Schedule</h2>
 
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
         <h3 className="font-bold mb-4">Class Timetable - {classInfo?.name || ''} {classInfo?.section ? `Section ${classInfo.section}` : ''}</h3>
         {periods.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-linear-to-r from-[#DBEAFE] to-[#EDE9FE]">
+              <thead className="bg-gradient-to-r from-[#DBEAFE] to-[#EDE9FE]">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold text-sm">Day</th>
                   {periods.filter((p, i, arr) => {
@@ -28,7 +28,7 @@ const Timetable = ({ timetableData, periodConfig, scheduleData, schoolEvents, fo
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody >
                 {DAYS.map((day, idx) => {
                   const dayPeriods = periods.filter(p => (p.day || 'Monday') === day);
                   const daySchedule = schedule[day] || [];
@@ -71,7 +71,7 @@ const Timetable = ({ timetableData, periodConfig, scheduleData, schoolEvents, fo
                   <th className="px-4 py-3 text-left font-bold text-sm">Max Marks</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody >
                 {exams.filter(e => new Date(e.date) >= new Date()).slice(0, 10).map((exam, idx) => (
                   <tr key={idx} className="border-b border-[#E2E8F0]">
                     <td className="px-4 py-3 text-sm font-semibold">{formatDate(exam.date)}</td>

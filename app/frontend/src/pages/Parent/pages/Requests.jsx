@@ -9,7 +9,7 @@ const Requests = () => {
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
           <h3 className="font-bold mb-4">Leave Request for Child</h3>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1">From Date</label>
                 <input type="date" className="w-full border-2 border-[#FCD34D] rounded-lg px-3 py-2" />
@@ -81,7 +81,7 @@ const Requests = () => {
                 <th className="px-4 py-3 text-left font-bold text-sm">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {[
                 { id: 'REQ-2024-025', type: 'Leave Request', date: 'Dec 20', status: 'Approved' },
                 { id: 'REQ-2024-024', type: 'Bonafide Certificate', date: 'Dec 15', status: 'Ready' },

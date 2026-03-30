@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const reimbursementSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
   title: { type: String, required: true },
   amount: { type: Number, required: true },

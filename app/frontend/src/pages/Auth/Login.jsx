@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import { toast } from 'sonner';
 import { GraduationCap } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -16,8 +16,7 @@ const getDefaultPath = (role) => {
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [loginType, setLoginType] = useState('other'); // 'student' or 'other'
-  const [formData, setFormData] = useState({ identifier: '', password: '' });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [isEye, setIsEye] = useState(false);
 
@@ -29,16 +28,10 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const credentials = {
-        password: formData.password,
-        [loginType === 'student' ? 'rollNumber' : 'email']: formData.identifier,
-      };
-      const user = await login(credentials);
-      console.log(user, "user");
+      const user = await login({ email: formData.email, password: formData.password });
       toast.success('Login successful!');
       navigate(getDefaultPath(user.role), { replace: true });
     } catch (error) {
-      console.log(error, "error");
       toast.error(error.response?.data?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
@@ -47,18 +40,18 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* ... Left Side remains same ... */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#4F46E5] items-center justify-center p-12">
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-6">
             <GraduationCap size={48} />
             <h1 className="text-4xl font-bold">
-              AJM International Institution
+              School Management System
             </h1>
           </div>
           <p className="text-xl text-white/90 leading-relaxed mb-8">
             Complete School Management System for Modern Education
           </p>
+          {import.meta.env.DEV && (
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <h3 className="font-semibold mb-4">Demo Credentials:</h3>
             <div className="space-y-2 text-sm">
@@ -69,7 +62,7 @@ const Login = () => {
                 <strong>Staff:</strong> john.smith@school.com / Staff@123
               </p>
               <p>
-                <strong>Student:</strong> STU2026002 / Dhuwa@123
+                <strong>Student:</strong> student@school.com / Student@123
               </p>
               <p>
                 <strong>Parent:</strong> dhuwarakesh.murali@gmail.com /
@@ -77,6 +70,7 @@ const Login = () => {
               </p>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -92,58 +86,24 @@ const Login = () => {
               </p>
             </div>
 
-            {/* Login Type Toggle */}
-            <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginType("other");
-                  setFormData({ ...formData, identifier: "" });
-                }}
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                  loginType === "other"
-                    ? "bg-white text-[#4F46E5] shadow-sm"
-                    : "text-[#64748B] hover:text-[#0F172A]"
-                }`}
-              >
-                Staff/Admin/Parent
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginType("student");
-                  setFormData({ ...formData, identifier: "" });
-                }}
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                  loginType === "student"
-                    ? "bg-white text-[#4F46E5] shadow-sm"
-                    : "text-[#64748B] hover:text-[#0F172A]"
-                }`}
-              >
-                Student
-              </button>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label
-                  htmlFor="identifier"
+                  htmlFor="email"
                   className="block text-sm font-medium text-[#0F172A] mb-2"
                 >
-                  {loginType === "student" ? "Roll Number" : "Email"}
+                  Email
                 </label>
                 <input
-                  id="identifier"
-                  type={loginType === "student" ? "text" : "email"}
+                  id="email"
+                  type="email"
                   required
-                  value={formData.identifier}
+                  value={formData.email}
                   onChange={(e) =>
-                    setFormData({ ...formData, identifier: e.target.value })
+                    setFormData({ ...formData, email: e.target.value })
                   }
                   className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
-                  placeholder={
-                    loginType === "student" ? "STU2026001" : "you@school.com"
-                  }
+                  placeholder="you@school.com"
                 />
               </div>
 
@@ -219,6 +179,16 @@ const Login = () => {
             </div>
 
             <div className="mt-4 text-center">
+              <span className="text-[#64748B] text-sm">Don't have an account? </span>
+              <a
+                href="/signup"
+                className="text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors"
+              >
+                Register School
+              </a>
+            </div>
+
+            <div className="mt-4 text-center">
               <a
                 href="/"
                 className="text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors"
@@ -234,7 +204,7 @@ const Login = () => {
               <div className="space-y-1 text-xs text-[#64748B]">
                 <p>Admin: dhuwadhuruvan@gmail.com / Admin@123</p>
                 <p>Staff: john.smith@school.com / Staff@123</p>
-                <p>Student: student1@school.com / Student@123</p>
+                <p>Student: student@school.com / Student@123</p>
                 <p>Parent: dhuwarakesh.murali@gmail.com / Parent@123</p>
               </div>
             </div>

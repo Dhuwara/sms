@@ -5,7 +5,7 @@ import TransportAssignment from '../models/TransportAssignment.js';
 
 export const getRoutes = async (req, res, next) => {
   try {
-    const routes = await TransportRoute.find().sort({ routeNumber: 1 });
+    const routes = await TransportRoute.find({ schoolId: req.user.schoolId }).sort({ routeNumber: 1 });
     res.json({ success: true, data: routes });
   } catch (err) {
     next(err);
@@ -19,6 +19,7 @@ export const createRoute = async (req, res, next) => {
       routeNumber: route_number || rest.routeNumber,
       driverName: driver || rest.driverName,
       ...rest,
+      schoolId: req.user.schoolId,
     });
     res.status(201).json({ success: true, data: route });
   } catch (err) {
@@ -51,7 +52,7 @@ export const deleteRoute = async (req, res, next) => {
 
 export const getAssignments = async (req, res, next) => {
   try {
-    const assignments = await TransportAssignment.find()
+    const assignments = await TransportAssignment.find({ schoolId: req.user.schoolId })
       .populate({ path: 'studentId', populate: { path: 'userId', select: 'name' } })
       .populate('routeId', 'routeNumber driverName');
     res.json({ success: true, data: assignments });
@@ -63,8 +64,8 @@ export const getAssignments = async (req, res, next) => {
 export const createAssignment = async (req, res, next) => {
   try {
     const assignment = await TransportAssignment.findOneAndUpdate(
-      { studentId: req.body.studentId },
-      req.body,
+      { studentId: req.body.studentId, schoolId: req.user.schoolId },
+      { ...req.body, schoolId: req.user.schoolId },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     res.status(201).json({ success: true, data: assignment });

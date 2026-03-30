@@ -36,7 +36,7 @@ const Transport = ({ selectedChild, childSelector }) => {
                 <th className="px-4 py-3 text-left font-bold text-sm">Evening Drop</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {[
                 { stop: 1, location: 'Green Park Metro', morning: '7:15 AM', evening: '3:45 PM' },
                 { stop: 2, location: 'Hauz Khas Market', morning: '7:25 AM', evening: '3:55 PM' },

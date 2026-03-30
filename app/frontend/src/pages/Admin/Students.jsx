@@ -6,6 +6,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchStudents } from '@/store/slices/studentsSlice';
 import ConfirmDialog from '@/components/ConfirmDialog';
 
+const ROMAN_STANDARDS = ['LKG', 'UKG', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+const NUMBER_STANDARDS = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+
 const Students = () => {
   const dispatch = useDispatch();
   const students = useSelector(s => s.students.list);
@@ -18,9 +21,14 @@ const Students = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  
+  const [standardFormat, setStandardFormat] = useState('number');
+
+  const STANDARDS = standardFormat === 'roman' ? ROMAN_STANDARDS : NUMBER_STANDARDS;
+
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
+    standard: '',
     dob: '',
     gender: 'male',
     parent_contact: '',
@@ -40,6 +48,8 @@ const Students = () => {
   const validate = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Full name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    if (!formData.standard) errors.standard = 'Standard is required';
     if (!formData.dob) errors.dob = 'Date of birth is required';
     if (!formData.parent_contact.trim()) errors.parent_contact = 'Contact number is required';
     if (!formData.address.trim()) errors.address = 'Address is required';
@@ -49,6 +59,9 @@ const Students = () => {
 
   useEffect(() => {
     if (studentsStatus === 'idle') dispatch(fetchStudents());
+    api.get('/api/class-config').then(res => {
+      if (res.data?.standardFormat) setStandardFormat(res.data.standardFormat);
+    }).catch(() => { });
   }, [studentsStatus, dispatch]);
 
   useEffect(() => {
@@ -86,7 +99,7 @@ const Students = () => {
         toast.success('Student added successfully');
       }
       setShowModal(false);
-      setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
+      setFormData({ name: '', email: '', standard: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
       setFormErrors({});
       setIsEditing(false);
       setSelectedStudent(null);
@@ -102,6 +115,8 @@ const Students = () => {
     setSelectedStudent(student);
     setFormData({
       name: student.name || '',
+      email: student.email || '',
+      standard: student.standard || '',
       dob: student.dob || '',
       gender: student.gender || 'male',
       parent_contact: student.parent_contact || '',
@@ -156,14 +171,14 @@ const Students = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-[#0F172A]">Students Management</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Students Management</h1>
           <p className="text-[#64748B] mt-1">Manage student records and profiles</p>
         </div>
         <button
           onClick={() => {
             setIsEditing(false);
             setSelectedStudent(null);
-            setFormData({ name: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
+            setFormData({ name: '', email: '', standard: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
             setFormErrors({});
             setShowModal(true);
           }}
@@ -206,7 +221,7 @@ const Students = () => {
 
       {/* Students Table */}
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
               <tr>
@@ -295,7 +310,7 @@ const Students = () => {
                 <X size={24} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-[#FEF3C7] p-4 rounded-lg">
                 <h3 className="font-semibold text-[#0F172A] mb-3">Student Information</h3>
@@ -310,6 +325,31 @@ const Students = () => {
                       placeholder="Enter full name"
                     />
                     {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Email *</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setFormErrors({ ...formErrors, email: '' }); }}
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      placeholder="student@example.com"
+                    />
+                    {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Standard *</label>
+                    <select
+                      value={formData.standard}
+                      onChange={(e) => { setFormData({ ...formData, standard: e.target.value }); setFormErrors({ ...formErrors, standard: '' }); }}
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                    >
+                      <option value="">-- Select Standard --</option>
+                      {STANDARDS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    {formErrors.standard && <p className="text-red-500 text-xs mt-1">{formErrors.standard}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">Date of Birth *</label>
@@ -455,7 +495,7 @@ const Students = () => {
                 />
                 {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
               </div>
-              
+
               <div className="flex gap-3 pt-4 border-t-2 border-[#FCD34D]">
                 <button
                   type="button"

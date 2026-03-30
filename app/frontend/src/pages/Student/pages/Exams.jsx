@@ -33,7 +33,7 @@ const Exams = ({ exams, examResults, formatDate, formatTime, getGradeBadge, getA
                 <th className="px-4 py-3 text-left font-bold text-sm">Max Marks</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {exams.map((exam, idx) => (
                 <tr key={idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm font-semibold">{formatDate(exam.date)}</td>
@@ -66,7 +66,7 @@ const Exams = ({ exams, examResults, formatDate, formatTime, getGradeBadge, getA
                   <th className="px-4 py-3 text-left font-bold text-sm">Grade</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody >
                 {results.map((result, idx) => {
                   const maxScore = result.examId?.maxScore || 100;
                   const pct = maxScore > 0 ? ((result.marks / maxScore) * 100).toFixed(0) : 0;

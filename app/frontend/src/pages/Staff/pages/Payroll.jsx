@@ -119,7 +119,7 @@ const Payroll = ({
                 <th className="px-4 py-3 text-left font-bold text-sm">Slip</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody >
               {payrollHistory.length > 0 ? payrollHistory.map((payment, idx) => (
                 <tr key={payment._id || idx} className="border-b border-[#E2E8F0]">
                   <td className="px-4 py-3 text-sm font-semibold">{monthNames[payment.month - 1]} {payment.year}</td>

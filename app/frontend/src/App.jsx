@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/Landing/LandingPage';
 import Login from './pages/Auth/Login';
+import Signup from './pages/Auth/Signup';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import Dashboard from './pages/Admin/Dashboard';
@@ -27,6 +28,7 @@ import ParentDashboard from './pages/Parent/ParentDashboard';
 import Layout from './components/Layout';
 
 const getDefaultPath = (role) => {
+  console.log(role,"roleee")
   switch (role) {
     case 'staff': return '/staff/profile';
     case 'student': return '/student/profile';
@@ -47,8 +49,11 @@ function App() {
   }
 
   const ProtectedRoute = ({ children, allowedRoles }) => {
+    console.log(children,allowedRoles,"allowerdRoles")
+    console.log(user,"userrolee")
     if (!user) return <Navigate to="/login" replace />;
     if (allowedRoles && !allowedRoles.includes(user.role)) {
+      console.log("allowerdroelsuer")
       return <Navigate to={getDefaultPath(user.role)} replace />;
     }
     return <Layout user={user} onLogout={logout}>{children}</Layout>;
@@ -68,6 +73,16 @@ function App() {
                 <Navigate to={getDefaultPath(user.role)} replace />
               ) : (
                 <Login />
+              )
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              user ? (
+                <Navigate to={getDefaultPath(user.role)} replace />
+              ) : (
+                <Signup />
               )
             }
           />

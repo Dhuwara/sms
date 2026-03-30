@@ -6,7 +6,7 @@ import Student from "../models/Student.js";
 export const getMapping = async (req, res, next) => {
   try {
     const { classId, academicYear } = req.params;
-    const mapping = await ClassMapping.findOne({ classId, academicYear });
+    const mapping = await ClassMapping.findOne({ classId, academicYear, schoolId: req.user.schoolId });
     if (!mapping) return res.status(404).json({ success: false, message: 'No mapping found' });
     res.json({ success: true, data: mapping });
   } catch (err) {
@@ -17,7 +17,7 @@ export const getMapping = async (req, res, next) => {
 export const getAssignedStudents = async (req, res, next) => {
   try {
     const { academicYear } = req.params;
-    const mappings = await ClassMapping.find({ academicYear }).select('students');
+    const mappings = await ClassMapping.find({ academicYear, schoolId: req.user.schoolId }).select('students');
     const studentIds = mappings.flatMap((m) => m.students.map((id) => id.toString()));
     res.json({ success: true, data: [...new Set(studentIds)] });
   } catch (err) {
@@ -41,6 +41,7 @@ export const saveMapping = async (req, res, next) => {
     const oldMapping = await ClassMapping.findOne({
       classId,
       academicYear,
+      schoolId: req.user.schoolId,
     }).select("classTeacher students");
 
     const oldTeacherId = oldMapping?.classTeacher?.toString();
@@ -59,11 +60,12 @@ export const saveMapping = async (req, res, next) => {
     }
 
     const mapping = await ClassMapping.findOneAndUpdate(
-      { classId, academicYear },
+      { classId, academicYear, schoolId: req.user.schoolId },
       {
         classTeacher: newTeacherId,
         subjectTeachers: subjectTeachers || {},
         students: students || [],
+        schoolId: req.user.schoolId,
       },
       { upsert: true, new: true },
     );

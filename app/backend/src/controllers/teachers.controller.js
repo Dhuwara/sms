@@ -26,7 +26,7 @@ const toFlat = (s) => ({
 export const getTeachers = async (req, res, next) => {
   try {
     const { status } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (status) filter.status = status;
 
     const staff = await Staff.find(filter)
@@ -45,20 +45,22 @@ export const createTeacher = async (req, res, next) => {
     const { name, email, password, contact, subjects, qualificationDegree, qualificationSpecialization, experience, assigned_classes, status } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, message: 'Name and email are required' });
 
+    const schoolId = req.user.schoolId;
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ success: false, message: 'Email already in use' });
 
     const passwordHash = await bcrypt.hash(password || 'Staff@123', 12);
-    const user = await User.create({ name, email, passwordHash, role: 'staff' });
+    const user = await User.create({ name, email, passwordHash, role: 'staff', schoolId });
 
     const qualification = qualificationDegree && qualificationSpecialization
       ? `${qualificationDegree} - ${qualificationSpecialization}`
       : '';
 
-    const employeeId = await generateNextId('employeeId');
+    const employeeId = await generateNextId('employeeId', schoolId);
 
     const staff = await Staff.create({
       userId: user._id,
+      schoolId,
       contact,
       subjectsTaught: Array.isArray(subjects) ? subjects : (subjects ? [subjects] : []),
       qualification,

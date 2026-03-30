@@ -6,7 +6,11 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed": "node src/seed/seed.js",
-    "migrate:fix-period-config": "node src/migrations/fixPeriodConfigIndex.js"
+    "seed:extra": "node src/seed/seed-extra.js",
+    "migrate:fix-period-config": "node src/migrations/fixPeriodConfigIndex.js",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,10 +23,16 @@
     "mongoose": "^8.9.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
+    "razorpay": "^2.9.6",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@jest/globals": "^30.3.0",
+    "cross-env": "^10.1.0",
     "dotenv": "^16.4.7",
-    "nodemon": "^3.1.9"
+    "jest": "^30.3.0",
+    "mongodb-memory-server": "^11.0.1",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.2.2"
   }
 }

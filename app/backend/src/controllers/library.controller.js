@@ -14,9 +14,11 @@ const notify = async (userId, title, message, type = 'info') => {
   } catch { /* notification failure must never break main flow */ }
 };
 
-const notifyAdmins = async (title, message, type = 'info') => {
+const notifyAdmins = async (title, message, type = 'info', schoolId) => {
   try {
-    const admins = await User.find({ role: 'admin' }).select('_id');
+    const filter = { role: 'admin' };
+    if (schoolId) filter.schoolId = schoolId;
+    const admins = await User.find(filter).select('_id');
     if (admins.length > 0) {
       await Notification.insertMany(admins.map(a => ({ userId: a._id, title, message, type })));
     }
@@ -28,12 +30,15 @@ const notifyAdmins = async (title, message, type = 'info') => {
 export const getBooks = async (req, res, next) => {
   try {
     const { search, category } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (category) filter.category = category;
-    if (search) filter.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { author: { $regex: search, $options: 'i' } },
-    ];
+    if (search) {
+      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { title: { $regex: safe, $options: 'i' } },
+        { author: { $regex: safe, $options: 'i' } },
+      ];
+    }
     const books = await Book.find(filter).sort({ title: 1 });
     res.json({ success: true, data: books });
   } catch (err) {
@@ -45,7 +50,7 @@ export const createBook = async (req, res, next) => {
   try {
     const { title, author, copies, category, isbn } = req.body;
     if (!title || !author) return res.status(400).json({ success: false, message: 'Title and author are required' });
-    const book = await Book.create({ title, author, isbn, category, totalCopies: copies || 1, availableCopies: copies || 1 });
+    const book = await Book.create({ title, author, isbn, category, totalCopies: copies || 1, availableCopies: copies || 1, schoolId: req.user.schoolId });
     res.status(201).json({ success: true, data: book });
   } catch (err) {
     next(err);
@@ -90,7 +95,7 @@ const recalcOverdueFines = async () => {
 export const getIssues = async (req, res, next) => {
   try {
     const { status, studentId } = req.query;
-    const filter = {};
+    const filter = { schoolId: req.user.schoolId };
     if (status) filter.status = status;
     if (studentId) filter.studentId = studentId;
 
@@ -124,6 +129,7 @@ export const issueBook = async (req, res, next) => {
       bookId,
       issuedToType: issuedToType || 'student',
       dueDate: new Date(dueDate),
+      schoolId: req.user.schoolId,
     };
 
     let recipientUserId = null;
@@ -270,7 +276,7 @@ export const getMyIssues = async (req, res, next) => {
 
 export const getLibraryReport = async (req, res, next) => {
   try {
-    const issues = await BookIssue.find()
+    const issues = await BookIssue.find({ schoolId: req.user.schoolId })
       .populate('bookId', 'title author category')
       .populate({ path: 'studentId', populate: { path: 'userId', select: 'name' } })
       .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } })
