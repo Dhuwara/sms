@@ -6,6 +6,12 @@ const homeworkSubmissionSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   submittedAt: { type: Date, default: Date.now },
   content: { type: String },
+  submissionFile: {
+    filename: { type: String },
+    originalName: { type: String },
+    mimeType: { type: String },
+    size: { type: Number },
+  },
   grade: { type: String },
   remarks: { type: String },
   status: { type: String, enum: ['submitted', 'graded', 'late'], default: 'submitted' },

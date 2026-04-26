@@ -1,6 +1,24 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuth } from './context/AuthContext';
+import { SuperAdminProvider, useSuperAdmin } from './context/SuperAdminContext';
+import SuperAdminLogin from './pages/SuperAdmin/SuperAdminLogin';
+import SuperAdminDashboard from './pages/SuperAdmin/SuperAdminDashboard';
+
+// Super admin route guards — defined outside App so useSuperAdmin works inside SuperAdminProvider
+const SALoginRoute = () => {
+  const { superAdmin, loading } = useSuperAdmin();
+  if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin" /></div>;
+  if (superAdmin) return <Navigate to="/superadmin/dashboard" replace />;
+  return <SuperAdminLogin />;
+};
+
+const SADashboardRoute = () => {
+  const { superAdmin, loading } = useSuperAdmin();
+  if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center"><div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin" /></div>;
+  if (!superAdmin) return <Navigate to="/superadmin/login" replace />;
+  return <SuperAdminDashboard />;
+};
 import LandingPage from './pages/Landing/LandingPage';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
@@ -62,8 +80,12 @@ function App() {
   return (
     <>
       <Toaster position="top-right" richColors duration={2000} />
+      <SuperAdminProvider>
       <Router>
         <Routes>
+          <Route path="/superadmin/login" element={<SALoginRoute />} />
+          <Route path="/superadmin/dashboard" element={<SADashboardRoute />} />
+
           <Route path="/" element={<LandingPage />} />
 
           <Route
@@ -526,6 +548,7 @@ function App() {
           />
         </Routes>
       </Router>
+      </SuperAdminProvider>
     </>
   );
 }

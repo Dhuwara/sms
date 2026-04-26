@@ -69,7 +69,7 @@ const Exams = () => {
 
       {activeTab === 'Exam Settings' && <ExamSettingsTab classes={classes} />}
       {activeTab === 'Marks' && <MarksTab classes={classes} gradeRules={gradeRules} />}
-      {activeTab === 'Grades' && <GradesTab gradeRules={gradeRules} setGradeRules={setGradeRules} />}
+      {activeTab === 'Grades' && <GradesTab gradeRules={gradeRules} setGradeRules={setGradeRules} classes={classes} />}
       {activeTab === 'Reports' && <ReportsTab classes={classes} gradeRules={gradeRules} />}
     </div>
   );
@@ -85,6 +85,20 @@ const ExamSettingsTab = ({ classes }) => {
   const [selectedExam, setSelectedExam] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [staff, setStaff] = useState([]);
+
+  // Filter state
+  const [filterStandard, setFilterStandard] = useState('');
+  const [filterSection, setFilterSection] = useState('');
+
+  const uniqueStandards = [...new Set(classes.map(c => c.name).filter(Boolean))].sort();
+  const sectionsForStandard = filterStandard
+    ? [...new Set(classes.filter(c => c.name === filterStandard).map(c => c.section).filter(Boolean))].sort()
+    : [];
+  const filteredExams = exams.filter(e => {
+    if (filterStandard && e.classId?.name !== filterStandard) return false;
+    if (filterSection && e.classId?.section !== filterSection) return false;
+    return true;
+  });
 
   // For the new bulk schedule form
   const [scheduleForm, setScheduleForm] = useState({
@@ -301,7 +315,9 @@ const ExamSettingsTab = ({ classes }) => {
       session: exam.session || 'Forenoon',
       invigilatorId: exam.invigilatorId?._id || '',
     });
-    handleClassChange(exam.classId._id);
+    api.get(`/api/exams/class-subjects/${exam.classId._id}`)
+      .then(res => setSubjects(res.data || []))
+      .catch(() => setSubjects([]));
     setIsEditing(true);
     setShowModal(true);
   };
@@ -353,57 +369,103 @@ const ExamSettingsTab = ({ classes }) => {
         Add Exam Schedule
       </button>
 
-      <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Exam Type</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Class</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Date</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Time</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Session</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Invigilator</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {exams.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-[#64748B]">No exams scheduled</td>
-                </tr>
-              ) : (
-                exams.map((exam) => (
-                  <tr key={exam._id} className="hover:bg-[#FFFBEB]">
-                    <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{exam.examType}</td>
-                    <td className="px-6 py-4 text-sm text-[#0F172A]">{exam.classId ? `${exam.classId.name}-${exam.classId.section}` : 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-[#0F172A]">{exam.subject || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{exam.date ? exam.date.split('T')[0] : 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{exam.startTime} - {exam.endTime}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{exam.session || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{exam.invigilatorId?.userId?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 flex gap-2">
-                      <button
-                        onClick={() => handleEdit(exam)}
-                        className="p-2 text-[#F59E0B] hover:bg-[#FEF3C7] rounded-lg"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(exam._id)}
-                        className="p-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="block text-xs font-semibold text-[#64748B] mb-1">Standard</label>
+          <select
+            value={filterStandard}
+            onChange={e => { setFilterStandard(e.target.value); setFilterSection(''); }}
+            className="h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+          >
+            <option value="">All Standards</option>
+            {uniqueStandards.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
+        <div>
+          <label className="block text-xs font-semibold text-[#64748B] mb-1">Section</label>
+          <select
+            value={filterSection}
+            onChange={e => setFilterSection(e.target.value)}
+            disabled={!filterStandard}
+            className="h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B] disabled:opacity-50"
+          >
+            <option value="">All Sections</option>
+            {sectionsForStandard.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        {(filterStandard || filterSection) && (
+          <button
+            onClick={() => { setFilterStandard(''); setFilterSection(''); }}
+            className="h-10 px-4 border-2 border-[#E2E8F0] rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
+          >
+            Clear
+          </button>
+        )}
+        {(filterStandard || filterSection) && (
+          <p className="text-sm text-[#64748B] self-end pb-1">
+            Showing <span className="font-semibold text-[#0F172A]">{filteredExams.length}</span> exam{filteredExams.length !== 1 ? 's' : ''}
+            {filterStandard && <> for <span className="font-semibold text-[#0F172A]">{filterStandard}{filterSection ? `-${filterSection}` : ''}</span></>}
+          </p>
+        )}
       </div>
+
+      {filteredExams.length === 0 ? (
+        <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm px-6 py-12 text-center text-[#64748B]">
+          {exams.length === 0 ? 'No exams scheduled' : 'No exams found for the selected filters'}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {EXAM_TYPES.filter(type => filteredExams.some(e => e.examType === type)).map(type => {
+            const group = filteredExams.filter(e => e.examType === type);
+            return (
+              <div key={type} className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
+                <div className="px-6 py-3 bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2] flex items-center justify-between">
+                  <h3 className="font-bold text-[#0F172A] text-sm uppercase tracking-wide">{type}</h3>
+                  <span className="text-xs font-semibold text-[#64748B] bg-white px-2 py-0.5 rounded-full border border-[#E2E8F0]">
+                    {group.length} exam{group.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#FFFBEB] border-b border-[#FCD34D]">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Class</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Subject</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Session</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Invigilator</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-[#64748B] uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {group.map((exam) => (
+                        <tr key={exam._id} className="hover:bg-[#FFFBEB]">
+                          <td className="px-6 py-4 text-sm text-[#0F172A]">{exam.classId ? `${exam.classId.name}-${exam.classId.section}` : 'N/A'}</td>
+                          <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{exam.subject || 'N/A'}</td>
+                          <td className="px-6 py-4 text-sm text-[#64748B]">{exam.date ? exam.date.split('T')[0] : 'N/A'}</td>
+                          <td className="px-6 py-4 text-sm text-[#64748B]">{exam.startTime} - {exam.endTime}</td>
+                          <td className="px-6 py-4 text-sm text-[#64748B]">{exam.session || 'N/A'}</td>
+                          <td className="px-6 py-4 text-sm text-[#64748B]">{exam.invigilatorId?.userId?.name || 'N/A'}</td>
+                          <td className="px-6 py-4 flex gap-2">
+                            <button onClick={() => handleEdit(exam)} className="p-2 text-[#F59E0B] hover:bg-[#FEF3C7] rounded-lg">
+                              <Edit size={18} />
+                            </button>
+                            <button onClick={() => handleDelete(exam._id)} className="p-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg">
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -740,7 +802,8 @@ const MarksTab = ({ classes, gradeRules }) => {
         const resultsRes = await api.get(`/api/exams/${examId}/results`);
         const existingMarks = {};
         resultsRes.data?.forEach((result) => {
-          existingMarks[result.studentId._id] = result.marks || '';
+          const sid = result.studentId?._id || result.studentId;
+          if (sid != null) existingMarks[sid] = result.marks ?? '';
         });
         setMarks(existingMarks);
       } catch (error) {
@@ -841,7 +904,7 @@ const MarksTab = ({ classes, gradeRules }) => {
             className="w-full md:w-1/2 h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg"
           >
             <option value="">Select exam</option>
-            {exams.map((exam) => (
+            {exams.filter(exam => new Date(exam.date) < new Date()).map((exam) => (
               <option key={exam._id} value={exam._id}>
                 {exam.subject} - {exam.examType} ({new Date(exam.date).toLocaleDateString()})
               </option>
@@ -912,14 +975,61 @@ const MarksTab = ({ classes, gradeRules }) => {
 
 const EMPTY_GRADE_ROW = { label: '', minPercent: '', maxPercent: '', points: '' };
 
-const GradesTab = ({ gradeRules, setGradeRules }) => {
+const GradesTab = ({ gradeRules, setGradeRules, classes }) => {
   const [draft, setDraft] = useState(gradeRules.map(g => ({ ...g })));
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newRow, setNewRow] = useState(EMPTY_GRADE_ROW);
   const [editIdx, setEditIdx] = useState(null);
 
+  const [selectedClass, setSelectedClass] = useState('');
+  const [students, setStudents] = useState([]);
+  const [completedExams, setCompletedExams] = useState([]);
+  const [allResults, setAllResults] = useState({});
+  const [loadingGrades, setLoadingGrades] = useState(false);
+
   useEffect(() => { setDraft(gradeRules.map(g => ({ ...g }))); }, [gradeRules]);
+
+  const isExamPast = (exam) => {
+    const d = new Date(exam.date);
+    const [h, m] = (exam.endTime || '23:59').split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+    return d < new Date();
+  };
+
+  const handleGradeClassSelect = async (classId) => {
+    setSelectedClass(classId);
+    setCompletedExams([]);
+    setAllResults({});
+    setStudents([]);
+    if (!classId) return;
+    setLoadingGrades(true);
+    try {
+      const [stuRes, examsRes] = await Promise.all([
+        api.get(`/api/students?classId=${classId}`),
+        api.get(`/api/exams?classId=${classId}`),
+      ]);
+      const stuList = stuRes.data || [];
+      const pastExams = (examsRes.data || []).filter(isExamPast);
+      setStudents(stuList);
+      const results = {};
+      for (const exam of pastExams) {
+        try {
+          const res = await api.get(`/api/exams/${exam._id}/results`);
+          results[exam._id] = res.data || [];
+        } catch {
+          results[exam._id] = [];
+        }
+      }
+      const examsWithMarks = pastExams.filter(e => results[e._id]?.length > 0);
+      setCompletedExams(examsWithMarks);
+      setAllResults(results);
+    } catch {
+      toast.error('Failed to load grade data');
+    } finally {
+      setLoadingGrades(false);
+    }
+  };
 
   const handleSave = async () => {
     const validated = draft.map(g => ({
@@ -1085,6 +1195,77 @@ const GradesTab = ({ gradeRules, setGradeRules }) => {
           </div>
         </div>
       )}
+
+      <div className="border-t-2 border-[#FCD34D] pt-4 space-y-4">
+        <h3 className="text-lg font-bold text-[#0F172A]">Student Grades</h3>
+        <div>
+          <label htmlFor="grades-class-select" className="block text-sm font-medium text-[#0F172A] mb-2">Select Class</label>
+          <select
+            id="grades-class-select"
+            value={selectedClass}
+            onChange={(e) => handleGradeClassSelect(e.target.value)}
+            className="w-full md:w-1/3 h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg"
+          >
+            <option value="">Select class</option>
+            {classes.map((cls) => (
+              <option key={cls._id} value={cls._id}>{cls.name}-{cls.section}</option>
+            ))}
+          </select>
+        </div>
+
+        {loadingGrades && (
+          <p className="text-sm text-[#64748B]">Loading grades...</p>
+        )}
+
+        {selectedClass && !loadingGrades && completedExams.length === 0 && (
+          <p className="text-sm text-[#64748B]">No completed exams with marks found for this class.</p>
+        )}
+
+        {completedExams.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A]">Student</th>
+                  {completedExams.map((exam) => (
+                    <th key={exam._id} className="px-4 py-3 text-center text-xs font-bold text-[#0F172A]">
+                      {exam.subject}
+                      <div className="font-normal text-[#64748B]">{exam.examType} · {new Date(exam.date).toLocaleDateString()}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {students.filter((student) =>
+                  completedExams.some((exam) =>
+                    allResults[exam._id]?.some((r) => r.studentId?._id?.toString() === student._id?.toString())
+                  )
+                ).map((student) => (
+                  <tr key={student._id} className="hover:bg-[#FFFBEB]">
+                    <td className="px-4 py-3 text-sm font-semibold text-[#0F172A]">{student.name}</td>
+                    {completedExams.map((exam) => {
+                      const result = allResults[exam._id]?.find(
+                        (r) => r.studentId?._id?.toString() === student._id?.toString()
+                      );
+                      return (
+                        <td key={exam._id} className="px-4 py-3 text-center">
+                          {result ? (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#92400E]">
+                              {result.grade || calcGradeFromRules((result.marks / (exam.maxScore || 100)) * 100, gradeRules)}
+                            </span>
+                          ) : (
+                            <span className="text-[#94A3B8] text-sm">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -1166,46 +1347,71 @@ const ReportsTab = ({ classes }) => {
 
     try {
       const wb = XLSX.utils.book_new();
+      const className = classes.find(c => c._id === selectedClass)?.name || 'Class';
 
-      // Create a sheet for each student with their subject-wise results
+      // ── Sheet 1: Full class report (all students × all exams) ──
+      const detailRows = [];
       students.forEach((student) => {
-        const resultsData = [];
-
-        if (studentResults[student._id]?.length > 0) {
-          studentResults[student._id].forEach((result) => {
-            const percentage = ((result.marks / result.maxScore) * 100).toFixed(2);
-            resultsData.push({
+        const results = studentResults[student._id] || [];
+        if (results.length === 0) {
+          detailRows.push({
+            'Student Name': student.name,
+            'Roll No': student.roll_no || 'N/A',
+            'Subject': '—',
+            'Exam Type': '—',
+            'Marks Obtained': '—',
+            'Max Score': '—',
+            'Percentage': '—',
+            'Grade': '—',
+          });
+        } else {
+          results.forEach((result) => {
+            const percentage = ((result.marks / result.maxScore) * 100).toFixed(1);
+            detailRows.push({
+              'Student Name': student.name,
+              'Roll No': student.roll_no || 'N/A',
               'Subject': result.subject,
               'Exam Type': result.examType,
               'Marks Obtained': result.marks,
-              'Out of': result.maxScore,
+              'Max Score': result.maxScore,
               'Percentage': `${percentage}%`,
               'Grade': result.grade || '-',
             });
           });
         }
-
-        if (resultsData.length > 0) {
-          const ws = XLSX.utils.json_to_sheet(resultsData);
-          // Set column widths for better readability
-          ws['!cols'] = [
-            { wch: 20 }, // Subject
-            { wch: 15 }, // Exam Type
-            { wch: 16 }, // Marks Obtained
-            { wch: 10 }, // Out of
-            { wch: 12 }, // Percentage
-            { wch: 10 }, // Grade
-          ];
-
-          // Use student name (truncated to 20 chars) as sheet name
-          const sheetName = `${student.name.substring(0, 20)}`;
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        }
       });
 
-      const className = classes.find(c => c._id === selectedClass)?.name;
-      XLSX.writeFile(wb, `${className}-exam-results.xlsx`);
-      toast.success('Excel exported');
+      const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+      wsDetail['!cols'] = [
+        { wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 14 },
+        { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 8 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsDetail, 'Class Report');
+
+      // ── Sheet 2: Summary (one row per student — total marks & average %) ──
+      const summaryRows = students.map((student) => {
+        const results = studentResults[student._id] || [];
+        const totalMarks = results.reduce((s, r) => s + (r.marks || 0), 0);
+        const totalMax = results.reduce((s, r) => s + (r.maxScore || 0), 0);
+        const avg = totalMax > 0 ? ((totalMarks / totalMax) * 100).toFixed(1) : '—';
+        return {
+          'Student Name': student.name,
+          'Roll No': student.roll_no || 'N/A',
+          'Exams Taken': results.length,
+          'Total Marks': totalMarks || '—',
+          'Total Max': totalMax || '—',
+          'Overall %': totalMax > 0 ? `${avg}%` : '—',
+        };
+      });
+
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+      wsSummary['!cols'] = [
+        { wch: 22 }, { wch: 10 }, { wch: 13 }, { wch: 13 }, { wch: 12 }, { wch: 12 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+      XLSX.writeFile(wb, `${className}-class-report.xlsx`);
+      toast.success('Class report exported');
     } catch (error) {
       toast.error('Failed to export excel');
     }
@@ -1258,21 +1464,29 @@ const ReportsTab = ({ classes }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {students.map((student) => (
-                <tr key={student._id} className="hover:bg-[#FFFBEB]">
-                  <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{student.name}</td>
-                  <td className="px-6 py-4 text-sm text-[#64748B]">{student.roll_no || 'N/A'}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => setSelectedStudent(selectedStudent === student._id ? null : student._id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] rounded-lg text-sm"
-                    >
-                      <FileText size={16} />
-                      {selectedStudent === student._id ? 'Hide' : 'View'} Report
-                    </button>
+              {students.filter((student) => studentResults[student._id]?.length > 0).length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-sm text-[#64748B]">
+                    No reports available yet. Add marks for students first.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                students.filter((student) => studentResults[student._id]?.length > 0).map((student) => (
+                  <tr key={student._id} className="hover:bg-[#FFFBEB]">
+                    <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{student.name}</td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">{student.roll_no || 'N/A'}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => setSelectedStudent(selectedStudent === student._id ? null : student._id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] rounded-lg text-sm"
+                      >
+                        <FileText size={16} />
+                        {selectedStudent === student._id ? 'Hide' : 'View'} Report
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

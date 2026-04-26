@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import api from '@/utils/api';
-import { Plus, BookOpen, Download } from 'lucide-react';
+import { Plus, BookOpen, Download, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchClasses, fetchTeachers } from '@/store/slices/classesSlice';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const statusStyles = {
   active: 'bg-[#D1FAE5] text-[#065F46]',
@@ -36,9 +37,11 @@ const Library = () => {
   const [books, setBooks] = useState([]);
   const [activeTab, setActiveTab] = useState('books');
   const [showAddBookModal, setShowAddBookModal] = useState(false);
+  const [editingBook, setEditingBook] = useState(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
-  const [formData, setFormData] = useState({ title: '', author: '', copies: 1, category: '' });
+  const [formData, setFormData] = useState({ title: '', author: '', isbn: '', copies: 1, category: '' });
   const [loading, setLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [issueRecords, setIssueRecords] = useState([]);
   const [activeCat, setActiveCat] = useState('All');
 
@@ -48,6 +51,9 @@ const Library = () => {
   const [students, setStudents] = useState([]);
   const [issueForm, setIssueForm] = useState({ bookId: '', studentId: '', staffId: '', dueDate: '' });
   const [issueLoading, setIssueLoading] = useState(false);
+  const [editingIssue, setEditingIssue] = useState(null);
+  const [editIssueDueDate, setEditIssueDueDate] = useState('');
+  const [editIssueLoading, setEditIssueLoading] = useState(false);
 
   const fines = issueRecords.filter(r => r.fine > 0);
 
@@ -120,20 +126,64 @@ const Library = () => {
     return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const handleAddBook = async (e) => {
+  const openAddBook = () => {
+    setEditingBook(null);
+    setFormData({ title: '', author: '', isbn: '', copies: 1, category: '' });
+    setShowAddBookModal(true);
+  };
+
+  const openEditBook = (book) => {
+    setEditingBook(book);
+    setFormData({ title: book.title, author: book.author, isbn: book.isbn || '', copies: book.totalCopies, category: book.category || '' });
+    setShowAddBookModal(true);
+  };
+
+  const handleSaveBook = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post('/api/library/books', formData);
-      toast.success('Book added successfully');
+      if (editingBook) {
+        await api.put(`/api/library/books/${editingBook._id}`, {
+          title: formData.title,
+          author: formData.author,
+          isbn: formData.isbn,
+          category: formData.category,
+          totalCopies: formData.copies,
+          availableCopies: editingBook.availableCopies + (formData.copies - editingBook.totalCopies),
+        });
+        toast.success('Book updated successfully');
+      } else {
+        await api.post('/api/library/books', formData);
+        toast.success('Book added successfully');
+      }
       setShowAddBookModal(false);
-      setFormData({ title: '', author: '', copies: 1, category: '' });
+      setEditingBook(null);
+      setFormData({ title: '', author: '', isbn: '', copies: 1, category: '' });
       fetchBooks();
     } catch {
-      toast.error('Failed to add book');
+      toast.error(editingBook ? 'Failed to update book' : 'Failed to add book');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteBook = (book) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Book',
+      message: `Are you sure you want to delete "${book.title}"? This cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/api/library/books/${book._id}`);
+          toast.success('Book deleted');
+          fetchBooks();
+        } catch {
+          toast.error('Failed to delete book');
+        } finally {
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+        }
+      },
+    });
   };
 
   const handleIssueBook = async (e) => {
@@ -163,6 +213,46 @@ const Library = () => {
     } finally {
       setIssueLoading(false);
     }
+  };
+
+  const openEditIssue = (record) => {
+    setEditingIssue(record);
+    setEditIssueDueDate(record.dueDate ? record.dueDate.split('T')[0] : '');
+  };
+
+  const handleUpdateIssue = async (e) => {
+    e.preventDefault();
+    setEditIssueLoading(true);
+    try {
+      await api.put(`/api/library/issues/${editingIssue._id}`, { dueDate: editIssueDueDate });
+      toast.success('Due date updated');
+      setEditingIssue(null);
+      fetchIssues();
+    } catch {
+      toast.error('Failed to update issue');
+    } finally {
+      setEditIssueLoading(false);
+    }
+  };
+
+  const handleDeleteIssue = (record) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Issue Record',
+      message: `Delete this issue record for "${record.bookId?.title || 'book'}"? ${record.status === 'returned' ? '' : 'The copy will be returned to available stock.'}`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/api/library/issues/${record._id}`);
+          toast.success('Issue record deleted');
+          fetchIssues();
+          fetchBooks();
+        } catch {
+          toast.error('Failed to delete issue record');
+        } finally {
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+        }
+      },
+    });
   };
 
   const handleDownloadReport = async () => {
@@ -210,7 +300,7 @@ const Library = () => {
             <button onClick={handleDownloadReport} className="flex items-center gap-2 bg-[#10B981] text-white hover:bg-[#059669] px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg font-semibold transition-all shadow-md text-sm sm:text-base">
               <Download size={18} /> Download Excel
             </button>
-            <button onClick={() => setShowAddBookModal(true)} className="flex items-center gap-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold transition-all shadow-md text-sm sm:text-base">
+            <button onClick={openAddBook} className="flex items-center gap-2 bg-[#4F46E5] text-white hover:bg-[#4338CA] px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold transition-all shadow-md text-sm sm:text-base">
               <Plus size={20} /> Add Book
             </button>
           </div>
@@ -276,6 +366,7 @@ const Library = () => {
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Category</th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-[#0F172A] uppercase tracking-wider">Available</th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-[#0F172A] uppercase tracking-wider">Total</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-[#0F172A] uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#FEF3C7]">
@@ -303,10 +394,20 @@ const Library = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center text-sm font-semibold text-[#64748B]">{book.totalCopies ?? 0}</td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => openEditBook(book)} className="p-1.5 rounded-lg bg-[#EDE9FE] text-[#4F46E5] hover:bg-[#DDD6FE] transition-colors">
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => handleDeleteBook(book)} className="p-1.5 rounded-lg bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FECACA] transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-[#64748B]">
+                    <td colSpan={6} className="px-6 py-12 text-center text-[#64748B]">
                       No books found{activeCat === 'All' ? '' : ` in "${activeCat}"`}.
                     </td>
                   </tr>
@@ -336,7 +437,7 @@ const Library = () => {
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Due Date</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Fine</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-[#0F172A] uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#FEF3C7]">
@@ -363,9 +464,19 @@ const Library = () => {
                       ) : <span className="text-[#64748B]">—</span>}
                     </td>
                     <td className="px-6 py-4">
-                      {record.status !== 'returned' && (
-                        <button onClick={() => handleReturn(record._id)} className="text-xs bg-[#4F46E5] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-[#4338CA] transition-colors">Return</button>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        {record.status !== 'returned' && (
+                          <button onClick={() => handleReturn(record._id)} className="text-xs bg-[#4F46E5] text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-[#4338CA] transition-colors">Return</button>
+                        )}
+                        {record.status !== 'returned' && (
+                          <button onClick={() => openEditIssue(record)} className="p-1.5 rounded-lg bg-[#EDE9FE] text-[#4F46E5] hover:bg-[#DDD6FE] transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteIssue(record)} className="p-1.5 rounded-lg bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FECACA] transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   );
@@ -419,27 +530,32 @@ const Library = () => {
         </div>
       )}
 
-      {/* Add Book Modal */}
-      {showAddBookModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold text-[#0F172A] mb-4">Add New Book</h2>
-            <form onSubmit={handleAddBook} className="space-y-4">
-              <input type="text" placeholder="Book Title" required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
-              <input type="text" placeholder="Author" required value={formData.author} onChange={(e) => setFormData({...formData, author: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
-              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg">
-                <option value="">Select Category</option>
-                {CATEGORIES.filter(c => c !== 'All').map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-              <input type="number" placeholder="Copies" required min="1" value={formData.copies} onChange={(e) => setFormData({...formData, copies: Number.parseInt(e.target.value, 10)})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setShowAddBookModal(false)} className="flex-1 bg-gray-200 h-10 rounded-lg font-semibold">Cancel</button>
-                <button type="submit" disabled={loading} className="flex-1 bg-[#4F46E5] text-white h-10 rounded-lg font-semibold">Add Book</button>
-              </div>
-            </form>
+      {/* Add / Edit Book Modal */}
+      {showAddBookModal && (() => {
+        const actionLabel = editingBook ? 'Update Book' : 'Add Book';
+        const submitLabel = loading ? 'Saving...' : actionLabel;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6">
+              <h2 className="text-2xl font-bold text-[#0F172A] mb-4">{editingBook ? 'Edit Book' : 'Add New Book'}</h2>
+              <form onSubmit={handleSaveBook} className="space-y-4">
+                <input type="text" placeholder="Book Title" required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
+                <input type="text" placeholder="Author" required value={formData.author} onChange={(e) => setFormData({...formData, author: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
+                <input type="text" placeholder="ISBN (optional)" value={formData.isbn} onChange={(e) => setFormData({...formData, isbn: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
+                <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg">
+                  <option value="">Select Category</option>
+                  {CATEGORIES.filter(c => c !== 'All').map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+                <input type="number" placeholder="Total Copies" required min="1" value={formData.copies} onChange={(e) => setFormData({...formData, copies: Number.parseInt(e.target.value, 10)})} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => { setShowAddBookModal(false); setEditingBook(null); setFormData({ title: '', author: '', isbn: '', copies: 1, category: '' }); }} className="flex-1 bg-gray-200 h-10 rounded-lg font-semibold">Cancel</button>
+                  <button type="submit" disabled={loading} className="flex-1 bg-[#4F46E5] text-white h-10 rounded-lg font-semibold">{submitLabel}</button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Issue Book Modal */}
       {showIssueModal && (
@@ -498,6 +614,33 @@ const Library = () => {
           </div>
         </div>
       )}
+      {/* Edit Issue Modal */}
+      {editingIssue && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full p-6">
+            <h2 className="text-xl font-bold text-[#0F172A] mb-1">Edit Due Date</h2>
+            <p className="text-sm text-[#64748B] mb-4">{editingIssue.bookId?.title}</p>
+            <form onSubmit={handleUpdateIssue} className="space-y-4">
+              <div>
+                <label htmlFor="editDueDate" className="block text-sm font-semibold text-[#0F172A] mb-1">New Due Date</label>
+                <input id="editDueDate" type="date" required value={editIssueDueDate} onChange={(e) => setEditIssueDueDate(e.target.value)} className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setEditingIssue(null)} className="flex-1 bg-gray-200 h-10 rounded-lg font-semibold">Cancel</button>
+                <button type="submit" disabled={editIssueLoading} className="flex-1 bg-[#4F46E5] text-white h-10 rounded-lg font-semibold">{editIssueLoading ? 'Saving...' : 'Update'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })}
+      />
     </div>
   );
 };

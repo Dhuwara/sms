@@ -4,14 +4,16 @@ import {
   getMyClasses, getStudentsByClass,
   getAttendance, markAttendance, updateAttendance,
   getGrades, createGrade, updateGrade,
-  getSubjects, getAllStaff, getStaffProfileByUserId, getApprovers,
+  getSubjects, getAllStaff, getAbsentStaff, getStaffProfileByUserId, getApprovers,
   changePassword, updateProfile,
   staffCheckIn, staffCheckOut, getStaffAttendanceToday, getStaffAttendanceHistory,
   applyLeave, getMyLeaves, getLeaveBalance,
-  getPendingApprovals, approveRejectLeave,
+  getPendingApprovals, approveRejectLeave, getAllLeaveRequests,
   getStaffTimetable, getStaffSubstitutions, getStaffExamDuties,
   getTimetableAssignments,
   getMyAcademicClasses,
+  markStaffAbsent,
+  sendMarksReport,
 } from '../controllers/staff.controller.js';
 
 const router = Router();
@@ -30,6 +32,8 @@ router.get('/classes/:classId/students', getStudentsByClass);
 router.get('/subjects', getSubjects);
 
 router.get('/attendance', getAttendance);
+router.get('/absent', authorize('admin'), getAbsentStaff);
+router.post('/:staffId/mark-absent', authorize('admin'), markStaffAbsent);
 router.post('/attendance', markAttendance);
 router.put('/attendance/:id', updateAttendance);
 
@@ -50,6 +54,7 @@ router.post('/my-leaves/apply', applyLeave);
 
 // Leave Approval routes
 router.get('/leave-approvals', getPendingApprovals);
+router.get('/leave-requests', authorize('admin'), getAllLeaveRequests);
 router.put('/leaves/:leaveId/action', approveRejectLeave);
 
 // Staff Timetable routes
@@ -58,5 +63,7 @@ router.get('/timetable-assignments', getTimetableAssignments);
 router.get('/my-timetable', getStaffTimetable);
 router.get('/my-substitutions', getStaffSubstitutions);
 router.get('/my-exam-duties', getStaffExamDuties);
+
+router.post('/marks/send-report', sendMarksReport);
 
 export default router;

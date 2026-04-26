@@ -162,6 +162,52 @@ export const issueBook = async (req, res, next) => {
   }
 };
 
+export const updateIssue = async (req, res, next) => {
+  try {
+    const { dueDate } = req.body;
+    if (!dueDate) return res.status(400).json({ success: false, message: 'dueDate is required' });
+
+    const issue = await BookIssue.findById(req.params.id);
+    if (!issue) return res.status(404).json({ success: false, message: 'Issue record not found' });
+    if (issue.status === 'returned') return res.status(400).json({ success: false, message: 'Cannot edit a returned issue' });
+
+    const newDueDate = new Date(dueDate);
+    const now = new Date();
+    const newStatus = newDueDate >= now ? 'active' : 'overdue';
+    const fine = newStatus === 'overdue'
+      ? Math.ceil((now - newDueDate) / (1000 * 60 * 60 * 24)) * FINE_PER_DAY
+      : 0;
+
+    const updated = await BookIssue.findByIdAndUpdate(
+      req.params.id,
+      { dueDate: newDueDate, status: newStatus, fine },
+      { new: true }
+    ).populate('bookId', 'title author category')
+      .populate({ path: 'studentId', populate: { path: 'userId', select: 'name' } })
+      .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteIssue = async (req, res, next) => {
+  try {
+    const issue = await BookIssue.findById(req.params.id);
+    if (!issue) return res.status(404).json({ success: false, message: 'Issue record not found' });
+
+    if (issue.status !== 'returned') {
+      await Book.findByIdAndUpdate(issue.bookId, { $inc: { availableCopies: 1 } });
+    }
+
+    await BookIssue.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Issue record deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const returnBook = async (req, res, next) => {
   try {
     const issue = await BookIssue.findById(req.params.id)

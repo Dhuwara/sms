@@ -1,4 +1,5 @@
 import React from 'react';
+import { Send } from 'lucide-react';
 
 const GRADE_COLOR = {
   'A+': 'bg-[#D1FAE5] text-[#065F46]',
@@ -30,10 +31,15 @@ const Marks = ({
   handleSaveAllMarks,
   marksCalcGrade,
   timetableAssignments,
+  sendingReport,
+  handleSendReport,
 }) => {
   const selectedExam = marksExams.find(e => e._id === marksExamId);
   const maxScore = selectedExam?.maxScore || 100;
   const assignedClasses = timetableAssignments.map(a => a.classId).filter(Boolean);
+  const isClassTeacher = timetableAssignments.find(
+    a => String(a.classId?._id) === String(marksClassId)
+  )?.isClassTeacher === true;
 
   return (
     <div className="space-y-6">
@@ -65,7 +71,7 @@ const Marks = ({
               className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50"
             >
               <option value="">Select exam</option>
-              {marksExams.map(e => (
+              {marksExams.filter(e => new Date(e.date) < new Date()).map(e => (
                 <option key={e._id} value={e._id}>{e.examType} — {e.subject} ({new Date(e.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})</option>
               ))}
             </select>
@@ -148,7 +154,7 @@ const Marks = ({
               </tbody>
             </table>
           </div>
-          <div className="mt-5">
+          <div className="mt-5 flex items-center gap-3 flex-wrap">
             <button
               onClick={handleSaveAllMarks}
               disabled={marksSaving}
@@ -156,6 +162,16 @@ const Marks = ({
             >
               {marksSaving ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</> : 'Save All Marks'}
             </button>
+            {isClassTeacher && (
+              <button
+                onClick={handleSendReport}
+                disabled={sendingReport}
+                className="bg-[#10B981] text-white px-8 py-2.5 rounded-lg font-semibold disabled:opacity-50 flex items-center gap-2"
+              >
+                <Send size={16} />
+                {sendingReport ? 'Sending...' : 'Send Reports to Parents'}
+              </button>
+            )}
           </div>
         </div>
       )}

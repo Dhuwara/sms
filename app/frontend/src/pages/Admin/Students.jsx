@@ -12,7 +12,6 @@ const NUMBER_STANDARDS = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', 
 const Students = () => {
   const dispatch = useDispatch();
   const students = useSelector(s => s.students.list);
-  const studentsStatus = useSelector(s => s.students.status);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -22,6 +21,16 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [standardFormat, setStandardFormat] = useState('number');
+   const [isEye, setIsEye] = useState(false);
+   const [isParentEye, setParentIsEye] = useState(false);
+
+    const handlePassword = (password) => {
+      console.log(password,":pass")
+      if(password ==='student')setIsEye((prev) => !prev);
+      else{
+        setParentIsEye((prev)=> !prev)
+      }
+    };
 
   const STANDARDS = standardFormat === 'roman' ? ROMAN_STANDARDS : NUMBER_STANDARDS;
 
@@ -58,11 +67,11 @@ const Students = () => {
   };
 
   useEffect(() => {
-    if (studentsStatus === 'idle') dispatch(fetchStudents());
+    dispatch(fetchStudents());
     api.get('/api/class-config').then(res => {
       if (res.data?.standardFormat) setStandardFormat(res.data.standardFormat);
     }).catch(() => { });
-  }, [studentsStatus, dispatch]);
+  }, [dispatch]);
 
   useEffect(() => {
     filterStudents();
@@ -105,7 +114,7 @@ const Students = () => {
       setSelectedStudent(null);
       dispatch(fetchStudents());
     } catch (error) {
-      toast.error(isEditing ? 'Failed to update student' : 'Failed to add student');
+      toast.error(error.response?.data?.message || (isEditing ? 'Failed to update student' : 'Failed to add student'));
     } finally {
       setLoading(false);
     }
@@ -171,14 +180,34 @@ const Students = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">Students Management</h1>
-          <p className="text-[#64748B] mt-1">Manage student records and profiles</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-[#0F172A]">
+            Students Management
+          </h1>
+          <p className="text-[#64748B] mt-1">
+            Manage student records and profiles
+          </p>
         </div>
         <button
           onClick={() => {
             setIsEditing(false);
             setSelectedStudent(null);
-            setFormData({ name: '', email: '', standard: '', dob: '', gender: 'male', parent_contact: '', address: '', studentType: 'dayScholar', password: '', parent_name: '', parent_email: '', parent_password: '', parent_occupation: '', bloodGroup: 'Unknown', status: 'active' });
+            setFormData({
+              name: "",
+              email: "",
+              standard: "",
+              dob: "",
+              gender: "male",
+              parent_contact: "",
+              address: "",
+              studentType: "dayScholar",
+              password: "",
+              parent_name: "",
+              parent_email: "",
+              parent_password: "",
+              parent_occupation: "",
+              bloodGroup: "Unknown",
+              status: "active",
+            });
             setFormErrors({});
             setShowModal(true);
           }}
@@ -194,7 +223,10 @@ const Students = () => {
       <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-4 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+              size={20}
+            />
             <input
               type="text"
               placeholder="Search by name, roll no, or class..."
@@ -225,36 +257,72 @@ const Students = () => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-[#FEF3C7] to-[#FEE2E2]">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Roll No</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Name</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Class</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">DOB</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Parent Contact</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Roll No
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Class
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  DOB
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Parent Contact
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-[#64748B]">
+                  <td
+                    colSpan="7"
+                    className="px-6 py-12 text-center text-[#64748B]"
+                  >
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-lg font-medium">No students found</p>
-                      <p className="text-sm">Try adjusting your search or filters</p>
+                      <p className="text-sm">
+                        Try adjusting your search or filters
+                      </p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((student, index) => (
-                  <tr key={student.id || index} data-testid={`student-row-${index}`} className="hover:bg-[#FFFBEB] transition-colors">
-                    <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{student.roll_no || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-[#0F172A]">{student.name}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{student.class || 'Not Assigned'}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{student.dob}</td>
-                    <td className="px-6 py-4 text-sm text-[#64748B]">{student.parent_contact}</td>
+                  <tr
+                    key={student.id || index}
+                    data-testid={`student-row-${index}`}
+                    className="hover:bg-[#FFFBEB] transition-colors"
+                  >
+                    <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">
+                      {student.roll_no || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-[#0F172A]">
+                      {student.name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">
+                      {student.class || "Not Assigned"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">
+                      {student.dob}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[#64748B]">
+                      {student.parent_contact}
+                    </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.status || 'active')}`}>
-                        {(student.status || 'active').charAt(0).toUpperCase() + (student.status || 'active').slice(1)}
+                      <span
+                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.status || "active")}`}
+                      >
+                        {(student.status || "active").charAt(0).toUpperCase() +
+                          (student.status || "active").slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -296,7 +364,7 @@ const Students = () => {
           <div className="bg-white rounded-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#0F172A]">
-                {isEditing ? 'Edit Student' : 'Add New Student'}
+                {isEditing ? "Edit Student" : "Add New Student"}
               </h2>
               <button
                 onClick={() => {
@@ -313,59 +381,103 @@ const Students = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-[#FEF3C7] p-4 rounded-lg">
-                <h3 className="font-semibold text-[#0F172A] mb-3">Student Information</h3>
+                <h3 className="font-semibold text-[#0F172A] mb-3">
+                  Student Information
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Full Name *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Full Name *
+                    </label>
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setFormErrors({ ...formErrors, name: '' }); }}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        setFormErrors({ ...formErrors, name: "" });
+                      }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="Enter full name"
                     />
-                    {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
+                    {formErrors.name && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.name}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Email *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Email *
+                    </label>
                     <input
                       type="email"
                       value={formData.email}
-                      onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setFormErrors({ ...formErrors, email: '' }); }}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        setFormErrors({ ...formErrors, email: "" });
+                      }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="student@example.com"
                     />
-                    {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                    {formErrors.email && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Standard *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Standard *
+                    </label>
                     <select
                       value={formData.standard}
-                      onChange={(e) => { setFormData({ ...formData, standard: e.target.value }); setFormErrors({ ...formErrors, standard: '' }); }}
+                      onChange={(e) => {
+                        setFormData({ ...formData, standard: e.target.value });
+                        setFormErrors({ ...formErrors, standard: "" });
+                      }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     >
                       <option value="">-- Select Standard --</option>
                       {STANDARDS.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
                       ))}
                     </select>
-                    {formErrors.standard && <p className="text-red-500 text-xs mt-1">{formErrors.standard}</p>}
+                    {formErrors.standard && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.standard}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Date of Birth *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Date of Birth *
+                    </label>
                     <input
                       type="date"
                       value={formData.dob}
-                      onChange={(e) => { setFormData({ ...formData, dob: e.target.value }); setFormErrors({ ...formErrors, dob: '' }); }}
+                      onChange={(e) => {
+                        setFormData({ ...formData, dob: e.target.value });
+                        setFormErrors({ ...formErrors, dob: "" });
+                      }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     />
-                    {formErrors.dob && <p className="text-red-500 text-xs mt-1">{formErrors.dob}</p>}
+                    {formErrors.dob && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.dob}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Gender *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Gender *
+                    </label>
                     <select
                       value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, gender: e.target.value })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     >
                       <option value="male">Male</option>
@@ -374,10 +486,14 @@ const Students = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Blood Group *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Blood Group *
+                    </label>
                     <select
                       value={formData.bloodGroup}
-                      onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bloodGroup: e.target.value })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     >
                       <option value="Unknown">Unknown</option>
@@ -392,31 +508,83 @@ const Students = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Student Type *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Student Type *
+                    </label>
                     <select
                       value={formData.studentType}
-                      onChange={(e) => setFormData({ ...formData, studentType: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          studentType: e.target.value,
+                        })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     >
                       <option value="dayScholar">Day Scholar</option>
                       <option value="hosteller">Hosteller</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Password</label>
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Password
+                    </label>
                     <input
-                      type="password"
+                      type={isEye ? "text" : "password"}
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                      placeholder={isEditing ? 'Leave blank to keep current' : 'Default: Student@123'}
+                      placeholder={
+                        isEditing
+                          ? "Leave blank to keep current"
+                          : "Default: Student@123"
+                      }
                     />
+                    {isEye ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                        onClick={() => handlePassword("student")}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                        onClick={() => handlePassword("student")}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                        />
+                      </svg>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Status *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Status *
+                    </label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, status: e.target.value })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                     >
                       <option value="active">Active</option>
@@ -428,72 +596,160 @@ const Students = () => {
               </div>
 
               <div className="bg-[#FEE2E2] p-4 rounded-lg">
-                <h3 className="font-semibold text-[#0F172A] mb-3">Parent/Guardian Details</h3>
+                <h3 className="font-semibold text-[#0F172A] mb-3">
+                  Parent/Guardian Details
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Name</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Parent Name
+                    </label>
                     <input
                       type="text"
                       value={formData.parent_name}
-                      onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          parent_name: e.target.value,
+                        })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="Father/Mother name"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Contact Number *</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Contact Number *
+                    </label>
                     <input
                       type="tel"
                       value={formData.parent_contact}
-                      onChange={(e) => { setFormData({ ...formData, parent_contact: e.target.value }); setFormErrors({ ...formErrors, parent_contact: '' }); }}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          parent_contact: e.target.value,
+                        });
+                        setFormErrors({ ...formErrors, parent_contact: "" });
+                      }}
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="+91 XXXXX XXXXX"
                     />
-                    {formErrors.parent_contact && <p className="text-red-500 text-xs mt-1">{formErrors.parent_contact}</p>}
+                    {formErrors.parent_contact && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {formErrors.parent_contact}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Occupation</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Parent Occupation
+                    </label>
                     <input
                       type="text"
                       value={formData.parent_occupation}
-                      onChange={(e) => setFormData({ ...formData, parent_occupation: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          parent_occupation: e.target.value,
+                        })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="e.g. Engineer, Teacher, Business"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Email</label>
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Parent Email
+                    </label>
                     <input
                       type="email"
                       value={formData.parent_email}
-                      onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          parent_email: e.target.value,
+                        })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                       placeholder="parent@example.com"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Parent Password</label>
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Parent Password
+                    </label>
                     <input
-                      type="password"
+                      type={isParentEye ? "text" : "password"}
                       value={formData.parent_password}
-                      onChange={(e) => setFormData({ ...formData, parent_password: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          parent_password: e.target.value,
+                        })
+                      }
                       className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
-                      placeholder={isEditing ? 'Leave blank to keep current' : 'Default: Parent@123'}
+                      placeholder={
+                        isEditing
+                          ? "Leave blank to keep current"
+                          : "Default: Parent@123"
+                      }
                     />
+                    {isParentEye ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                        onClick={() => handlePassword("parent")}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="size-6 absolute bottom-2 right-1 cursor-pointer"
+                        onClick={() => handlePassword("parent")}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                        />
+                      </svg>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-2">Address *</label>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                  Address *
+                </label>
                 <textarea
                   value={formData.address}
-                  onChange={(e) => { setFormData({ ...formData, address: e.target.value }); setFormErrors({ ...formErrors, address: '' }); }}
+                  onChange={(e) => {
+                    setFormData({ ...formData, address: e.target.value });
+                    setFormErrors({ ...formErrors, address: "" });
+                  }}
                   className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   rows="3"
                   placeholder="Enter full residential address"
                 />
-                {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
+                {formErrors.address && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {formErrors.address}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4 border-t-2 border-[#FCD34D]">
@@ -514,7 +770,11 @@ const Students = () => {
                   disabled={loading}
                   className="flex-1 bg-[#DC2626] text-white hover:bg-[#B91C1C] h-10 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
                 >
-                  {loading ? 'Saving...' : isEditing ? 'Update Student' : 'Add Student'}
+                  {loading
+                    ? "Saving..."
+                    : isEditing
+                      ? "Update Student"
+                      : "Add Student"}
                 </button>
               </div>
             </form>
@@ -527,7 +787,9 @@ const Students = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-[#0F172A]">Student Profile</h2>
+              <h2 className="text-2xl font-bold text-[#0F172A]">
+                Student Profile
+              </h2>
               <button
                 onClick={() => setShowViewModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -542,10 +804,20 @@ const Students = () => {
                   {selectedStudent.name.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-[#0F172A]">{selectedStudent.name}</h3>
-                  <p className="text-[#64748B]">{selectedStudent.class} • Roll No: {selectedStudent.roll_no || 'N/A'}</p>
-                  <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getStatusColor(selectedStudent.status || 'active')}`}>
-                    {(selectedStudent.status || 'active').charAt(0).toUpperCase() + (selectedStudent.status || 'active').slice(1)}
+                  <h3 className="text-2xl font-bold text-[#0F172A]">
+                    {selectedStudent.name}
+                  </h3>
+                  <p className="text-[#64748B]">
+                    {selectedStudent.class} • Roll No:{" "}
+                    {selectedStudent.roll_no || "N/A"}
+                  </p>
+                  <span
+                    className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getStatusColor(selectedStudent.status || "active")}`}
+                  >
+                    {(selectedStudent.status || "active")
+                      .charAt(0)
+                      .toUpperCase() +
+                      (selectedStudent.status || "active").slice(1)}
                   </span>
                 </div>
               </div>
@@ -553,35 +825,55 @@ const Students = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Date of Birth</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.dob}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.dob}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Gender</p>
-                  <p className="text-base font-semibold text-[#0F172A] capitalize">{selectedStudent.gender}</p>
+                  <p className="text-base font-semibold text-[#0F172A] capitalize">
+                    {selectedStudent.gender}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Blood Group</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.bloodGroup || 'Unknown'}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.bloodGroup || "Unknown"}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Student Type</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.studentType === 'hosteller' ? 'Hosteller' : 'Day Scholar'}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.studentType === "hosteller"
+                      ? "Hosteller"
+                      : "Day Scholar"}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Parent Contact</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.parent_contact}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.parent_contact}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-[#64748B] mb-1">Parent Name</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.parent_name || 'Not provided'}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.parent_name || "Not provided"}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-[#64748B] mb-1">Parent Occupation</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.parent_occupation || 'Not provided'}</p>
+                  <p className="text-sm text-[#64748B] mb-1">
+                    Parent Occupation
+                  </p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.parent_occupation || "Not provided"}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg md:col-span-2">
                   <p className="text-sm text-[#64748B] mb-1">Address</p>
-                  <p className="text-base font-semibold text-[#0F172A]">{selectedStudent.address}</p>
+                  <p className="text-base font-semibold text-[#0F172A]">
+                    {selectedStudent.address}
+                  </p>
                 </div>
               </div>
 
@@ -601,7 +893,9 @@ const Students = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
       />
     </div>
   );

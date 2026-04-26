@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import {
   getBooks, createBook, updateBook, deleteBook,
-  getIssues, issueBook, returnBook, markFinePaid, getLibraryReport, getMyIssues,
+  getIssues, issueBook, updateIssue, deleteIssue, returnBook, markFinePaid, getLibraryReport, getMyIssues,
 } from '../controllers/library.controller.js';
 
 const router = Router();
@@ -19,5 +19,7 @@ router.get('/issues', authorize('admin', 'staff'), getIssues);
 router.post('/issues', authorize('admin', 'staff'), issueBook);
 router.put('/issues/:id/return', authorize('admin', 'staff'), returnBook);
 router.put('/issues/:id/fine-paid', authorize('admin', 'staff'), markFinePaid);
+router.put('/issues/:id', authorize('admin'), updateIssue);
+router.delete('/issues/:id', authorize('admin'), deleteIssue);
 
 export default router;

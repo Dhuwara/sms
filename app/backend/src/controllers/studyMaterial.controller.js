@@ -1,6 +1,7 @@
-import fs from 'fs';
-import path from 'path';
+import path from 'node:path';
+import fs from 'node:fs';
 import StudyMaterial from '../models/StudyMaterial.js';
+import { getFileLocation, deleteFile } from '../utils/s3.js';
 import Staff from '../models/Staff.js';
 import Student from '../models/Student.js';
 
@@ -50,10 +51,15 @@ export const downloadStudyMaterial = async (req, res, next) => {
         const material = await StudyMaterial.findById(req.params.id);
         if (!material) return res.status(404).json({ success: false, message: 'Study material not found' });
 
-        const filePath = path.join(process.cwd(), 'uploads', 'study-materials', material.filename);
-        if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found on server' });
+        const localDir = path.join(process.cwd(), 'uploads', 'study-materials');
+        const location = await getFileLocation(material.filename, localDir);
 
-        res.download(filePath, material.originalName);
+        if (location.isS3) return res.redirect(location.url);
+
+        if (!fs.existsSync(location.localPath)) {
+            return res.status(404).json({ success: false, message: 'File not found on server' });
+        }
+        res.download(location.localPath, material.originalName);
     } catch (err) { next(err); }
 };
 
@@ -62,9 +68,7 @@ export const deleteStudyMaterial = async (req, res, next) => {
         const material = await StudyMaterial.findById(req.params.id);
         if (!material) return res.status(404).json({ success: false, message: 'Study material not found' });
 
-        const filePath = path.join(process.cwd(), 'uploads', 'study-materials', material.filename);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
+        await deleteFile(material.filename, path.join(process.cwd(), 'uploads', 'study-materials'));
         await material.deleteOne();
         res.json({ success: true, message: 'Study material deleted' });
     } catch (err) { next(err); }

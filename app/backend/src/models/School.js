@@ -9,8 +9,24 @@ const schoolSchema = new mongoose.Schema({
   state: { type: String, required: true, trim: true },
   phone: { type: String, default: '' },
   email: { type: String, default: '' },
+  whatsappNumber: { type: String, default: '' },
+  whatsappPhoneNumberId: { type: String, default: '' },
   logo: { type: String, default: '' },
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
+  subscription: {
+    plan: { type: String, enum: ['free', 'basic', 'premium', 'enterprise'], default: 'free' },
+    status: { type: String, enum: ['active', 'paused', 'suspended', 'expired'], default: 'active' },
+    billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    pausedAt: { type: Date },
+    pauseReason: { type: String, default: '' },
+    suspendedAt: { type: Date },
+    suspendReason: { type: String, default: '' },
+    maxStudents: { type: Number, default: 500 },
+    maxStaff: { type: Number, default: 50 },
+  },
+  notes: { type: String, default: '' },
 }, { timestamps: true });
 
 export default mongoose.model('School', schoolSchema);

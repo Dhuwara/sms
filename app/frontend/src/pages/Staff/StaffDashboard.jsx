@@ -23,6 +23,7 @@ import Documents from './pages/Documents';
 import Settings from './pages/Settings';
 
 const StaffDashboard = ({ user, module = 'profile' }) => {
+  console.log(user,"userrr")
   const dispatch = useDispatch();
   const commClasses = useSelector(s => s.classes.list);
   const commAnnouncements = useSelector(s => s.communication.announcements);
@@ -132,6 +133,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   const [marksSaving, setMarksSaving] = useState(false);
   const [marksLoaded, setMarksLoaded] = useState(false);
   const [marksAnalysis, setMarksAnalysis] = useState(null);
+  const [sendingReport, setSendingReport] = useState(false);
 
   // Request tracking to prevent duplicate simultaneous requests
   const fetchingRef = useRef({
@@ -585,19 +587,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     });
   };
 
-  const handleDownloadStudyMaterial = async (id, originalName) => {
-    try {
-      const response = await api.get(`/api/study-materials/${id}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', originalName || `study-material-${id}`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-    } catch (error) {
-      toast.error('Failed to download study material');
-    }
+  const handleDownloadStudyMaterial = (id, originalName) => {
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    window.open(`${base}/api/study-materials/${id}/download`, '_blank');
   };
 
   const handleCreateHomework = async (e) => {
@@ -645,20 +637,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     });
   };
 
-  const handleDownloadLessonPlan = async (id, originalName) => {
-    try {
-      const response = await api.get(`/api/lesson-plans/${id}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', originalName || `lesson-plan-${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading document:', error);
-      toast.error('Failed to download document');
-    }
+  const handleDownloadLessonPlan = (id, originalName) => {
+    const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    window.open(`${base}/api/lesson-plans/${id}/download`, '_blank');
   };
 
   const fetchPendingApprovals = async () => {
@@ -976,7 +957,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     if (fetchingRef.current.examDuties) return;
     fetchingRef.current.examDuties = true;
     try {
-      const response = await api.get(`/api/exams${staffData?._id ? `?invigilatorId=${staffData._id}` : ''}`);
+      const response = await api.get('/api/staff/my-exam-duties');
       setExamDuties(response?.data || []);
     } catch (error) {
       console.error('Error fetching exam duties:', error);
@@ -1001,7 +982,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       setAttendanceStudents(response.data || []);
       const attendanceObj = {};
       response.data?.forEach((student) => {
-        attendanceObj[student._id] = student.status || 'absent';
+        attendanceObj[student._id] = student.status || '';
       });
       setAttendanceRecords(attendanceObj);
     } catch (error) {
@@ -1085,6 +1066,25 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       toast.error(error.response?.data?.message || 'Failed to schedule online class');
     } finally {
       setOnlineClassSubmitting(false);
+    }
+  };
+
+  const handleViewSubmissions = async (hwId) => {
+    try {
+      const res = await api.get(`/api/homework/${hwId}/submissions`);
+      return res.data || [];
+    } catch {
+      toast.error('Failed to load submissions');
+      return [];
+    }
+  };
+
+  const handleDownloadSubmissionFile = async (hwId, submissionId, originalName) => {
+    try {
+      const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      window.open(`${base}/api/homework/${hwId}/submissions/${submissionId}/file`, '_blank');
+    } catch {
+      toast.error('Failed to download submission file');
     }
   };
 
@@ -1254,6 +1254,23 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     }
   };
 
+  const handleSendReport = async () => {
+    if (!marksClassId || !marksExamId) {
+      toast.error('Select a class and exam first');
+      return;
+    }
+    setSendingReport(true);
+    try {
+      const res = await api.post('/api/staff/marks/send-report', { classId: marksClassId, examId: marksExamId });
+      const { sent, noEmail, total } = res.data;
+      toast.success(`Reports sent to ${sent} parent(s)${noEmail > 0 ? ` (${noEmail} skipped — no email)` : ''}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send reports');
+    } finally {
+      setSendingReport(false);
+    }
+  };
+
   // Communication Functions
   const fetchCommClasses = () => dispatch(fetchClasses());
   const fetchSchoolEventsData = () => dispatch(fetchSchoolEvents());
@@ -1369,9 +1386,9 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
       case 'classes':
         return <Classes classDetail={classDetail} staffData={staffData} handleOpenMarkAttendance={handleOpenMarkAttendance} selectedClassForStudents={selectedClassForStudents} classStudents={classStudents} />;
       case 'academic':
-        return <Academic staffData={staffData} academicClasses={academicClasses} selectedAcademicClass={selectedAcademicClass} setSelectedAcademicClass={setSelectedAcademicClass} lessonPlans={lessonPlans} setLessonPlans={setLessonPlans} studyMaterials={studyMaterials} setStudyMaterials={setStudyMaterials} classHomework={classHomework} setClassHomework={setClassHomework} onlineClasses={onlineClasses} setOnlineClasses={setOnlineClasses} examDuties={examDuties} showStudyMaterialModal={showStudyMaterialModal} setShowStudyMaterialModal={setShowStudyMaterialModal} studyMaterialForm={studyMaterialForm} setStudyMaterialForm={setStudyMaterialForm} handleUploadStudyMaterial={handleUploadStudyMaterial} studyMaterialSubmitting={studyMaterialSubmitting} showHomeworkModal={showHomeworkModal} setShowHomeworkModal={setShowHomeworkModal} homeworkForm={homeworkForm} setHomeworkForm={setHomeworkForm} handleCreateHomework={handleCreateHomework} homeworkSubmitting={homeworkSubmitting} classSubjects={classSubjects} showOnlineClassModal={showOnlineClassModal} setShowOnlineClassModal={setShowOnlineClassModal} onlineClassForm={onlineClassForm} setOnlineClassForm={setOnlineClassForm} handleOnlineClassSubmit={handleOnlineClassSubmit} onlineClassSubmitting={onlineClassSubmitting} handleDownloadLessonPlan={handleDownloadLessonPlan} handleDeleteLessonPlan={handleDeleteLessonPlan} handleDeleteHomework={handleDeleteHomework} handleDownloadStudyMaterial={handleDownloadStudyMaterial} handleDeleteStudyMaterial={handleDeleteStudyMaterial} handleDeleteOnlineClass={handleDeleteOnlineClass} setLessonPlanForm={setLessonPlanForm} setShowLessonPlanModal={setShowLessonPlanModal} formatDate={formatDate} formatFileSize={formatFileSize} formatHHmm={formatHHmm} />;
+        return <Academic staffData={staffData} academicClasses={academicClasses} selectedAcademicClass={selectedAcademicClass} setSelectedAcademicClass={setSelectedAcademicClass} lessonPlans={lessonPlans} setLessonPlans={setLessonPlans} studyMaterials={studyMaterials} setStudyMaterials={setStudyMaterials} classHomework={classHomework} setClassHomework={setClassHomework} onlineClasses={onlineClasses} setOnlineClasses={setOnlineClasses} examDuties={examDuties} showStudyMaterialModal={showStudyMaterialModal} setShowStudyMaterialModal={setShowStudyMaterialModal} studyMaterialForm={studyMaterialForm} setStudyMaterialForm={setStudyMaterialForm} handleUploadStudyMaterial={handleUploadStudyMaterial} studyMaterialSubmitting={studyMaterialSubmitting} showHomeworkModal={showHomeworkModal} setShowHomeworkModal={setShowHomeworkModal} homeworkForm={homeworkForm} setHomeworkForm={setHomeworkForm} handleCreateHomework={handleCreateHomework} homeworkSubmitting={homeworkSubmitting} classSubjects={classSubjects} showOnlineClassModal={showOnlineClassModal} setShowOnlineClassModal={setShowOnlineClassModal} onlineClassForm={onlineClassForm} setOnlineClassForm={setOnlineClassForm} handleOnlineClassSubmit={handleOnlineClassSubmit} onlineClassSubmitting={onlineClassSubmitting} handleViewSubmissions={handleViewSubmissions} handleDownloadSubmissionFile={handleDownloadSubmissionFile} handleDownloadLessonPlan={handleDownloadLessonPlan} handleDeleteLessonPlan={handleDeleteLessonPlan} handleDeleteHomework={handleDeleteHomework} handleDownloadStudyMaterial={handleDownloadStudyMaterial} handleDeleteStudyMaterial={handleDeleteStudyMaterial} handleDeleteOnlineClass={handleDeleteOnlineClass} setLessonPlanForm={setLessonPlanForm} setShowLessonPlanModal={setShowLessonPlanModal} formatDate={formatDate} formatFileSize={formatFileSize} formatHHmm={formatHHmm} />;
       case 'marks':
-        return <Marks marksClassId={marksClassId} handleMarksClassChange={handleMarksClassChange} marksExamId={marksExamId} setMarksExamId={setMarksExamId} marksExams={marksExams} marksLoading={marksLoading} marksLoaded={marksLoaded} marksStudents={marksStudents} marksEntries={marksEntries} setMarksEntries={setMarksEntries} setMarksLoaded={setMarksLoaded} setMarksStudents={setMarksStudents} setMarksAnalysis={setMarksAnalysis} marksSaving={marksSaving} marksAnalysis={marksAnalysis} handleLoadStudents={handleLoadStudents} handleSaveAllMarks={handleSaveAllMarks} marksCalcGrade={marksCalcGrade} timetableAssignments={timetableAssignments} />;
+        return <Marks marksClassId={marksClassId} handleMarksClassChange={handleMarksClassChange} marksExamId={marksExamId} setMarksExamId={setMarksExamId} marksExams={marksExams} marksLoading={marksLoading} marksLoaded={marksLoaded} marksStudents={marksStudents} marksEntries={marksEntries} setMarksEntries={setMarksEntries} setMarksLoaded={setMarksLoaded} setMarksStudents={setMarksStudents} setMarksAnalysis={setMarksAnalysis} marksSaving={marksSaving} marksAnalysis={marksAnalysis} handleLoadStudents={handleLoadStudents} handleSaveAllMarks={handleSaveAllMarks} marksCalcGrade={marksCalcGrade} timetableAssignments={timetableAssignments} sendingReport={sendingReport} handleSendReport={handleSendReport} />;
       case 'communication':
         return <Communication commAnnouncements={commAnnouncements} commClasses={commClasses} commForm={commForm} setCommForm={setCommForm} handleCommClassChange={handleCommClassChange} commContacts={commContacts} commSending={commSending} handleSendMessage={handleSendMessage} ptmForm={ptmForm} setPtmForm={setPtmForm} handlePtmSubmit={handlePtmSubmit} ptmLoading={ptmLoading} ptmList={ptmList} handleDeletePtm={handleDeletePtm} togglePtmClass={togglePtmClass} />;
       case 'payroll':
@@ -1542,26 +1559,27 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
                         <td className="px-6 py-4 text-sm font-semibold text-[#0F172A]">{student.rollNumber || '-'}</td>
                         <td className="px-6 py-4 text-sm text-[#0F172A]">{student.name}</td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-3">
+                          <div className="flex items-center justify-center gap-1 sm:gap-3 flex-wrap">
                             <button
                               onClick={() => handleAttendanceRecordChange(student._id, 'present')}
-                              className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${attendanceRecords[student._id] === 'present'
-                                ? 'bg-[#10B981] text-white'
-                                : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
-                                }`}
+                              className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${attendanceRecords[student._id] === 'present' ? 'bg-[#10B981] text-white' : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'}`}
                             >
-                              <CheckCircle size={16} />
+                              <CheckCircle size={14} />
                               Present
                             </button>
                             <button
                               onClick={() => handleAttendanceRecordChange(student._id, 'absent')}
-                              className={`flex items-center gap-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${attendanceRecords[student._id] === 'absent'
-                                ? 'bg-[#DC2626] text-white'
-                                : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'
-                                }`}
+                              className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${attendanceRecords[student._id] === 'absent' ? 'bg-[#DC2626] text-white' : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'}`}
                             >
-                              <XCircle size={16} />
+                              <XCircle size={14} />
                               Absent
+                            </button>
+                            <button
+                              onClick={() => handleAttendanceRecordChange(student._id, 'half-day')}
+                              className={`flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors ${attendanceRecords[student._id] === 'half-day' ? 'bg-[#F59E0B] text-white' : 'bg-gray-200 text-[#0F172A] hover:bg-gray-300'}`}
+                            >
+                              <CheckCircle size={14} />
+                              Half-day
                             </button>
                           </div>
                         </td>

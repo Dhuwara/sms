@@ -112,6 +112,116 @@ export const deleteSubstitution = async (req, res, next) => {
   }
 };
 
+// ── Smart assignment helpers ─────────────────────────────────────────────────
+
+const timesOverlap = (s1, e1, s2, e2) => {
+  const toMins = (t) => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + m; };
+  return toMins(s1) < toMins(e2 || '23:59') && toMins(s2) < toMins(e1 || '23:59');
+};
+
+// GET /api/substitutions/free-periods?teacherId=X&date=Y
+// Returns all class-periods that the absent teacher is assigned to on that day
+export const getFreePeriodsByAbsentTeacher = async (req, res, next) => {
+  try {
+    const { teacherId, date } = req.query;
+    if (!teacherId || !date) {
+      return res.status(400).json({ success: false, message: 'teacherId and date are required' });
+    }
+    const schoolId = req.user.schoolId;
+    const dayName = getDayName(date);
+    const academicYear = getDefaultAcademicYear();
+
+    const timetables = await Timetable.find({
+      schoolId,
+      academicYear,
+      [`schedule.${dayName}`]: { $elemMatch: { teacher: teacherId } },
+    }).populate('classId', 'name section');
+
+    const classIds = timetables.map(tt => tt.classId._id);
+    const configs = await PeriodConfig.find({ classId: { $in: classIds }, academicYear });
+    const configMap = {};
+    for (const c of configs) configMap[c.classId.toString()] = c;
+
+    const freePeriods = [];
+    for (const tt of timetables) {
+      const dayEntries = tt.schedule?.[dayName] || [];
+      const config = configMap[tt.classId._id.toString()];
+      if (!config) continue;
+      for (const entry of dayEntries) {
+        if (entry.teacher?.toString() !== teacherId) continue;
+        const pc = config.periods[entry.periodIndex];
+        if (!pc || pc.type === 'break' || pc.type === 'lunch' || pc.type === 'assembly') continue;
+        freePeriods.push({
+          classId: tt.classId._id,
+          className: tt.classId.name,
+          classSection: tt.classId.section,
+          periodIndex: entry.periodIndex,
+          periodName: pc.name,
+          startTime: pc.startTime,
+          endTime: pc.endTime,
+          subject: entry.subject || '',
+        });
+      }
+    }
+
+    freePeriods.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    res.json({ success: true, data: freePeriods });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/substitutions/free-teachers?date=Y&startTime=HH:mm&endTime=HH:mm
+// Returns teachers who have no class during the given time slot
+export const getFreeTeachersForPeriod = async (req, res, next) => {
+  try {
+    const { date, startTime, endTime } = req.query;
+    if (!date || !startTime) {
+      return res.status(400).json({ success: false, message: 'date and startTime are required' });
+    }
+    const schoolId = req.user.schoolId;
+    const dayName = getDayName(date);
+    const academicYear = getDefaultAcademicYear();
+
+    const [timetables, configs] = await Promise.all([
+      Timetable.find({ schoolId, academicYear }),
+      PeriodConfig.find({ schoolId, academicYear }),
+    ]);
+
+    const configMap = {};
+    for (const c of configs) configMap[c.classId.toString()] = c;
+
+    const busyIds = new Set();
+    for (const tt of timetables) {
+      const dayEntries = tt.schedule?.[dayName] || [];
+      const config = configMap[tt.classId.toString()];
+      if (!config) continue;
+      for (const entry of dayEntries) {
+        if (!entry.teacher) continue;
+        const pc = config.periods[entry.periodIndex];
+        if (!pc) continue;
+        if (timesOverlap(startTime, endTime, pc.startTime, pc.endTime)) {
+          busyIds.add(entry.teacher.toString());
+        }
+      }
+    }
+
+    const freeStaff = await Staff.find({ schoolId, status: 'active', _id: { $nin: [...busyIds] } })
+      .populate('userId', 'name');
+
+    res.json({
+      success: true,
+      data: freeStaff.map(s => ({
+        _id: s._id,
+        name: s.userId?.name || s.employeeId || 'Unknown',
+        employeeId: s.employeeId || '',
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── Cascading data endpoints ─────────────────────────────────────────────────
 
 // GET /api/substitutions/periods-by-class?classId=xxx&date=2026-03-16

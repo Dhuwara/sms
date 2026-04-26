@@ -12,14 +12,17 @@ const transporter = nodemailer.createTransport({
 
 /**
  * Send an email.
- * @param {object} opts
+ * @param {object}   opts
  * @param {string}   opts.fromEmail  - Sender's email address
  * @param {string}   opts.fromName   - Sender's display name
  * @param {string[]} opts.to         - Array of recipient email addresses
  * @param {string}   opts.subject
  * @param {string}   opts.text       - Plain-text body
+ * @param {string}   [opts.replyTo]  - Reply-To address (optional)
  */
-export const sendMail = async ({ fromEmail, fromName, to, subject, text }) => {
+export const sendMail = async ({ fromEmail, fromName, to, subject, text, replyTo }) => {
   const from = `"${fromName}" <${fromEmail}>`;
-  await transporter.sendMail({ from, to, subject, text });
+  const mailOptions = { from, to, subject, text };
+  if (replyTo) mailOptions.replyTo = replyTo;
+  await transporter.sendMail(mailOptions);
 };

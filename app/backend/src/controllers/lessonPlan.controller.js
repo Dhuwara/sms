@@ -1,6 +1,7 @@
-import fs from 'fs';
-import path from 'path';
+import path from 'node:path';
+import fs from 'node:fs';
 import LessonPlan from '../models/LessonPlan.js';
+import { getFileLocation, deleteFile } from '../utils/s3.js';
 import Staff from '../models/Staff.js';
 import Student from '../models/Student.js';
 
@@ -87,41 +88,29 @@ export const uploadLessonPlan = async (req, res, next) => {
 export const downloadLessonPlan = async (req, res, next) => {
     try {
         const plan = await LessonPlan.findById(req.params.id);
-        if (!plan) {
-            return res.status(404).json({ success: false, message: 'Lesson plan not found' });
-        }
+        if (!plan) return res.status(404).json({ success: false, message: 'Lesson plan not found' });
 
-        const filePath = path.join(process.cwd(), 'uploads', 'lesson-plans', plan.filename);
-        if (!fs.existsSync(filePath)) {
+        const localDir = path.join(process.cwd(), 'uploads', 'lesson-plans');
+        const location = await getFileLocation(plan.filename, localDir);
+
+        if (location.isS3) return res.redirect(location.url);
+
+        if (!fs.existsSync(location.localPath)) {
             return res.status(404).json({ success: false, message: 'File not found on server' });
         }
-
-        res.download(filePath, plan.originalName);
-    } catch (err) {
-        next(err);
-    }
+        res.download(location.localPath, plan.originalName);
+    } catch (err) { next(err); }
 };
 
 export const deleteLessonPlan = async (req, res, next) => {
     try {
         const plan = await LessonPlan.findById(req.params.id);
-        if (!plan) {
-            return res.status(404).json({ success: false, message: 'Lesson plan not found' });
-        }
+        if (!plan) return res.status(404).json({ success: false, message: 'Lesson plan not found' });
 
-        // Optional: Only allow the person who uploaded it (or admin) to delete it
-        // For simplicity, we just delete it here based on Authorization guard
-
-        const filePath = path.join(process.cwd(), 'uploads', 'lesson-plans', plan.filename);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
+        await deleteFile(plan.filename, path.join(process.cwd(), 'uploads', 'lesson-plans'));
         await plan.deleteOne();
         res.json({ success: true, message: 'Lesson plan deleted successfully' });
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 };
 
 // Student-facing: get lesson plans for the student's class

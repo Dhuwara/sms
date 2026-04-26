@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import School from '../models/School.js';
+import Parent from '../models/Parent.js';
+import Student from '../models/Student.js';
+import Staff from '../models/Staff.js';
 
 const generateTokens = (userId, role, schoolId) => {
   const accessToken = jwt.sign({ userId, role, schoolId }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -13,16 +16,16 @@ const generateTokens = (userId, role, schoolId) => {
 const setCookies = (res, accessToken, refreshToken) => {
   const isProd = process.env.NODE_ENV === 'production';
   res.cookie('accessToken', accessToken, {
-    httpOnly: true, secure: isProd, sameSite: 'strict', maxAge: 15 * 60 * 1000,
+    httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'strict', maxAge: 15 * 60 * 1000,
   });
   res.cookie('refreshToken', refreshToken, {
-    httpOnly: true, secure: isProd, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
 
 export const signup = async (req, res, next) => {
   try {
-    const { schoolName, schoolType, address1, address2, city, state, adminName, adminEmail, adminPhone, password } = req.body;
+    const { schoolName, schoolType, address1, address2, city, state, adminName, adminEmail, adminPhone, whatsappNumber, password } = req.body;
 
     if (!schoolName || !address1 || !city || !state || !adminEmail || !adminPhone || !password) {
       return res.status(400).json({ success: false, message: 'All required fields must be filled' });
@@ -47,6 +50,7 @@ export const signup = async (req, res, next) => {
       state: state.trim(),
       phone: (adminPhone || '').trim(),
       email: adminEmail.trim(),
+      whatsappNumber: (whatsappNumber || '').trim(),
     });
 
     // Create admin user for this school
@@ -101,10 +105,19 @@ export const login = async (req, res, next) => {
       });
     }
 
+    const school = await School.findById(user.schoolId).select('name status subscription');
+    if (school) {
+      const subStatus = school.subscription?.status || school.status;
+      if (subStatus === 'paused') {
+        return res.status(403).json({ success: false, message: 'Your school subscription is currently paused. Please contact support.' });
+      }
+      if (subStatus === 'suspended' || school.status === 'suspended') {
+        return res.status(403).json({ success: false, message: 'Your school account has been suspended. Please contact support.' });
+      }
+    }
+
     const { accessToken, refreshToken } = generateTokens(user._id, user.role, user.schoolId);
     setCookies(res, accessToken, refreshToken);
-
-    const school = await School.findById(user.schoolId).select('name');
 
     res.json({
       success: true,
@@ -149,7 +162,23 @@ export const getMe = async (req, res, next) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const school = await School.findById(user.schoolId).select('name');
-    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role, schoolId: user.schoolId, schoolName: school?.name || '' } });
+
+    let phone = user.phone || '';
+    if (!phone && user.role === 'parent') {
+      const parent = await Parent.findOne({ userId: user._id });
+      if (parent) {
+        const child = await Student.findOne({ parentId: parent._id }).select('parentContact');
+        phone = child?.parentContact || '';
+        if (phone) await User.findByIdAndUpdate(user._id, { phone });
+      }
+    }
+    if (!phone && user.role === 'staff') {
+      const staff = await Staff.findOne({ userId: user._id }).select('contact');
+      phone = staff?.contact || '';
+      if (phone) await User.findByIdAndUpdate(user._id, { phone });
+    }
+
+    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, phone, role: user.role, schoolId: user.schoolId, schoolName: school?.name || '' } });
   } catch (err) {
     next(err);
   }
@@ -256,6 +285,45 @@ export const changePassword = async (req, res, next) => {
     await user.save();
 
     res.json({ success: true, message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/auth/update-profile
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { name, email, phone } = req.body;
+    const update = {};
+    if (name?.trim()) update.name = name.trim();
+    if (email?.trim()) update.email = email.trim().toLowerCase();
+    if (phone !== undefined) update.phone = phone.trim();
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ success: false, message: 'Nothing to update' });
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.userId, update, { new: true }).select('-passwordHash');
+
+    // Sync phone to Student.parentContact for all children of this parent
+    if (req.user.role === 'parent' && phone !== undefined) {
+      const parent = await Parent.findOne({ userId: req.user.userId });
+      if (parent) {
+        await Student.updateMany({ parentId: parent._id }, { parentContact: phone.trim() });
+      }
+    }
+
+    // Sync phone and name to Staff record so admin sees updated contact
+    if (req.user.role === 'staff') {
+      const staffUpdate = {};
+      if (phone !== undefined) staffUpdate.contact = phone.trim();
+      if (name?.trim()) staffUpdate.name = name.trim();
+      if (Object.keys(staffUpdate).length > 0) {
+        await Staff.findOneAndUpdate({ userId: req.user.userId }, staffUpdate);
+      }
+    }
+
+    res.json({ success: true, data: user });
   } catch (err) {
     next(err);
   }

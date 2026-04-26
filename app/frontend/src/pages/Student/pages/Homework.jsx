@@ -1,12 +1,47 @@
-import React from 'react';
-import { FileText, Download, Library } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Download, Library, Upload, X, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 
-const Homework = ({ homeworkData, lessonPlansData, studyMaterialsData, handleDownloadFile, handleDownloadLessonPlan, handleDownloadStudyMaterial, formatDate }) => {
+const Homework = ({
+  homeworkData,
+  lessonPlansData,
+  studyMaterialsData,
+  handleDownloadFile,
+  handleDownloadLessonPlan,
+  handleDownloadStudyMaterial,
+  handleSubmitHomework,
+  submittingId,
+  formatDate,
+}) => {
+  const [submitModal, setSubmitModal] = useState(null); // { hwId, hwTitle, isResubmit }
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const today = new Date().toDateString();
   const pending = homeworkData.filter(h => !h.submission && h.status === 'active');
   const dueToday = homeworkData.filter(h => new Date(h.dueDate).toDateString() === today && !h.submission);
-  const submitted = homeworkData.filter(h => h.submission?.status === 'submitted');
+  const submitted = homeworkData.filter(h => h.submission && (h.submission.status === 'submitted' || h.submission.status === 'late'));
   const graded = homeworkData.filter(h => h.submission?.status === 'graded');
+
+  const openSubmitModal = (hw, isResubmit = false) => {
+    setSelectedFile(null);
+    setSubmitModal({ hwId: hw._id, hwTitle: hw.title, isResubmit });
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!selectedFile) return;
+    const ok = await handleSubmitHomework(submitModal.hwId, selectedFile);
+    if (ok) {
+      setSubmitModal(null);
+      setSelectedFile(null);
+    }
+  };
+
+  const formatSubmittedAt = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -39,61 +74,157 @@ const Homework = ({ homeworkData, lessonPlansData, studyMaterialsData, handleDow
         </div>
       ) : (
         <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#FEF3C7]">
-                <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Title</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Subject</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Due Date</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Files</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Status</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">Grade</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {homeworkData.map((hw, i) => {
-                  const isOverdue = !hw.submission && new Date(hw.dueDate) < new Date() && hw.status === 'active';
-                  const statusLabel = hw.submission?.status || (isOverdue ? 'overdue' : 'pending');
-                  const statusClasses = {
-                    graded: 'bg-[#DBEAFE] text-[#1E40AF]',
-                    submitted: 'bg-[#D1FAE5] text-[#065F46]',
-                    overdue: 'bg-[#FEE2E2] text-[#991B1B]',
-                  };
-                  const statusClass = statusClasses[statusLabel] || 'bg-[#FEF3C7] text-[#92400E]';
-                  return (
-                    <tr key={hw._id || i} className="hover:bg-[#FFFBEB]">
-                      <td className="px-6 py-4 font-semibold text-[#0F172A]">{hw.title}</td>
-                      <td className="px-6 py-4 text-sm text-[#64748B]">{hw.subjectId?.name || hw.subject || '—'}</td>
-                      <td className="px-6 py-4 text-sm">{formatDate(hw.dueDate)}</td>
-                      <td className="px-6 py-4">
-                        {hw.attachments && hw.attachments.length > 0 ? (
-                          <div className="space-y-1">
-                            {hw.attachments.map((file, fileIndex) => (
-                              <button
-                                key={fileIndex}
-                                onClick={() => handleDownloadFile(hw._id, file.filename, file.originalName)}
-                                className="flex items-center gap-2 text-sm text-[#4F46E5] hover:text-[#6366F1] hover:underline"
-                                title={`Download ${file.originalName}`}
-                              >
-                                <Download size={14} />
-                                <span className="truncate max-w-30">{file.originalName}</span>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-[#94A3B8]">No files</span>
+          <div className="space-y-4">
+            {homeworkData.map((hw, i) => {
+              const isOverdue = !hw.submission && new Date(hw.dueDate) < new Date() && hw.status === 'active';
+              const sub = hw.submission;
+              const isLate = sub?.status === 'late';
+              const isGraded = sub?.status === 'graded';
+
+              return (
+                <div key={hw._id || i} className="border-2 border-[#E2E8F0] rounded-xl p-4 hover:border-[#FCD34D] transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <p className="font-bold text-[#0F172A]">{hw.title}</p>
+                        {!sub && isOverdue && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-[#FEE2E2] text-[#991B1B]">
+                            <AlertTriangle size={10} /> Overdue
+                          </span>
                         )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusClass}`}>{statusLabel}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold">{hw.submission?.grade || '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {sub && !isLate && !isGraded && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-[#D1FAE5] text-[#065F46]">
+                            <CheckCircle size={10} /> On Time
+                          </span>
+                        )}
+                        {sub && isLate && !isGraded && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-[#FEF3C7] text-[#92400E]">
+                            <Clock size={10} /> Late
+                          </span>
+                        )}
+                        {isGraded && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-[#DBEAFE] text-[#1E40AF]">
+                            <CheckCircle size={10} /> Graded
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-[#64748B]">
+                        {hw.subject} &bull; Due: {formatDate(hw.dueDate)}
+                        {sub && <span className="ml-2 text-xs text-[#94A3B8]">Submitted: {formatSubmittedAt(sub.submittedAt)}</span>}
+                      </p>
+                      {hw.description && <p className="text-sm text-[#64748B] mt-1">{hw.description}</p>}
+
+                      {/* Assignment files to download */}
+                      {hw.attachments?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {hw.attachments.map((file, fi) => (
+                            <button
+                              key={fi}
+                              onClick={() => handleDownloadFile(hw._id, file.filename, file.originalName)}
+                              className="flex items-center gap-1 text-xs text-[#4F46E5] hover:underline bg-[#EEF2FF] px-2 py-1 rounded-lg"
+                            >
+                              <Download size={12} />
+                              {file.originalName}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Submitted file info */}
+                      {sub?.submissionFile?.originalName && (
+                        <p className="mt-2 text-xs text-[#64748B] flex items-center gap-1">
+                          <FileText size={12} />
+                          Submitted: <span className="font-medium text-[#0F172A]">{sub.submissionFile.originalName}</span>
+                        </p>
+                      )}
+
+                      {/* Grade */}
+                      {isGraded && sub.grade && (
+                        <p className="mt-1 text-sm font-semibold text-[#1E40AF]">Grade: {sub.grade}{sub.remarks && <span className="font-normal text-[#64748B] ml-2">— {sub.remarks}</span>}</p>
+                      )}
+                    </div>
+
+                    {/* Submit button — hidden once submitted */}
+                    <div className="shrink-0">
+                      {!sub && hw.status === 'active' && (
+                        <button
+                          onClick={() => openSubmitModal(hw, false)}
+                          disabled={submittingId === hw._id}
+                          className="flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white text-sm font-semibold rounded-lg hover:bg-[#4338CA] disabled:opacity-50 transition-colors"
+                        >
+                          <Upload size={14} /> Submit
+                        </button>
+                      )}
+                      {sub && !isGraded && (
+                        <span className="flex items-center gap-1.5 px-3 py-2 bg-[#D1FAE5] text-[#065F46] text-xs font-semibold rounded-lg">
+                          <CheckCircle size={13} /> Submitted
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Submit Modal */}
+      {submitModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-[#0F172A]">
+                {submitModal.isResubmit ? 'Re-submit' : 'Submit'} Assignment
+              </h2>
+              <button onClick={() => setSubmitModal(null)} className="text-[#94A3B8] hover:text-[#0F172A]">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-[#64748B] mb-4">{submitModal.hwTitle}</p>
+            {submitModal.isResubmit && (
+              <p className="text-xs text-[#F59E0B] bg-[#FEF3C7] rounded-lg px-3 py-2 mb-4">Your previous submission will be replaced.</p>
+            )}
+            <div className="border-2 border-dashed border-[#E2E8F0] rounded-xl p-4 text-center mb-4">
+              <input
+                type="file"
+                id="submission-file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.zip"
+                onChange={(e) => setSelectedFile(e.target.files[0] || null)}
+              />
+              <label htmlFor="submission-file" className="cursor-pointer">
+                {selectedFile ? (
+                  <div className="flex items-center justify-center gap-2 text-[#4F46E5] font-medium">
+                    <FileText size={18} />
+                    <span className="text-sm truncate max-w-[260px]">{selectedFile.name}</span>
+                  </div>
+                ) : (
+                  <div className="text-[#94A3B8]">
+                    <Upload className="mx-auto mb-2" size={28} />
+                    <p className="text-sm font-medium">Click to choose file</p>
+                    <p className="text-xs mt-1">PDF, Word, Excel, PPT, images — max 20 MB</p>
+                  </div>
+                )}
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setSubmitModal(null)}
+                className="flex-1 h-10 border border-slate-200 rounded-lg font-medium text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                disabled={!selectedFile || submittingId === submitModal.hwId}
+                className="flex-1 h-10 bg-[#4F46E5] text-white rounded-lg font-medium text-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors"
+              >
+                {submittingId === submitModal.hwId ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
           </div>
         </div>
       )}

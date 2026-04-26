@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit';
 
 export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 1 * 60 * 1000,
   max: 10,
   message: { success: false, message: 'Too many login attempts, please try again after 15 minutes' },
   standardHeaders: true,
@@ -34,7 +34,7 @@ export const paymentLimiter = rateLimit({
 
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100,
+  max: 500,
   message: { success: false, message: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,

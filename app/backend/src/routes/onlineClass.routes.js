@@ -3,7 +3,7 @@ import {
   createOnlineClass,
   getOnlineClasses,
   getMyOnlineClasses,
-  deleteOnlineClass
+  deleteOnlineClass,
 } from '../controllers/onlineClass.controller.js';
 import { protect, authorize } from '../middleware/auth.js';
 

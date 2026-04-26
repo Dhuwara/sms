@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Edit, Trash2, Users, X, ChevronDown, Save, Pencil } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, X, ChevronDown, Save, Pencil, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
 import { useDispatch, useSelector } from 'react-redux';
@@ -107,7 +107,8 @@ const initScheduleDraft = (periods, existingSchedule) => {
 };
 
 const initDayDraft = (periods, tt, day) => {
-  return (periods || []).map((_, i) => ({
+  const dayPeriods = (periods || []).filter(p => (p.day || 'Monday') === day);
+  return dayPeriods.map((_, i) => ({
     subject: tt?.schedule?.[day]?.[i]?.subject || '',
     teacher: tt?.schedule?.[day]?.[i]?.teacher?.toString() || null,
   }));
@@ -364,6 +365,13 @@ const Classes = () => {
     setShowSubjectModal(true);
   };
 
+  const handleCloneSubject = (subj) => {
+    setSelectedSubject(null);
+    setSubjectForm({ name: `${subj.name} (Copy)`, code: `${subj.code}-2`, description: subj.description || '', standard: subj.standard || '' });
+    setSubjectErrors({});
+    setShowSubjectModal(true);
+  };
+
   const handleDeleteSubject = (id) => {
     setConfirmDialog({
       isOpen: true,
@@ -608,17 +616,18 @@ const Classes = () => {
       // propagate subject/teacher to the actual timetable schedule
       let updatedSchedule = { ...(ttPeriodTimetable?.schedule || {}) };
 
-      periodDraft.forEach((p, idx) => {
-        const day = p.day;
-        if (!updatedSchedule[day]) updatedSchedule[day] = [];
-        while (updatedSchedule[day].length <= idx) {
-          updatedSchedule[day].push({ periodIndex: updatedSchedule[day].length, subject: '', teacher: null });
-        }
-        updatedSchedule[day][idx] = {
-          periodIndex: idx,
+      const periodsByDay = {};
+      periodDraft.forEach((p) => {
+        const day = p.day || 'Monday';
+        if (!periodsByDay[day]) periodsByDay[day] = [];
+        periodsByDay[day].push(p);
+      });
+      Object.entries(periodsByDay).forEach(([day, dayPeriods]) => {
+        updatedSchedule[day] = dayPeriods.map((p, localIdx) => ({
+          periodIndex: localIdx,
           subject: p.subject || '',
-          teacher: p.teacher || null
-        };
+          teacher: p.teacher || null,
+        }));
       });
 
       const ttRes = await api.post('/api/timetable', {
@@ -656,7 +665,8 @@ const Classes = () => {
   const handleSaveDaySchedule = async () => {
     setTtDaySaving(true);
     try {
-      const daySchedule = (periodDraft || []).map((_, i) => ({
+      const dayPeriods = (periodDraft || []).filter(p => (p.day || 'Monday') === ttPeriodDay);
+      const daySchedule = dayPeriods.map((_, i) => ({
         periodIndex: i,
         subject: dayDraft[i]?.subject || '',
         teacher: dayDraft[i]?.teacher || null,
@@ -675,6 +685,44 @@ const Classes = () => {
       toast.success(`${ttPeriodDay} schedule saved!`);
     } catch {
       toast.error('Failed to save schedule');
+    } finally {
+      setTtDaySaving(false);
+    }
+  };
+
+  const handleCopyToAllDays = async () => {
+    setTtDaySaving(true);
+    try {
+      const srcPeriods = (periodDraft || []).filter(p => (p.day || 'Monday') === ttPeriodDay);
+      const daySchedule = srcPeriods.map((_, i) => ({
+        periodIndex: i,
+        subject: dayDraft[i]?.subject || '',
+        teacher: dayDraft[i]?.teacher || null,
+      }));
+
+      // Replicate period config entries for all days
+      const newPeriodDraft = DAYS.flatMap(day => srcPeriods.map(p => ({ ...p, day })));
+      const configRes = await api.post('/api/timetable/periods', {
+        classId: ttPeriodClassId,
+        academicYear: getAcademicYear(),
+        periods: newPeriodDraft,
+      });
+      setPeriodConfig(configRes.data);
+      setPeriodDraft(configRes.data.periods || []);
+
+      // Apply same schedule to every day
+      const newSchedule = {};
+      DAYS.forEach(day => { newSchedule[day] = daySchedule; });
+      const ttRes = await api.post('/api/timetable', {
+        classId: ttPeriodClassId,
+        academicYear: getAcademicYear(),
+        schedule: newSchedule,
+      });
+      setTtPeriodTimetable(ttRes.data);
+      setTtDayEditMode(false);
+      toast.success('Schedule copied to all days!');
+    } catch {
+      toast.error('Failed to copy schedule');
     } finally {
       setTtDaySaving(false);
     }
@@ -875,6 +923,9 @@ const Classes = () => {
                       <td className="px-6 py-4 text-sm text-[#64748B] capitalize">{subj.description || '—'}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => handleCloneSubject(subj)} title="Clone subject" className="p-2 text-[#4F46E5] hover:bg-[#EEF2FF] rounded-lg transition-colors">
+                            <Copy size={18} />
+                          </button>
                           <button onClick={() => handleEditSubject(subj)} className="p-2 text-[#F59E0B] hover:bg-[#FEF3C7] rounded-lg transition-colors">
                             <Edit size={18} />
                           </button>
@@ -1109,13 +1160,7 @@ const Classes = () => {
                                       )}
                                     </td>
                                     <td className="px-4 py-3">
-                                      {ttEditMode ? (
-                                        <select value={p.day || 'Monday'} onChange={(e) => handlePeriodChange(p.globalIdx, 'day', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
-                                          {DAYS.map((d) => <option key={d} value={d}>{d.slice(0, 3)}</option>)}
-                                        </select>
-                                      ) : (
-                                        <span className="text-sm text-[#64748B]">{p.day || 'Monday'}</span>
-                                      )}
+                                      <span className="text-sm text-[#64748B]">{p.day || ttGenerator.targetDay}</span>
                                     </td>
                                     <td className="px-4 py-3">
                                       {ttEditMode ? (
@@ -1220,15 +1265,14 @@ const Classes = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
-                            {periodDraft.filter((p) => (p.day || 'Monday') === ttPeriodDay).map((p) => {
-                              const actualIndex = periodDraft.indexOf(p);
+                            {periodDraft.filter((p) => (p.day || 'Monday') === ttPeriodDay).map((p, localIdx) => {
                               const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
                               const needsAssignment = p.type === 'class' || p.type === 'lab';
-                              const entry = dayDraft[actualIndex] || { subject: '', teacher: '' };
+                              const entry = dayDraft[localIdx] || { subject: '', teacher: '' };
                               const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
                               return (
-                                <tr key={actualIndex} className={`${typeInfo.rowBg} transition-all`}>
-                                  <td className="px-4 py-3 text-sm text-center text-[#64748B]">{actualIndex + 1}</td>
+                                <tr key={localIdx} className={`${typeInfo.rowBg} transition-all`}>
+                                  <td className="px-4 py-3 text-sm text-center text-[#64748B]">{localIdx + 1}</td>
                                   <td className="px-4 py-3 text-sm font-medium text-[#0F172A]">{p.name}</td>
                                   <td className="px-4 py-3 text-sm text-[#64748B]">{p.startTime}–{p.endTime}</td>
                                   <td className="px-4 py-3">
@@ -1236,7 +1280,7 @@ const Classes = () => {
                                   </td>
                                   <td className="px-4 py-3">
                                     {needsAssignment && ttDayEditMode ? (
-                                      <select value={entry.subject} onChange={(e) => handleDayDraftChange(actualIndex, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
+                                      <select value={entry.subject} onChange={(e) => handleDayDraftChange(localIdx, 'subject', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none">
                                         <option value="">Select Subject</option>
                                         {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                                       </select>
@@ -1246,7 +1290,7 @@ const Classes = () => {
                                   </td>
                                   <td className="px-4 py-3">
                                     {needsAssignment && ttDayEditMode ? (
-                                      <select value={entry.teacher} onChange={(e) => handleDayDraftChange(actualIndex, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!entry.subject}>
+                                      <select value={entry.teacher} onChange={(e) => handleDayDraftChange(localIdx, 'teacher', e.target.value)} className="h-8 px-2 border border-[#FCD34D] rounded text-sm focus:outline-none" disabled={!entry.subject}>
                                         <option value="">{entry.subject ? 'Select Teacher' : 'Select subject first'}</option>
                                         {teachers.filter((t) => t.subjects?.includes(entry.subject)).map((t) => (
                                           <option key={t._id} value={t._id}>{t.name}</option>
@@ -1265,14 +1309,20 @@ const Classes = () => {
                         </table>
                       </div>
                       {ttDayEditMode && (
-                        <div className="px-4 py-4 border-t-2 border-[#FCD34D] flex items-center justify-end gap-3">
-                          <button type="button" onClick={() => { setDayDraft(initDayDraft(periodDraft, ttPeriodTimetable, ttPeriodDay)); setTtDayEditMode(false); }} className="border-2 border-gray-300 text-[#64748B] hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                            Cancel
+                        <div className="px-4 py-4 border-t-2 border-[#FCD34D] flex items-center justify-between flex-wrap gap-3">
+                          <button type="button" onClick={() => setConfirmDialog({ isOpen: true, title: 'Copy to All Days', message: `This will overwrite the period setup and subject/teacher assignments for all other days with ${ttPeriodDay}'s data. Continue?`, confirmText: 'Copy to All', variant: 'warning', onConfirm: () => { setConfirmDialog(prev => ({ ...prev, isOpen: false })); handleCopyToAllDays(); } })} disabled={ttDaySaving} className="flex items-center gap-2 border-2 border-[#6366F1] text-[#6366F1] hover:bg-indigo-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+                            <Copy size={14} />
+                            Copy to All Days
                           </button>
-                          <button type="button" onClick={handleSaveDaySchedule} disabled={ttDaySaving} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
-                            <Save size={14} />
-                            {ttDaySaving ? 'Saving...' : `Save ${ttPeriodDay}`}
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button type="button" onClick={() => { setDayDraft(initDayDraft(periodDraft, ttPeriodTimetable, ttPeriodDay)); setTtDayEditMode(false); }} className="border-2 border-gray-300 text-[#64748B] hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                              Cancel
+                            </button>
+                            <button type="button" onClick={handleSaveDaySchedule} disabled={ttDaySaving} className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+                              <Save size={14} />
+                              {ttDaySaving ? 'Saving...' : `Save ${ttPeriodDay}`}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1313,53 +1363,60 @@ const Classes = () => {
                       <thead className="bg-linear-to-r from-[#FEF3C7] to-[#FEE2E2]">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase min-w-28">Day</th>
-                          {periodConfig.periods.map((p, i) => {
-                            const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
-                            return (
-                              <th key={i} className={`px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase min-w-32 ${typeInfo.rowBg}`}>
-                                {p.name}
-                                <div className="text-[10px] font-normal text-[#64748B] mt-0.5">{p.startTime}–{p.endTime}</div>
-                              </th>
-                            );
-                          })}
+                          {(() => {
+                            const refDay = DAYS.find(d => periodConfig.periods.some(p => (p.day || 'Monday') === d)) || 'Monday';
+                            return periodConfig.periods.filter(p => (p.day || 'Monday') === refDay).map((p, i) => {
+                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                              return (
+                                <th key={i} className={`px-4 py-3 text-center text-xs font-bold text-[#0F172A] uppercase min-w-32 ${typeInfo.rowBg}`}>
+                                  {p.name}
+                                  <div className="text-[10px] font-normal text-[#64748B] mt-0.5">{p.startTime}–{p.endTime}</div>
+                                </th>
+                              );
+                            });
+                          })()}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {DAYS.map((day) => (
-                          <tr key={day} className="hover:bg-[#FFFBEB]">
-                            <td className="px-4 py-3 font-semibold text-sm text-[#0F172A]">{day}</td>
-                            {periodConfig.periods.map((p, i) => {
-                              const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
-                              if (p.type !== 'class' && p.type !== 'lab') {
+                        {DAYS.map((day) => {
+                          const refDay = DAYS.find(d => periodConfig.periods.some(p => (p.day || 'Monday') === d)) || 'Monday';
+                          const templatePeriods = periodConfig.periods.filter(p => (p.day || 'Monday') === refDay);
+                          return (
+                            <tr key={day} className="hover:bg-[#FFFBEB]">
+                              <td className="px-4 py-3 font-semibold text-sm text-[#0F172A]">{day}</td>
+                              {templatePeriods.map((p, i) => {
+                                const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
+                                if (p.type !== 'class' && p.type !== 'lab') {
+                                  return (
+                                    <td key={i} className={`px-3 py-3 text-center text-xs font-semibold text-[#64748B] ${typeInfo.rowBg}`}>
+                                      {typeInfo.label}
+                                    </td>
+                                  );
+                                }
+                                const entry = timetable?.schedule?.[day]?.[i];
+                                const subj = entry?.subject || '—';
+                                const teacherName = entry?.teacher
+                                  ? (teachers.find((t) => t._id?.toString() === entry.teacher?.toString())?.name || '—')
+                                  : '—';
+                                if (p.type === 'lab') {
+                                  return (
+                                    <td key={i} className={`px-3 py-3 text-center text-xs ${typeInfo.rowBg}`}>
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
+                                      {entry?.subject && <div className="text-[#0F172A] text-xs mt-1">{subj}</div>}
+                                      {entry?.subject && <div className="text-[#64748B] text-xs">{teacherName}</div>}
+                                    </td>
+                                  );
+                                }
                                 return (
-                                  <td key={i} className={`px-3 py-3 text-center text-xs font-semibold text-[#64748B] ${typeInfo.rowBg}`}>
-                                    {typeInfo.label}
+                                  <td key={i} className="px-3 py-3 text-center">
+                                    <div className="text-sm font-medium text-[#0F172A]">{subj}</div>
+                                    {entry?.subject && <div className="text-xs text-[#64748B] mt-0.5">{teacherName}</div>}
                                   </td>
                                 );
-                              }
-                              const entry = timetable?.schedule?.[day]?.[i];
-                              const subj = entry?.subject || '—';
-                              const teacherName = entry?.teacher
-                                ? (teachers.find((t) => t._id?.toString() === entry.teacher?.toString())?.name || '—')
-                                : '—';
-                              if (p.type === 'lab') {
-                                return (
-                                  <td key={i} className={`px-3 py-3 text-center text-xs ${typeInfo.rowBg}`}>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeInfo.badge}`}>{typeInfo.label}</span>
-                                    {entry?.subject && <div className="text-[#0F172A] text-xs mt-1">{subj}</div>}
-                                    {entry?.subject && <div className="text-[#64748B] text-xs">{teacherName}</div>}
-                                  </td>
-                                );
-                              }
-                              return (
-                                <td key={i} className="px-3 py-3 text-center">
-                                  <div className="text-sm font-medium text-[#0F172A]">{subj}</div>
-                                  {entry?.subject && <div className="text-xs text-[#64748B] mt-0.5">{teacherName}</div>}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                              })}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1598,7 +1655,7 @@ const Classes = () => {
                   <select
                     id="c-standard"
                     value={classForm.standard}
-                    onChange={(e) => setClassForm({ ...classForm, standard: e.target.value, section: '' })}
+                    onChange={(e) => setClassForm({ ...classForm, standard: e.target.value, section: '', subjects: [] })}
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   >
                     {STANDARDS.map((s) => (
@@ -1710,10 +1767,14 @@ const Classes = () => {
                     </div>
                     {subjectDropdownOpen && (
                       <div className="absolute z-10 mt-1 w-full bg-white border-2 border-[#FCD34D] rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {dbSubjects.length === 0 ? (
-                          <p className="px-4 py-3 text-sm text-gray-500">No subjects found. Add subjects first.</p>
-                        ) : (
-                          dbSubjects.map((subj) => (
+                        {(() => {
+                          const filtered = dbSubjects.filter((s) => s.standard === classForm.standard);
+                          if (filtered.length === 0) return (
+                            <p className="px-4 py-3 text-sm text-gray-500">
+                              {dbSubjects.length === 0 ? 'No subjects found. Add subjects first.' : `No subjects added for standard ${classForm.standard}.`}
+                            </p>
+                          );
+                          return filtered.map((subj) => (
                             <label key={subj._id} className="flex items-center gap-3 px-4 py-2 hover:bg-[#FFFBEB] cursor-pointer">
                               <input
                                 type="checkbox"
@@ -1723,8 +1784,8 @@ const Classes = () => {
                               />
                               <span className="text-sm text-[#0F172A]">{subj.name} <span className="text-[#64748B] uppercase">({subj.code})</span></span>
                             </label>
-                          ))
-                        )}
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>

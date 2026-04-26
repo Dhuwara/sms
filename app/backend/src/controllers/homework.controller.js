@@ -9,6 +9,7 @@ import ClassMapping from '../models/ClassMapping.js';
 import { sendWhatsAppBulk, getParentPhones } from '../utils/whatsapp.js';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'homework');
+const SUBMISSION_DIR = path.join(process.cwd(), 'uploads', 'homework-submissions');
 
 export const getHomework = async (req, res, next) => {
   try {
@@ -86,10 +87,16 @@ export const deleteHomework = async (req, res, next) => {
   try {
     const homework = await Homework.findById(req.params.id);
     if (!homework) return res.status(404).json({ success: false, message: 'Homework not found' });
-    // Delete attached files
     for (const att of homework.attachments || []) {
       const fp = path.join(UPLOAD_DIR, att.filename);
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    }
+    const submissions = await HomeworkSubmission.find({ homeworkId: req.params.id });
+    for (const sub of submissions) {
+      if (sub.submissionFile?.filename) {
+        const fp = path.join(SUBMISSION_DIR, sub.submissionFile.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
     }
     await homework.deleteOne();
     await HomeworkSubmission.deleteMany({ homeworkId: req.params.id });
@@ -142,12 +149,53 @@ export const submitHomework = async (req, res, next) => {
 
     const isLate = new Date() > new Date(homework.dueDate);
 
+    // If re-submitting, delete old submission file
+    const existing = await HomeworkSubmission.findOne({ homeworkId: req.params.id, studentId: student._id });
+    if (existing?.submissionFile?.filename) {
+      const oldPath = path.join(SUBMISSION_DIR, existing.submissionFile.filename);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const update = {
+      content: req.body.content,
+      status: isLate ? 'late' : 'submitted',
+      submittedAt: new Date(),
+      schoolId: req.user.schoolId,
+    };
+
+    if (req.file) {
+      update.submissionFile = {
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+      };
+    }
+
     const submission = await HomeworkSubmission.findOneAndUpdate(
       { homeworkId: req.params.id, studentId: student._id },
-      { content: req.body.content, status: isLate ? 'late' : 'submitted', submittedAt: new Date() },
-      { upsert: true, new: true }
+      update,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     res.json({ success: true, data: submission });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const downloadSubmissionFile = async (req, res, next) => {
+  try {
+    const submission = await HomeworkSubmission.findById(req.params.submissionId);
+    if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
+    if (!submission.submissionFile?.filename) return res.status(404).json({ success: false, message: 'No file attached to this submission' });
+
+    const filePath = path.join(SUBMISSION_DIR, submission.submissionFile.filename);
+    if (!path.resolve(filePath).startsWith(path.resolve(SUBMISSION_DIR))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found on server' });
+
+    res.download(filePath, submission.submissionFile.originalName);
   } catch (err) {
     next(err);
   }

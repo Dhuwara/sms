@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileText, BookOpen, ClipboardCheck, Book, Upload, Download, XCircle, Video, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, BookOpen, ClipboardCheck, Book, Upload, Download, XCircle, Video, Plus, Users, Clock, CheckCircle } from 'lucide-react';
 
 const Academic = ({
   staffData,
@@ -40,6 +40,8 @@ const Academic = ({
   handleDownloadStudyMaterial,
   handleDeleteStudyMaterial,
   handleDeleteOnlineClass,
+  handleViewSubmissions,
+  handleDownloadSubmissionFile,
   setLessonPlanForm,
   setShowLessonPlanModal,
   formatDate,
@@ -48,6 +50,14 @@ const Academic = ({
 }) => {
   const assignedClasses = academicClasses?.length > 0 ? academicClasses : (staffData?.classesAssigned || []);
   const selectedClassObj = assignedClasses.find(c => c._id === selectedAcademicClass);
+
+  const [submissionsModal, setSubmissionsModal] = useState(null); // { hw, submissions, loading }
+
+  const openSubmissions = async (hw) => {
+    setSubmissionsModal({ hw, submissions: [], loading: true });
+    const data = await handleViewSubmissions(hw._id);
+    setSubmissionsModal({ hw, submissions: data || [], loading: false });
+  };
 
   const handleClassChange = (classId) => {
     setSelectedAcademicClass(classId);
@@ -150,13 +160,18 @@ const Academic = ({
           <div className="space-y-3 mb-4 max-h-[260px] overflow-y-auto pr-1">
             {classHomework.length > 0 ? classHomework.map((hw) => (
               <div key={hw._id} className="p-3 border-2 border-[#E2E8F0] rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm">{hw.title}</p>
                     <p className="text-xs text-[#64748B]">{hw.classId?.name} {hw.classId?.section} • Due: {formatDate(hw.dueDate)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-[#DBEAFE] text-[#1E40AF] px-2 py-1 rounded-full">{hw.submissionCount || 0} submissions</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => openSubmissions(hw)}
+                      className="flex items-center gap-1 text-xs bg-[#DBEAFE] text-[#1E40AF] px-2 py-1 rounded-full hover:bg-[#BFDBFE] transition-colors"
+                    >
+                      <Users size={11} /> {hw.submissionCount || 0} submissions
+                    </button>
                     <button onClick={() => handleDeleteHomework(hw._id)} className="text-red-400 hover:text-red-600"><XCircle size={16} /></button>
                   </div>
                 </div>
@@ -411,6 +426,80 @@ const Academic = ({
                 <button type="submit" disabled={onlineClassSubmitting} className="flex-1 h-10 bg-[#EF4444] text-white rounded-lg font-medium disabled:opacity-50 hover:bg-[#DC2626]">{onlineClassSubmitting ? 'Saving...' : 'Schedule'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal */}
+      {submissionsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-start mb-4 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-[#0F172A]">Submissions</h2>
+                <p className="text-sm text-[#64748B]">{submissionsModal.hw.title} • Due: {formatDate(submissionsModal.hw.dueDate)}</p>
+              </div>
+              <button onClick={() => setSubmissionsModal(null)} className="text-[#94A3B8] hover:text-[#0F172A]"><XCircle size={22} /></button>
+            </div>
+
+            {submissionsModal.loading ? (
+              <div className="flex-1 flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]" />
+              </div>
+            ) : submissionsModal.submissions.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-[#64748B] text-sm">No submissions yet.</div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#FEF3C7] sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-bold text-[#0F172A]">Student</th>
+                      <th className="px-4 py-2 text-left font-bold text-[#0F172A]">Submitted At</th>
+                      <th className="px-4 py-2 text-left font-bold text-[#0F172A]">Status</th>
+                      <th className="px-4 py-2 text-left font-bold text-[#0F172A]">File</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2E8F0]">
+                    {submissionsModal.submissions.map((sub) => {
+                      const isLate = sub.status === 'late';
+                      const isGraded = sub.status === 'graded';
+                      return (
+                        <tr key={sub._id} className="hover:bg-[#FFFBEB]">
+                          <td className="px-4 py-3 font-medium text-[#0F172A]">
+                            {sub.studentId?.userId?.name || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-[#64748B] text-xs">
+                            {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isGraded ? (
+                              <span className="flex items-center gap-1 w-fit px-2 py-0.5 text-xs font-semibold rounded-full bg-[#DBEAFE] text-[#1E40AF]"><CheckCircle size={10} /> Graded</span>
+                            ) : isLate ? (
+                              <span className="flex items-center gap-1 w-fit px-2 py-0.5 text-xs font-semibold rounded-full bg-[#FEF3C7] text-[#92400E]"><Clock size={10} /> Late</span>
+                            ) : (
+                              <span className="flex items-center gap-1 w-fit px-2 py-0.5 text-xs font-semibold rounded-full bg-[#D1FAE5] text-[#065F46]"><CheckCircle size={10} /> On Time</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.submissionFile?.originalName ? (
+                              <button
+                                onClick={() => handleDownloadSubmissionFile(submissionsModal.hw._id, sub._id, sub.submissionFile.originalName)}
+                                className="flex items-center gap-1 text-xs text-[#4F46E5] hover:underline"
+                              >
+                                <Download size={12} />
+                                <span className="truncate max-w-[160px]">{sub.submissionFile.originalName}</span>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-[#94A3B8]">No file</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [formLoading, setFormLoading] = useState(false);
 
   const features = [
     { icon: Calendar, title: 'Attendance Management', desc: 'Mark attendance digitally and generate reports instantly.' },
@@ -34,10 +35,27 @@ const LandingPage = () => {
     'Private & Trust-run Institutions',
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success('Thank you! We will contact you soon.');
-    setFormData({ name: '', email: '', message: '' });
+    setFormLoading(true);
+    try {
+      const res = await fetch('/api/enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Thank you! We will contact you soon.');
+        setFormData({ name: '', email: '', message: '' });
+      } else {
+        toast.error(data.message || 'Failed to send message. Please try again.');
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const scrollToSection = (id) => {
@@ -124,11 +142,11 @@ const LandingPage = () => {
                 Streamline attendance, fees, exams, timetables, and parent communication with our comprehensive platform designed for Indian and International schools.
               </p>
               <div className="flex flex-wrap gap-4">
-                <button className="bg-[#DC2626] text-white hover:bg-[#B91C1C] px-8 py-4 rounded-lg font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <button
+                  onClick={() => scrollToSection('contact')}
+                  className="bg-[#DC2626] text-white hover:bg-[#B91C1C] px-8 py-4 rounded-lg font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                >
                   Book a Free Demo
-                </button>
-                <button className="bg-white text-[#DC2626] border-2 border-[#DC2626] hover:bg-[#DC2626] hover:text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all shadow-md">
-                  Request Pricing
                 </button>
               </div>
               <div className="mt-8 flex items-center gap-6 text-sm text-[#0F172A]/70">
@@ -319,9 +337,10 @@ const LandingPage = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-[#DC2626] text-white hover:bg-[#B91C1C] h-12 px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                  disabled={formLoading}
+                  className="w-full bg-[#DC2626] text-white hover:bg-[#B91C1C] h-12 px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Send Message
+                  {formLoading ? 'Sending...' : 'Send Message'}
                 </button>
               </form>
             </div>

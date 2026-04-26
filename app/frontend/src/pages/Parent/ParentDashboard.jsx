@@ -239,7 +239,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
       case 'transport': return <Transport selectedChild={selectedChild} childSelector={childSelector} />;
       case 'health': return <Health selectedChild={selectedChild} user={user} childSelector={childSelector} />;
       case 'activities': return <Activities scholarships={childScholarships} awards={childAwards} selectedChild={selectedChild} childSelector={childSelector} />;
-      case 'settings': return <Settings user={user} />;
+      case 'settings': return <Settings user={user} setShowPasswordModal={setShowPasswordModal} />;
       default: return <Profile user={user} childrenList={children} selectedChild={selectedChild} childSelector={childSelector} setShowPasswordModal={setShowPasswordModal} />;
     }
   };
@@ -247,7 +247,7 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
   return (
     <div className="space-y-6">
       <div className="bg-linear-to-r from-[#D1FAE5] to-[#DBEAFE] rounded-2xl p-6 border-2 border-[#10B981]">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.full_name}!</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-1">Welcome, {user?.name}!</h1>
         <p className="text-base text-[#64748B]">Parent Portal - {user?.schoolName || 'Your School'}</p>
       </div>
 

@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Student from '../models/Student.js';
 import Parent from '../models/Parent.js';
 import ClassMapping from '../models/ClassMapping.js';
+import School from '../models/School.js';
 import { generateNextId } from './counter.controller.js';
 
 const toFlat = (s) => ({
@@ -73,6 +74,13 @@ export const createStudent = async (req, res, next) => {
     const exists = await User.findOne({ email: email.trim().toLowerCase() });
     if (exists) return res.status(400).json({ success: false, message: 'Email already in use' });
 
+    const school = await School.findById(schoolId).select('subscription');
+    const maxStudents = school?.subscription?.maxStudents ?? 500;
+    const currentCount = await Student.countDocuments({ schoolId });
+    if (currentCount >= maxStudents) {
+      return res.status(403).json({ success: false, message: `Student limit reached. Your plan allows a maximum of ${maxStudents} students. Please contact support to upgrade.` });
+    }
+
     const rollNumber = await generateNextId('rollNumber', schoolId);
     const passwordHash = await bcrypt.hash(password || 'Student@123', 12);
     const user = await User.create({ name, email, passwordHash, role: 'student', schoolId });
@@ -123,8 +131,8 @@ export const createStudent = async (req, res, next) => {
 
 export const updateStudent = async (req, res, next) => {
   try {
-    const { name, email, dob, gender, parent_contact, parent_occupation, address, classId, password, status, studentType, bloodGroup, standard } = req.body;
-    const student = await Student.findById(req.params.id);
+    const { name, email, dob, gender, parent_contact, parent_occupation, address, classId, password, status, studentType, bloodGroup, standard, parent_name, parent_email } = req.body;
+    const student = await Student.findById(req.params.id).populate('parentId');
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const userUpdate = {};
@@ -132,6 +140,16 @@ export const updateStudent = async (req, res, next) => {
     if (email) userUpdate.email = email;
     if (password) userUpdate.passwordHash = await bcrypt.hash(password, 12);
     if (Object.keys(userUpdate).length > 0) await User.findByIdAndUpdate(student.userId, userUpdate);
+
+    // Update parent's User record
+    if (student.parentId) {
+      const parentUpdate = {};
+      if (parent_name) parentUpdate.name = parent_name;
+      if (parent_email) parentUpdate.email = parent_email;
+      if (Object.keys(parentUpdate).length > 0) {
+        await User.findByIdAndUpdate(student.parentId.userId, parentUpdate);
+      }
+    }
 
     await Student.findByIdAndUpdate(req.params.id, {
       ...(classId && { classId }),

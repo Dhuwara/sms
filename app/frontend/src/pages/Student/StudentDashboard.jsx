@@ -35,6 +35,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
   const [schoolEvents, setSchoolEvents] = useState([]);
   const [studentLeaves, setStudentLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submittingHomeworkId, setSubmittingHomeworkId] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [myLibraryIssues, setMyLibraryIssues] = useState([]);
 
@@ -243,6 +244,24 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     }
   };
 
+  const handleSubmitHomework = async (hwId, file) => {
+    setSubmittingHomeworkId(hwId);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await api.post(`/api/homework/${hwId}/submit`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Assignment submitted successfully');
+      const hwRes = await api.get('/api/homework/my-homework');
+      setHomeworkData(hwRes.data?.data || hwRes.data || []);
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to submit assignment');
+      return false;
+    } finally {
+      setSubmittingHomeworkId(null);
+    }
+  };
+
   const handleDownloadStudyMaterial = async (materialId, originalName) => {
     try {
       const response = await api.get(`/api/study-materials/${materialId}/download`, { responseType: 'blob' });
@@ -350,7 +369,7 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       case 'attendance': return <Attendance attendanceData={attendanceData} studentLeaves={studentLeaves} setIsLeaveModalOpen={setIsLeaveModalOpen} formatDate={formatDate} />;
       case 'timetable': return <Timetable timetableData={timetableData} periodConfig={periodConfig} scheduleData={scheduleData} schoolEvents={schoolEvents} formatDate={formatDate} getAcademicYear={getAcademicYear} />;
       case 'online-classes': return <OnlineClasses onlineClasses={onlineClasses} scheduleData={scheduleData} />;
-      case 'homework': return <Homework homeworkData={homeworkData} lessonPlansData={lessonPlansData} studyMaterialsData={studyMaterialsData} handleDownloadFile={handleDownloadFile} handleDownloadLessonPlan={handleDownloadLessonPlan} handleDownloadStudyMaterial={handleDownloadStudyMaterial} formatDate={formatDate} />;
+      case 'homework': return <Homework homeworkData={homeworkData} lessonPlansData={lessonPlansData} studyMaterialsData={studyMaterialsData} handleDownloadFile={handleDownloadFile} handleDownloadLessonPlan={handleDownloadLessonPlan} handleDownloadStudyMaterial={handleDownloadStudyMaterial} handleSubmitHomework={handleSubmitHomework} submittingId={submittingHomeworkId} formatDate={formatDate} />;
       case 'exams': return <Exams exams={exams} examResults={examResults} formatDate={formatDate} formatTime={formatTime} getGradeBadge={getGradeBadge} getAcademicYear={getAcademicYear} />;
       case 'communication': return <Communication announcements={announcements} messages={messages} schoolEvents={schoolEvents} formatDate={formatDate} getEventStyle={getEventStyle} />;
       case 'fees': return <Fees feesData={feesData} getAcademicYear={getAcademicYear} formatDate={formatDate} />;

@@ -33,7 +33,7 @@ const Attendance = () => {
       setStudents(response.data || []);
       const attendanceObj = {};
       response.data?.forEach((student) => {
-        attendanceObj[student._id] = student.status || 'absent';
+        attendanceObj[student._id] = student.status || '';
       });
       setAttendance(attendanceObj);
     } catch (error) {
@@ -50,7 +50,7 @@ const Attendance = () => {
         setStudents(response.data || []);
         const attendanceObj = {};
         response.data?.forEach((student) => {
-          attendanceObj[student._id] = student.status || 'absent';
+          attendanceObj[student._id] = student.status || '';
         });
         setAttendance(attendanceObj);
       } catch (error) {
@@ -188,14 +188,6 @@ const Attendance = () => {
               <Download size={18} />
               Export Excel
             </button>
-            <button
-              onClick={handleSaveAttendance}
-              disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-[#DC2626] text-white hover:bg-[#B91C1C] rounded-lg font-semibold disabled:opacity-50 sm:ml-auto text-sm sm:text-base w-full sm:w-auto justify-center"
-            >
-              <Plus size={18} />
-              {loading ? 'Saving...' : 'Save Attendance'}
-            </button>
           </div>
         )}
       </div>
@@ -257,6 +249,16 @@ const Attendance = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-end px-6 py-4 border-t-2 border-[#FCD34D]">
+            <button
+              onClick={handleSaveAttendance}
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-2 bg-[#DC2626] text-white hover:bg-[#B91C1C] rounded-lg font-semibold disabled:opacity-50"
+            >
+              <Plus size={18} />
+              {loading ? 'Saving...' : 'Save Attendance'}
+            </button>
           </div>
         </div>
       ) : selectedClass ? (

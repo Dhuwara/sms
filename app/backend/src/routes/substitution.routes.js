@@ -4,6 +4,7 @@ import {
   getSubstitutions, getMySubstituteDuties,
   createSubstitution, updateSubstitution, deleteSubstitution,
   getPeriodsByClassAndDate, respondToSubstitution,
+  getFreePeriodsByAbsentTeacher, getFreeTeachersForPeriod,
 } from '../controllers/substitution.controller.js';
 
 const router = Router();
@@ -14,6 +15,8 @@ router.get('/my-duties', authorize('staff', 'admin'), getMySubstituteDuties);
 
 // Cascading data for admin form
 router.get('/periods-by-class', authorize('admin'), getPeriodsByClassAndDate);
+router.get('/free-periods', authorize('admin'), getFreePeriodsByAbsentTeacher);
+router.get('/free-teachers', authorize('admin'), getFreeTeachersForPeriod);
 
 // Admin CRUD
 router.get('/', authorize('admin', 'staff'), getSubstitutions);

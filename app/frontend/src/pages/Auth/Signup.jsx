@@ -16,6 +16,7 @@ const Signup = () => {
     adminName: '',
     adminEmail: '',
     adminPhone: '',
+    whatsappNumber: '',
     password: '',
     confirmPassword: '',
   });
@@ -48,6 +49,7 @@ const Signup = () => {
         adminName: formData.adminName,
         adminEmail: formData.adminEmail,
         adminPhone: formData.adminPhone,
+        whatsappNumber: formData.whatsappNumber,
         password: formData.password,
       });
       toast.success('School registered successfully! Please login.');
@@ -250,6 +252,22 @@ const Signup = () => {
                   className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
                   placeholder="+91 9876543210"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="whatsappNumber" className="block text-sm font-medium text-[#0F172A] mb-2">
+                  WhatsApp Number <span className="text-[#64748B] font-normal">(optional)</span>
+                </label>
+                <input
+                  id="whatsappNumber"
+                  name="whatsappNumber"
+                  type="tel"
+                  value={formData.whatsappNumber}
+                  onChange={handleChange}
+                  className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all"
+                  placeholder="+91 9876543210"
+                />
+                <p className="text-xs text-[#64748B] mt-1">Used to send WhatsApp messages to parents & staff</p>
               </div>
 
               <div className="relative">

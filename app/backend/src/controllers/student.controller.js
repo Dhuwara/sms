@@ -1,5 +1,5 @@
 import Student from '../models/Student.js';
-import Grade from '../models/Grade.js';
+import ExamResult from '../models/ExamResult.js';
 import Attendance from '../models/Attendance.js';
 import Subject from '../models/Subject.js';
 import FeeRecord from '../models/FeeRecord.js';
@@ -13,9 +13,17 @@ const getStudentProfile = async (userId) => {
 export const getMyGrades = async (req, res, next) => {
   try {
     const student = await getStudentProfile(req.user.userId);
-    const grades = await Grade.find({ studentId: student._id })
-      .populate('subjectId', 'name')
-      .sort({ term: 1 });
+    const results = await ExamResult.find({ studentId: student._id })
+      .populate('examId', 'subject examType maxScore date')
+      .sort({ createdAt: 1 });
+    const grades = results.map(r => ({
+      _id: r._id,
+      subjectId: { name: r.examId?.subject || '—' },
+      marks: r.marks,
+      totalMarks: r.examId?.maxScore || 100,
+      grade: r.grade,
+      term: r.examId?.examType || '—',
+    }));
     res.json({ success: true, data: grades });
   } catch (err) {
     next(err);

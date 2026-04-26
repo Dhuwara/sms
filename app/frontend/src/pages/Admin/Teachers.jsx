@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import api from '@/utils/api';
-import { Plus, Edit, Trash2, Eye, Users, BookOpen, Calendar, X, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, BookOpen, X, ChevronDown, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTeachers, fetchSubjects } from '@/store/slices/classesSlice';
@@ -37,7 +37,6 @@ const EMPTY_FORM = {
 const Teachers = () => {
   const dispatch = useDispatch();
   const teachers = useSelector(s => s.classes.teachers);
-  const teachersStatus = useSelector(s => s.classes.teachersStatus);
   const rawSubjects = useSelector(s => s.classes.subjects);
   const subjectsStatus = useSelector(s => s.classes.subjectsStatus);
   const dbSubjects = React.useMemo(() => {
@@ -49,12 +48,20 @@ const Teachers = () => {
     dbSubjects.forEach(s => { map[s.code] = s.name; });
     return map;
   }, [dbSubjects]);
+  const [isEye, setIsEye] = useState(false);
+  const handlePassword = () => setIsEye(prev => !prev);
+
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [absentTeacherIds, setAbsentTeacherIds] = useState(new Set());
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveFilter, setLeaveFilter] = useState('pending');
+  const [degreeSelect, setDegreeSelect] = useState('');
+  const [specSelect, setSpecSelect] = useState('');
   const [loading, setLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
@@ -75,9 +82,53 @@ const Teachers = () => {
   };
 
   useEffect(() => {
-    if (teachersStatus === 'idle') dispatch(fetchTeachers());
+    dispatch(fetchTeachers());
     if (subjectsStatus === 'idle') dispatch(fetchSubjects());
-  }, [teachersStatus, subjectsStatus, dispatch]);
+  }, [subjectsStatus, dispatch]);
+
+  const fetchLeaveRequests = (filter = leaveFilter) => {
+    api.get(`/api/staff/leave-requests?status=${filter}`)
+      .then(res => setLeaveRequests(res.data || []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    api.get(`/api/staff/absent?date=${today}`)
+      .then(res => setAbsentTeacherIds(new Set((res.data || []).map(s => s._id))))
+      .catch(() => {});
+    fetchLeaveRequests('pending');
+  }, []);
+
+  const handleMarkAbsent = async (staffId) => {
+    try {
+      await api.post(`/api/staff/${staffId}/mark-absent`, {});
+      setAbsentTeacherIds(prev => new Set([...prev, staffId]));
+      toast.success('Teacher marked as absent for today');
+    } catch {
+      toast.error('Failed to mark teacher as absent');
+    }
+  };
+
+  const handleLeaveAction = async (leaveId, action, staffId, startDate, endDate) => {
+    try {
+      await api.put(`/api/staff/leaves/${leaveId}/action`, { action });
+      toast.success(`Leave ${action === 'approve' ? 'approved' : 'rejected'}`);
+      fetchLeaveRequests(leaveFilter);
+      if (action === 'approve') {
+        const today = new Date().toISOString().split('T')[0];
+        const start = new Date(startDate).toISOString().split('T')[0];
+        const end = new Date(endDate).toISOString().split('T')[0];
+        if (today >= start && today <= end) {
+          setAbsentTeacherIds(prev => new Set([...prev, staffId]));
+        }
+      }
+    } catch {
+      toast.error(`Failed to ${action} leave`);
+    }
+  };
+
+  const formatLeaveDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -105,9 +156,11 @@ const Teachers = () => {
       setIsEditing(false);
       setFormErrors({});
       setFormData(EMPTY_FORM);
+      setDegreeSelect('');
+      setSpecSelect('');
       dispatch(fetchTeachers());
-    } catch {
-      toast.error(isEditing ? 'Failed to update teacher' : 'Failed to add teacher');
+    } catch (error) {
+      toast.error(error.response?.data?.message || (isEditing ? 'Failed to update teacher' : 'Failed to add teacher'));
     } finally {
       setLoading(false);
     }
@@ -115,13 +168,26 @@ const Teachers = () => {
 
   const handleEdit = (teacher) => {
     setSelectedTeacher(teacher);
+    const deg = teacher.qualificationDegree || '';
+    const spec = teacher.qualificationSpecialization || '';
+    const knownDegrees = Object.keys(DEGREE_SPECIALIZATIONS);
+    const knownSpecs = DEGREE_SPECIALIZATIONS[deg] || [];
+    let degSel = '';
+    if (knownDegrees.includes(deg)) degSel = deg;
+    else if (deg) degSel = 'Other';
+
+    let specSel = '';
+    if (knownSpecs.includes(spec)) specSel = spec;
+    else if (spec) specSel = 'Other';
+    setDegreeSelect(degSel);
+    setSpecSelect(specSel);
     setFormData({
       name: teacher.name || '',
       email: teacher.email || '',
       contact: teacher.contact || '',
       subjects: teacher.subjects || [],
-      qualificationDegree: teacher.qualificationDegree || '',
-      qualificationSpecialization: teacher.qualificationSpecialization || '',
+      qualificationDegree: deg,
+      qualificationSpecialization: spec,
       experience: teacher.experience || '',
       assigned_classes: teacher.assigned_classes || [],
       status: teacher.status || 'active',
@@ -163,12 +229,28 @@ const Teachers = () => {
     setFormErrors({ ...formErrors, subjects: '' });
   };
 
-  const handleDegreeChange = (degree) => {
-    setFormData({ ...formData, qualificationDegree: degree, qualificationSpecialization: '' });
+  const handleDegreeChange = (value) => {
+    setDegreeSelect(value);
+    setSpecSelect('');
+    if (value === 'Other') {
+      setFormData({ ...formData, qualificationDegree: '', qualificationSpecialization: '' });
+    } else {
+      setFormData({ ...formData, qualificationDegree: value, qualificationSpecialization: '' });
+    }
     setFormErrors({ ...formErrors, qualificationDegree: '', qualificationSpecialization: '' });
   };
 
-  const specializationOptions = DEGREE_SPECIALIZATIONS[formData.qualificationDegree] || [];
+  const handleSpecChange = (value) => {
+    setSpecSelect(value);
+    if (value === 'Other') {
+      setFormData({ ...formData, qualificationSpecialization: '' });
+    } else {
+      setFormData({ ...formData, qualificationSpecialization: value });
+    }
+    setFormErrors({ ...formErrors, qualificationSpecialization: '' });
+  };
+
+  const specializationOptions = DEGREE_SPECIALIZATIONS[degreeSelect] || [];
   let submitLabel = 'Add Teacher';
   if (loading) submitLabel = 'Saving...';
   else if (isEditing) submitLabel = 'Update Teacher';
@@ -186,6 +268,8 @@ const Teachers = () => {
             setSelectedTeacher(null);
             setFormData(EMPTY_FORM);
             setFormErrors({});
+            setDegreeSelect('');
+            setSpecSelect('');
             setShowModal(true);
           }}
           className="flex items-center gap-2 bg-[#F59E0B] text-white hover:bg-[#D97706] px-6 py-3 rounded-lg font-semibold transition-all shadow-md"
@@ -204,7 +288,7 @@ const Teachers = () => {
         <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-gradient-to-br from-[#FEE2E2] to-white">
           <BookOpen className="text-[#DC2626] mb-2" size={32} />
           <p className="text-sm text-[#64748B]">Subjects Taught</p>
-          <p className="text-3xl font-bold text-[#0F172A]">12</p>
+          <p className="text-3xl font-bold text-[#0F172A]">{dbSubjects.length}</p>
         </div>
         {/* <div className="p-6 rounded-xl border-2 border-[#FCD34D] bg-gradient-to-br from-[#D1FAE5] to-white">
           <Calendar className="text-[#10B981] mb-2" size={32} />
@@ -259,6 +343,17 @@ const Teachers = () => {
                       <button onClick={() => handleDelete(teacher._id)} className="p-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg transition-colors">
                         <Trash2 size={18} />
                       </button>
+                      {absentTeacherIds.has(teacher._id) ? (
+                        <span className="px-2 py-1 text-xs font-semibold bg-[#FEE2E2] text-[#DC2626] rounded-lg">Absent</span>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkAbsent(teacher._id)}
+                          className="p-2 text-[#64748B] hover:bg-[#FEE2E2] hover:text-[#DC2626] rounded-lg transition-colors"
+                          title="Mark Absent Today"
+                        >
+                          <UserX size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -266,6 +361,76 @@ const Teachers = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Leave Requests Panel */}
+      <div className="bg-white rounded-xl border-2 border-[#FCD34D] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#FCD34D] bg-gradient-to-r from-[#FEF3C7] to-white">
+          <h2 className="text-lg font-bold text-[#0F172A]">Staff Leave Requests</h2>
+          <div className="flex gap-2">
+            {['pending', 'approved', 'rejected'].map(f => (
+              <button
+                key={f}
+                onClick={() => { setLeaveFilter(f); fetchLeaveRequests(f); }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-colors ${leaveFilter === f ? 'bg-[#F59E0B] text-white' : 'bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+        {leaveRequests.length === 0 ? (
+          <p className="px-6 py-8 text-center text-sm text-[#64748B]">No {leaveFilter} leave requests</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#FFFBEB]">
+                <tr>
+                  {['Teacher', 'Type', 'From', 'To', 'Reason', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-[#0F172A] uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {leaveRequests.map(leave => (
+                  <tr key={leave._id} className="hover:bg-[#FFFBEB] transition-colors">
+                    <td className="px-4 py-3 text-sm font-medium text-[#0F172A]">
+                      {leave.staffId?.userId?.name || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[#64748B] capitalize">{leave.leaveType}</td>
+                    <td className="px-4 py-3 text-sm text-[#64748B]">{formatLeaveDate(leave.startDate)}</td>
+                    <td className="px-4 py-3 text-sm text-[#64748B]">{formatLeaveDate(leave.endDate)}</td>
+                    <td className="px-4 py-3 text-sm text-[#64748B] max-w-[180px] truncate">{leave.reason}</td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const statusCls = { approved: 'bg-[#D1FAE5] text-[#065F46]', rejected: 'bg-[#FEE2E2] text-[#991B1B]', pending: 'bg-[#FEF3C7] text-[#92400E]' };
+                        return <span className={`px-2 py-0.5 rounded text-xs font-semibold capitalize ${statusCls[leave.status] || statusCls.pending}`}>{leave.status}</span>;
+                      })()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {leave.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleLeaveAction(leave._id, 'approve', leave.staffId?._id, leave.startDate, leave.endDate)}
+                            className="px-3 py-1 bg-[#D1FAE5] text-[#065F46] text-xs font-semibold rounded-lg hover:bg-[#A7F3D0] transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleLeaveAction(leave._id, 'reject', leave.staffId?._id, leave.startDate, leave.endDate)}
+                            className="px-3 py-1 bg-[#FEE2E2] text-[#991B1B] text-xs font-semibold rounded-lg hover:bg-[#FECACA] transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Modal */}
@@ -305,18 +470,27 @@ const Teachers = () => {
                 </div>
 
                 {/* Password */}
-                <div>
+                <div className="relative">
                   <label htmlFor="t-pass" className="block text-sm font-medium text-[#0F172A] mb-2">
                     {isEditing ? 'New Password' : 'Password *'}
                   </label>
                   <input
                     id="t-pass"
-                    type="password"
+                    type={isEye ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setFormErrors({ ...formErrors, loginErr: '' }); }}
                     placeholder={isEditing ? 'Leave blank to keep current' : ''}
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   />
+                  {isEye ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6 absolute bottom-2 right-1 cursor-pointer" onClick={handlePassword}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6 absolute bottom-2 right-1 cursor-pointer" onClick={handlePassword}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                  )}
                   {formErrors.loginErr && <p className="text-red-500 text-xs mt-1">{formErrors.loginErr}</p>}
                 </div>
 
@@ -391,7 +565,7 @@ const Teachers = () => {
                   <label htmlFor="t-degree" className="block text-sm font-medium text-[#0F172A] mb-2">Degree *</label>
                   <select
                     id="t-degree"
-                    value={formData.qualificationDegree}
+                    value={degreeSelect}
                     onChange={(e) => handleDegreeChange(e.target.value)}
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
                   >
@@ -399,7 +573,17 @@ const Teachers = () => {
                     {Object.keys(DEGREE_SPECIALIZATIONS).map((deg) => (
                       <option key={deg} value={deg}>{deg}</option>
                     ))}
+                    <option value="Other">Other</option>
                   </select>
+                  {degreeSelect === 'Other' && (
+                    <input
+                      type="text"
+                      value={formData.qualificationDegree}
+                      onChange={(e) => { setFormData({ ...formData, qualificationDegree: e.target.value }); setFormErrors({ ...formErrors, qualificationDegree: '' }); }}
+                      placeholder="Enter your degree"
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg mt-2 focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                    />
+                  )}
                   {formErrors.qualificationDegree && <p className="text-red-500 text-xs mt-1">{formErrors.qualificationDegree}</p>}
                 </div>
 
@@ -408,16 +592,26 @@ const Teachers = () => {
                   <label htmlFor="t-spec" className="block text-sm font-medium text-[#0F172A] mb-2">Specialization *</label>
                   <select
                     id="t-spec"
-                    value={formData.qualificationSpecialization}
-                    onChange={(e) => { setFormData({ ...formData, qualificationSpecialization: e.target.value }); setFormErrors({ ...formErrors, qualificationSpecialization: '' }); }}
-                    disabled={!formData.qualificationDegree}
+                    value={specSelect}
+                    onChange={(e) => handleSpecChange(e.target.value)}
+                    disabled={!degreeSelect}
                     className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F59E0B] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">Select specialization...</option>
                     {specializationOptions.map((spec) => (
                       <option key={spec} value={spec}>{spec}</option>
                     ))}
+                    <option value="Other">Other</option>
                   </select>
+                  {specSelect === 'Other' && (
+                    <input
+                      type="text"
+                      value={formData.qualificationSpecialization}
+                      onChange={(e) => { setFormData({ ...formData, qualificationSpecialization: e.target.value }); setFormErrors({ ...formErrors, qualificationSpecialization: '' }); }}
+                      placeholder="Enter specialization"
+                      className="w-full h-10 px-3 py-2 border-2 border-[#FCD34D] rounded-lg mt-2 focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                    />
+                  )}
                   {formErrors.qualificationSpecialization && <p className="text-red-500 text-xs mt-1">{formErrors.qualificationSpecialization}</p>}
                 </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/utils/api';
 import { useAuth } from '@/context/AuthContext';
-import { Send, Mail, MessageSquare, Bell, Megaphone, FileText, Phone, Trash2, Users } from 'lucide-react';
+import { Send, Mail, MessageSquare, Megaphone, FileText, Phone, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchClasses } from '@/store/slices/classesSlice';
@@ -159,11 +159,6 @@ const Communication = () => {
     setSmsForm({ recipient: '', message: '' });
   };
 
-  const handleWhatsAppSubmit = (e) => {
-    e.preventDefault();
-    toast.success('WhatsApp message sent successfully! (Demo)');
-  };
-
   const handleAnnouncementSubmit = (e) => {
     e.preventDefault();
     toast.success('Announcement posted successfully!');
@@ -193,13 +188,17 @@ const Communication = () => {
       </div>
 
       <div className="flex gap-2 border-b-2 border-[#FCD34D] overflow-x-auto">
-        {['email','ptm'].map(tab => (
+        {['email','whatsapp','ptm'].map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 font-semibold transition-all capitalize whitespace-nowrap ${activeTab === tab ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg' : 'text-[#64748B] hover:text-[#0F172A]'}`}
+            onClick={() => tab !== 'whatsapp' && setActiveTab(tab)}
+            disabled={tab === 'whatsapp'}
+            className={`px-6 py-3 font-semibold transition-all capitalize whitespace-nowrap flex items-center gap-2 ${tab === 'whatsapp' ? 'text-[#94A3B8] cursor-not-allowed opacity-60' : activeTab === tab ? 'bg-[#FCD34D] text-[#0F172A] rounded-t-lg' : 'text-[#64748B] hover:text-[#0F172A]'}`}
           >
             {tab}
+            {tab === 'whatsapp' && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#F59E0B] text-white leading-none">Soon</span>
+            )}
           </button>
         ))}
       </div>
@@ -440,22 +439,17 @@ const Communication = () => {
       )}
 
       {activeTab === 'whatsapp' && (
-        <div className="bg-white rounded-xl border-2 border-[#FCD34D] p-6 max-w-2xl">
-          <div className="flex items-center gap-3 mb-6">
-            <MessageSquare className="text-[#25D366]" size={32} />
-            <h2 className="text-2xl font-semibold text-[#0F172A]">Send WhatsApp Message</h2>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center max-w-sm">
+            <div className="flex items-center justify-center mb-6">
+              <div className="p-5 rounded-full bg-[#25D366]/10">
+                <MessageSquare size={48} className="text-[#25D366]" />
+              </div>
+            </div>
+            <span className="inline-block text-xs font-bold px-3 py-1 rounded-full bg-[#F59E0B] text-white mb-4 tracking-wide uppercase">Coming Soon</span>
+            <h2 className="text-2xl font-bold text-[#0F172A] mb-3">WhatsApp Broadcast</h2>
+            <p className="text-[#64748B] text-sm leading-relaxed">Send instant WhatsApp messages to parents and staff. This feature is currently under development and will be available soon.</p>
           </div>
-          <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#0F172A] mb-2">Recipient WhatsApp</label>
-              <input type="tel" required placeholder="+91 XXXXX XXXXX" className="w-full h-10 px-3 border-2 border-[#FCD34D] rounded-lg" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#0F172A] mb-2">Message</label>
-              <textarea required rows="6" className="w-full px-3 py-2 border-2 border-[#FCD34D] rounded-lg" placeholder="Type your WhatsApp message..." />
-            </div>
-            <button type="submit" className="w-full bg-[#25D366] text-white h-10 rounded-lg font-semibold">Send WhatsApp (Demo)</button>
-          </form>
         </div>
       )}
 

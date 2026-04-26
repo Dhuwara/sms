@@ -1,6 +1,6 @@
 import Parent from '../models/Parent.js';
 import Student from '../models/Student.js';
-import Grade from '../models/Grade.js';
+import ExamResult from '../models/ExamResult.js';
 import Attendance from '../models/Attendance.js';
 import FeeRecord from '../models/FeeRecord.js';
 
@@ -34,9 +34,17 @@ export const getChildGrades = async (req, res, next) => {
   try {
     const parent = await getParentProfile(req.user.userId);
     await assertChildOwnership(parent, req.params.childId);
-    const grades = await Grade.find({ studentId: req.params.childId })
-      .populate('subjectId', 'name')
-      .sort({ term: 1 });
+    const results = await ExamResult.find({ studentId: req.params.childId })
+      .populate('examId', 'subject examType maxScore date')
+      .sort({ createdAt: 1 });
+    const grades = results.map(r => ({
+      _id: r._id,
+      subjectId: { name: r.examId?.subject || '—' },
+      marks: r.marks,
+      totalMarks: r.examId?.maxScore || 100,
+      grade: r.grade,
+      term: r.examId?.examType || '—',
+    }));
     res.json({ success: true, data: grades });
   } catch (err) {
     next(err);

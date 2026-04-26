@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Staff from '../models/Staff.js';
+import School from '../models/School.js';
 import { generateNextId } from './counter.controller.js';
 
 const toFlat = (s) => ({
@@ -49,8 +50,15 @@ export const createTeacher = async (req, res, next) => {
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ success: false, message: 'Email already in use' });
 
+    const school = await School.findById(schoolId).select('subscription');
+    const maxStaff = school?.subscription?.maxStaff ?? 50;
+    const currentCount = await Staff.countDocuments({ schoolId });
+    if (currentCount >= maxStaff) {
+      return res.status(403).json({ success: false, message: `Staff limit reached. Your plan allows a maximum of ${maxStaff} staff members. Please contact support to upgrade.` });
+    }
+
     const passwordHash = await bcrypt.hash(password || 'Staff@123', 12);
-    const user = await User.create({ name, email, passwordHash, role: 'staff', schoolId });
+    const user = await User.create({ name, email, passwordHash, phone: contact || '', role: 'staff', schoolId });
 
     const qualification = qualificationDegree && qualificationSpecialization
       ? `${qualificationDegree} - ${qualificationSpecialization}`
@@ -105,6 +113,7 @@ export const updateTeacher = async (req, res, next) => {
     if (name) userUpdate.name = name;
     if (email) userUpdate.email = email;
     if (password) userUpdate.passwordHash = await bcrypt.hash(password, 12);
+    if (contact !== undefined) userUpdate.phone = contact;
     if (Object.keys(userUpdate).length > 0) await User.findByIdAndUpdate(staff.userId, userUpdate);
 
     await Staff.findByIdAndUpdate(req.params.id, buildStaffUpdate({ contact, subjects, qualificationDegree, qualificationSpecialization, experience, assigned_classes, status }));

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -14,25 +14,41 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     const res = await api.post('/api/auth/login', credentials);
     setUser(res.data);
     return res.data;
-  };
+  }, []);
 
-  const signup = async (data) => {
+  const signup = useCallback(async (data) => {
     const res = await api.post('/api/auth/signup', data);
     setUser(res.data);
     return res.data;
-  };
+  }, []);
 
-  const logout = async () => {
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await api.get('/api/auth/me');
+      setUser(res.data);
+      return res.data;
+    } catch {
+      setUser(null);
+      return null;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
     await api.post('/api/auth/logout');
     setUser(null);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, loading, login, signup, logout, refreshUser }),
+    [user, loading, login, signup, logout, refreshUser]
+  );
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

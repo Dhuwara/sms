@@ -16,13 +16,14 @@ const isEnabled = () => process.env.WHATSAPP_ENABLED === 'true';
 
 /**
  * Send a plain text WhatsApp message.
- * @param {string} to   – Recipient phone number with country code (e.g. "919876543210")
- * @param {string} text – Message body
+ * @param {string} to            – Recipient phone number with country code (e.g. "919876543210")
+ * @param {string} text          – Message body
+ * @param {string} [schoolPhoneNumberId] – Per-school phone number ID; falls back to env var
  */
-export const sendWhatsAppText = async (to, text) => {
+export const sendWhatsAppText = async (to, text, schoolPhoneNumberId) => {
   if (!isEnabled()) return null;
 
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const phoneNumberId = schoolPhoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
 
   if (!phoneNumberId || !token) {
@@ -31,7 +32,7 @@ export const sendWhatsAppText = async (to, text) => {
   }
 
   // Strip non-digits and ensure country code
-  const cleanPhone = to.replace(/\D/g, '');
+  const cleanPhone = to.replaceAll(/\D/g, '');
 
   const res = await fetch(`${WA_API_URL}/${phoneNumberId}/messages`, {
     method: 'POST',
@@ -72,7 +73,7 @@ export const sendWhatsAppTemplate = async (to, templateName, languageCode = 'en'
     return null;
   }
 
-  const cleanPhone = to.replace(/\D/g, '');
+  const cleanPhone = to.replaceAll(/\D/g, '');
 
   const components = [];
   if (bodyParams.length > 0) {
@@ -111,19 +112,37 @@ export const sendWhatsAppTemplate = async (to, templateName, languageCode = 'en'
  * Send WhatsApp messages to multiple recipients (fire-and-forget).
  * Adds a 100ms delay between messages to avoid rate limiting.
  * @param {Array<{phone: string, message: string}>} recipients
+ * @param {string} [schoolPhoneNumberId] – Per-school phone number ID; falls back to env var
  */
-export const sendWhatsAppBulk = async (recipients) => {
+export const sendWhatsAppBulk = async (recipients, schoolPhoneNumberId) => {
   if (!isEnabled() || !recipients || recipients.length === 0) return;
 
   for (const { phone, message } of recipients) {
     try {
-      await sendWhatsAppText(phone, message);
+      await sendWhatsAppText(phone, message, schoolPhoneNumberId);
       // Small delay to avoid hitting rate limits
       await new Promise((r) => setTimeout(r, 100));
     } catch (err) {
       console.error(`WhatsApp bulk send failed for ${phone}:`, err.message);
     }
   }
+};
+
+/**
+ * Helper: Get phone numbers for all active staff (or filtered subset).
+ * Returns array of { phone, name, staffId }
+ */
+export const getStaffPhones = async (Staff, filter = {}) => {
+  const staffList = await Staff.find({ status: 'active', ...filter })
+    .populate('userId', 'name phone');
+
+  return staffList
+    .filter((s) => s.userId?.phone)
+    .map((s) => ({
+      phone: s.userId.phone,
+      name: s.userId.name || 'Staff',
+      staffId: s._id,
+    }));
 };
 
 /**

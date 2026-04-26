@@ -12,9 +12,11 @@ import Leave from '../models/Leave.js';
 import Timetable from '../models/Timetable.js';
 import PeriodConfig from '../models/PeriodConfig.js';
 import Exam from '../models/Exam.js';
+import ExamResult from '../models/ExamResult.js';
 import Substitution from '../models/Substitution.js';
 import ClassMapping from '../models/ClassMapping.js';
 import Notification from '../models/Notification.js';
+import { sendMail } from '../utils/mailer.js';
 
 const getStaffProfile = async (userId) => {
   const staff = await Staff.findOne({ userId });
@@ -170,6 +172,58 @@ export const getStaffProfileByUserId = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Staff profile not found' });
     }
     res.json({ success: true, data: staff });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markStaffAbsent = async (req, res, next) => {
+  try {
+    const { staffId } = req.params;
+    const { date } = req.body;
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    const staff = await Staff.findOne({ _id: staffId, schoolId: req.user.schoolId });
+    if (!staff) return res.status(404).json({ success: false, message: 'Teacher not found' });
+
+    await StaffAttendance.findOneAndUpdate(
+      { staffId, date: targetDate },
+      { $set: { staffId, schoolId: req.user.schoolId, date: targetDate, status: 'absent' } },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, message: 'Teacher marked as absent' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAbsentStaff = async (req, res, next) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ success: false, message: 'date is required' });
+
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const nextDay = new Date(d);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const records = await StaffAttendance.find({
+      schoolId: req.user.schoolId,
+      date: { $gte: d, $lt: nextDay },
+      status: 'absent',
+    }).populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } });
+
+    const data = records
+      .filter(r => r.staffId)
+      .map(r => ({
+        _id: r.staffId._id,
+        name: r.staffId.userId?.name || r.staffId.employeeId || 'Unknown',
+        employeeId: r.staffId.employeeId || '',
+      }));
+
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
@@ -576,6 +630,8 @@ export const getTimetableAssignments = async (req, res, next) => {
       academicYear,
     }).populate('classId', 'name section');
 
+    const classTeacherSet = new Set();
+
     classMappings.forEach((mapping) => {
       if (!mapping.classId) return;
       const cIdStr = mapping.classId._id.toString();
@@ -592,6 +648,7 @@ export const getTimetableAssignments = async (req, res, next) => {
 
       // Class teacher or subject teacher in this mapping
       const isClassTeacher = mapping.classTeacher?.toString() === staffIdStr;
+      if (isClassTeacher) classTeacherSet.add(cIdStr);
       if (!isClassTeacher && mappingSubjects.length === 0) return;
 
       if (!assignmentMap.has(cIdStr)) {
@@ -604,6 +661,7 @@ export const getTimetableAssignments = async (req, res, next) => {
       classId: a.classId,
       academicYear,
       subjects: Array.from(a.subjects),
+      isClassTeacher: classTeacherSet.has(a.classId._id.toString()),
     }));
 
     res.json({ success: true, data: assignments });
@@ -649,6 +707,20 @@ export const getPendingApprovals = async (req, res, next) => {
   }
 };
 
+export const getAllLeaveRequests = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const filter = { schoolId: req.user.schoolId };
+    if (status) filter.status = status;
+    const leaves = await Leave.find(filter)
+      .populate({ path: 'staffId', populate: { path: 'userId', select: 'name' } })
+      .sort({ appliedOn: -1 });
+    res.json({ success: true, data: leaves });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const approveRejectLeave = async (req, res, next) => {
   try {
     const { leaveId } = req.params;
@@ -659,21 +731,44 @@ export const approveRejectLeave = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid action' });
     }
 
+    const isAdmin = req.user.role === 'admin';
+
     const leave = await Leave.findById(leaveId);
     if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
-    const approverIdx = leave.approvers.findIndex(a => a.userId.toString() === userId.toString());
-    if (approverIdx === -1) {
-      return res.status(403).json({ success: false, message: 'You are not an approver for this leave' });
+    if (!isAdmin) {
+      const approverIdx = leave.approvers.findIndex(a => a.userId.toString() === userId.toString());
+      if (approverIdx === -1) {
+        return res.status(403).json({ success: false, message: 'You are not an approver for this leave' });
+      }
+      leave.approvers[approverIdx].approved = action === 'approve';
     }
-
-    leave.approvers[approverIdx].approved = action === 'approve';
 
     if (action === 'reject') {
       leave.status = 'rejected';
     } else {
-      const allApproved = leave.approvers.every(a => a.approved === true);
-      if (allApproved) leave.status = 'approved';
+      const allApproved = isAdmin || leave.approvers.every(a => a.approved === true);
+      if (allApproved) {
+        leave.status = 'approved';
+        // Auto-mark absent for every day in the leave range
+        const ops = [];
+        const cursor = new Date(leave.startDate);
+        cursor.setHours(0, 0, 0, 0);
+        const endDay = new Date(leave.endDate);
+        endDay.setHours(0, 0, 0, 0);
+        while (cursor <= endDay) {
+          const day = new Date(cursor);
+          ops.push({
+            updateOne: {
+              filter: { staffId: leave.staffId, date: day },
+              update: { $set: { staffId: leave.staffId, schoolId: leave.schoolId, date: day, status: 'absent' } },
+              upsert: true,
+            },
+          });
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        if (ops.length > 0) await StaffAttendance.bulkWrite(ops).catch(() => {});
+      }
     }
 
     await leave.save();
@@ -683,12 +778,30 @@ export const approveRejectLeave = async (req, res, next) => {
       const staffDoc = await Staff.findById(leave.staffId).select('userId');
       if (staffDoc?.userId) {
         const decision = action === 'approve' ? 'approved' : 'rejected';
+        const notifTitle = `Leave ${decision.charAt(0).toUpperCase() + decision.slice(1)}`;
+        const notifMsg = `Your ${leave.leaveType} leave request has been ${decision}.`;
+
         await Notification.create({
           userId: staffDoc.userId,
-          title: `Leave ${decision.charAt(0).toUpperCase() + decision.slice(1)}`,
-          message: `Your ${leave.leaveType} leave request has been ${decision}.`,
+          title: notifTitle,
+          message: notifMsg,
           type: action === 'approve' ? 'success' : 'error',
         });
+
+        if (action === 'approve') {
+          const userDoc = await User.findById(staffDoc.userId).select('name email');
+          if (userDoc?.email) {
+            const startStr = new Date(leave.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const endStr = new Date(leave.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            sendMail({
+              fromEmail: process.env.SMTP_USER,
+              fromName: process.env.SMTP_FROM_NAME || 'School Management',
+              to: [userDoc.email],
+              subject: 'Your Leave Request Has Been Approved',
+              text: `Dear ${userDoc.name},\n\nYour ${leave.leaveType} leave request from ${startStr} to ${endStr} has been approved.\n\nReason you submitted: ${leave.reason}\n\nPlease ensure your work responsibilities are covered during your absence.\n\nRegards,\nSchool Management`,
+            }).catch(() => {});
+          }
+        }
       }
     } catch { /* non-critical */ }
 
@@ -712,6 +825,88 @@ export const getStaffExamDuties = async (req, res, next) => {
       .sort({ date: 1 });
 
     res.json({ success: true, data: examDuties });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendMarksReport = async (req, res, next) => {
+  try {
+    const { classId, examId } = req.body;
+    if (!classId || !examId) {
+      return res.status(400).json({ success: false, message: 'classId and examId are required' });
+    }
+
+    const staff = await getStaffProfile(req.user.userId);
+    const staffIdStr = staff._id.toString();
+    const staffUser = await User.findById(req.user.userId).select('name');
+    const staffName = staffUser?.name || 'Class Teacher';
+
+    const currentYear = new Date().getFullYear();
+    const academicYear = new Date().getMonth() >= 5
+      ? `${currentYear}-${currentYear + 1}`
+      : `${currentYear - 1}-${currentYear}`;
+
+    // Verify staff is the class teacher
+    const mapping = await ClassMapping.findOne({ classId, schoolId: req.user.schoolId, academicYear });
+    if (!mapping || mapping.classTeacher?.toString() !== staffIdStr) {
+      return res.status(403).json({ success: false, message: 'Only the class teacher can send reports to parents' });
+    }
+
+    const exam = await Exam.findById(examId).populate('classId', 'name section');
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+
+    const results = await ExamResult.find({ examId }).populate({
+      path: 'studentId',
+      select: 'userId parentId rollNumber',
+      populate: [
+        { path: 'userId', select: 'name' },
+        { path: 'parentId', populate: { path: 'userId', select: 'email name' } },
+      ],
+    });
+
+    const className = exam.classId?.name || '';
+    const classSection = exam.classId?.section || '';
+    const maxScore = exam.maxScore || 100;
+
+    let sent = 0;
+    let noEmail = 0;
+
+    for (const result of results) {
+      const student = result.studentId;
+      const studentName = student?.userId?.name || 'Student';
+      const parentEmail = student?.parentId?.userId?.email;
+
+      if (!parentEmail) { noEmail++; continue; }
+
+      const pct = ((result.marks / maxScore) * 100).toFixed(1);
+
+      await sendMail({
+        fromEmail: process.env.SMTP_USER,
+        fromName: process.env.SMTP_FROM_NAME || 'School Management System',
+        to: [parentEmail],
+        subject: `${exam.examType} Results — ${studentName} | ${className} ${classSection}`,
+        text: `Dear Parent/Guardian,
+
+We are sharing the ${exam.examType} exam results for your child.
+
+Student Name : ${studentName}
+Class        : ${className} - ${classSection}
+Subject      : ${exam.subject}
+Exam Type    : ${exam.examType}
+Marks        : ${result.marks} / ${maxScore}
+Percentage   : ${pct}%
+Grade        : ${result.grade || '-'}
+
+If you have any questions, please contact the class teacher.
+
+Regards,
+${staffName}
+Class Teacher — ${className} ${classSection}`,
+      }).then(() => { sent++; }).catch(() => {});
+    }
+
+    res.json({ success: true, data: { sent, noEmail, total: results.length } });
   } catch (err) {
     next(err);
   }

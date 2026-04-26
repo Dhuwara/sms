@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, RefreshCw, UserCheck, X } from 'lucide-react';
+import { Plus, Trash2, UserCheck, X, Search, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/utils/api';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -9,7 +9,6 @@ const Substitutions = () => {
   const [staffList, setStaffList] = useState([]);
   const [classList, setClassList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterDate, setFilterDate] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
@@ -23,11 +22,91 @@ const Substitutions = () => {
   const [formReason, setFormReason] = useState('');
   const [periodsLoading, setPeriodsLoading] = useState(false);
 
-  const fetchSubstitutions = async (date = filterDate) => {
+  // Smart assignment state
+  const [smartDate, setSmartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [absentTeacherId, setAbsentTeacherId] = useState('');
+  const [absentStaffList, setAbsentStaffList] = useState([]);
+  const [absentStaffLoading, setAbsentStaffLoading] = useState(false);
+  const [freePeriods, setFreePeriods] = useState([]);
+  const [smartLoading, setSmartLoading] = useState(false);
+  const [assignMap, setAssignMap] = useState({});
+
+  const fetchAbsentStaff = async (date) => {
+    setAbsentStaffLoading(true);
+    setAbsentStaffList([]);
+    setAbsentTeacherId('');
+    setFreePeriods([]);
+    setAssignMap({});
+    try {
+      const res = await api.get(`/api/staff/absent?date=${date}`);
+      setAbsentStaffList(res.data || []);
+    } catch {
+      toast.error('Failed to load absent staff');
+    } finally {
+      setAbsentStaffLoading(false);
+    }
+  };
+
+  const handleFindFreePeriods = async () => {
+    if (!smartDate || !absentTeacherId) {
+      toast.error('Select both date and absent teacher');
+      return;
+    }
+    setSmartLoading(true);
+    setFreePeriods([]);
+    setAssignMap({});
+    try {
+      const res = await api.get(`/api/substitutions/free-periods?teacherId=${absentTeacherId}&date=${smartDate}`);
+      setFreePeriods(res.data || []);
+      if ((res.data || []).length === 0) toast.info('No periods found for this teacher on that day');
+    } catch {
+      toast.error('Failed to find free periods');
+    } finally {
+      setSmartLoading(false);
+    }
+  };
+
+  const handleOpenAssign = async (period) => {
+    const key = `${period.classId}_${period.periodIndex}`;
+    setAssignMap(prev => ({ ...prev, [key]: { open: true, teachersLoading: true, freeTeachers: [], selectedTeacherId: '', reason: '', saving: false, done: false } }));
+    try {
+      const res = await api.get(`/api/substitutions/free-teachers?date=${smartDate}&startTime=${period.startTime}&endTime=${period.endTime}`);
+      setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], teachersLoading: false, freeTeachers: res.data || [] } }));
+    } catch {
+      toast.error('Failed to load free teachers');
+      setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], open: false, teachersLoading: false } }));
+    }
+  };
+
+  const handleAssignConfirm = async (period) => {
+    const key = `${period.classId}_${period.periodIndex}`;
+    const aState = assignMap[key];
+    if (!aState?.selectedTeacherId) { toast.error('Select a substitute teacher'); return; }
+    setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], saving: true } }));
+    try {
+      await api.post('/api/substitutions', {
+        date: smartDate,
+        classId: period.classId,
+        periodIndex: period.periodIndex,
+        periodName: period.periodName,
+        originalTeacherId: absentTeacherId,
+        substituteTeacherId: aState.selectedTeacherId,
+        subject: period.subject,
+        reason: aState.reason || '',
+      });
+      setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], saving: false, done: true, open: false } }));
+      toast.success('Substitution assigned');
+      fetchSubstitutions();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign');
+      setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], saving: false } }));
+    }
+  };
+
+  const fetchSubstitutions = async () => {
     setLoading(true);
     try {
-      const params = date ? `?date=${date}` : '';
-      const res = await api.get(`/api/substitutions${params}`);
+      const res = await api.get('/api/substitutions');
       setSubstitutions(res.data || []);
     } catch {
       toast.error('Failed to load substitutions');
@@ -40,6 +119,7 @@ const Substitutions = () => {
     fetchSubstitutions();
     api.get('/api/teachers').then(r => setStaffList(r.data || [])).catch(() => {});
     api.get('/api/classes').then(r => setClassList(r.data || [])).catch(() => {});
+    fetchAbsentStaff(new Date().toISOString().split('T')[0]);
   }, []);
 
   const resetForm = () => {
@@ -158,33 +238,163 @@ const Substitutions = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3 items-end">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-[#0F172A] mb-1">Filter by Date</label>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
-          />
+      {/* Smart Assignment Panel */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <UserCheck size={20} className="text-[#4F46E5]" />
+          <h2 className="text-lg font-semibold text-[#0F172A]">Assign Substitutions by Absent Teacher</h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <label htmlFor="smart-date" className="block text-xs font-medium text-[#64748B] mb-1">Date</label>
+            <input
+              id="smart-date"
+              type="date"
+              value={smartDate}
+              onChange={e => { setSmartDate(e.target.value); fetchAbsentStaff(e.target.value); }}
+              className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+            />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="smart-teacher" className="block text-xs font-medium text-[#64748B] mb-1">Absent Teacher</label>
+            {(() => {
+              let placeholder = 'Select absent teacher';
+              if (absentStaffLoading) placeholder = 'Loading...';
+              else if (absentStaffList.length === 0) placeholder = 'No absent teachers for this date';
+              return (
+                <select
+                  id="smart-teacher"
+                  value={absentTeacherId}
+                  onChange={e => { setAbsentTeacherId(e.target.value); setFreePeriods([]); setAssignMap({}); }}
+                  disabled={absentStaffLoading || absentStaffList.length === 0}
+                  className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] disabled:opacity-50"
+                >
+                  <option value="">{placeholder}</option>
+                  {absentStaffList.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                </select>
+              );
+            })()}
+          </div>
           <button
-            onClick={() => fetchSubstitutions(filterDate)}
-            className="h-10 px-4 bg-[#4F46E5] text-white rounded-lg font-medium hover:bg-[#4338CA] transition-colors flex items-center gap-2"
+            onClick={handleFindFreePeriods}
+            disabled={smartLoading}
+            className="h-10 px-5 bg-[#4F46E5] text-white rounded-lg font-medium hover:bg-[#4338CA] disabled:opacity-50 flex items-center gap-2 shrink-0"
           >
-            <RefreshCw size={16} /> Search
+            {smartLoading
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Search size={16} />}
+            Find Free Periods
           </button>
-          {filterDate && (
-            <button
-              onClick={() => { setFilterDate(''); fetchSubstitutions(''); }}
-              className="h-10 px-4 border border-slate-200 rounded-lg font-medium text-[#64748B] hover:bg-slate-50 transition-colors"
-            >
-              Clear
-            </button>
-          )}
         </div>
+
+        {freePeriods.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-[#64748B]">
+              {freePeriods.length} period{freePeriods.length === 1 ? '' : 's'} need coverage on{' '}
+              {new Date(smartDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full">
+                <thead className="bg-[#F8FAFC] border-b border-slate-200">
+                  <tr>
+                    {['Class', 'Period', 'Time', 'Subject', 'Action'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {freePeriods.map(period => {
+                    const key = `${period.classId}_${period.periodIndex}`;
+                    const aState = assignMap[key] || {};
+                    return (
+                      <React.Fragment key={key}>
+                        <tr className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm font-medium text-[#0F172A]">{period.className}-{period.classSection}</td>
+                          <td className="px-4 py-3 text-sm text-[#64748B]">{period.periodName}</td>
+                          <td className="px-4 py-3 text-sm text-[#64748B]">{period.startTime} – {period.endTime}</td>
+                          <td className="px-4 py-3 text-sm text-[#64748B]">{period.subject || '—'}</td>
+                          <td className="px-4 py-3">
+                            {aState.done ? (
+                              <span className="flex items-center gap-1 text-sm text-[#10B981] font-medium">
+                                <Check size={14} /> Assigned
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenAssign(period)}
+                                disabled={aState.open}
+                                className="px-3 py-1.5 bg-[#4F46E5] text-white rounded-lg text-sm font-medium hover:bg-[#4338CA] disabled:opacity-50"
+                              >
+                                Assign
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {aState.open && !aState.done && (
+                          <tr className="bg-[#F8FAFC]">
+                            <td colSpan={5} className="px-4 py-3">
+                              {aState.teachersLoading ? (
+                                <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                                  <div className="w-4 h-4 border-2 border-[#4F46E5] border-t-transparent rounded-full animate-spin" />
+                                  Loading available teachers...
+                                </div>
+                              ) : (
+                                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                                  <div className="flex-1">
+                                    <label htmlFor={`teacher-${key}`} className="block text-xs font-medium text-[#64748B] mb-1">Available Teacher</label>
+                                    <select
+                                      id={`teacher-${key}`}
+                                      value={aState.selectedTeacherId || ''}
+                                      onChange={e => setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], selectedTeacherId: e.target.value } }))}
+                                      className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                                    >
+                                      <option value="">Select teacher</option>
+                                      {aState.freeTeachers.map(t => (
+                                        <option key={t._id} value={t._id}>{t.name}{t.employeeId ? ` (${t.employeeId})` : ''}</option>
+                                      ))}
+                                    </select>
+                                    {aState.freeTeachers.length === 0 && (
+                                      <p className="text-xs text-[#EF4444] mt-1">No free teachers for this period</p>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <label htmlFor={`reason-${key}`} className="block text-xs font-medium text-[#64748B] mb-1">Reason (optional)</label>
+                                    <input
+                                      id={`reason-${key}`}
+                                      type="text"
+                                      placeholder="e.g. Teacher on leave"
+                                      value={aState.reason || ''}
+                                      onChange={e => setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], reason: e.target.value } }))}
+                                      className="w-full h-10 px-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                    <button
+                                      onClick={() => handleAssignConfirm(period)}
+                                      disabled={aState.saving || !aState.selectedTeacherId}
+                                      className="h-10 px-4 bg-[#10B981] text-white rounded-lg text-sm font-medium hover:bg-[#059669] disabled:opacity-50"
+                                    >
+                                      {aState.saving ? 'Saving...' : 'Confirm'}
+                                    </button>
+                                    <button
+                                      onClick={() => setAssignMap(prev => ({ ...prev, [key]: { ...prev[key], open: false } }))}
+                                      className="h-10 px-3 border border-slate-200 rounded-lg text-sm text-[#64748B] hover:bg-slate-100"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

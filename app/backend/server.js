@@ -46,6 +46,8 @@ import onlineClassRoutes from './src/routes/onlineClass.routes.js';
 import ptmRoutes from './src/routes/ptm.routes.js';
 import paymentRoutes from './src/routes/payment.routes.js';
 import whatsappRoutes from './src/routes/whatsapp.routes.js';
+import enquiryRoutes from './src/routes/enquiry.routes.js';
+import superAdminRoutes from './src/routes/superadmin.routes.js';
 import { apiLimiter } from './src/middleware/rateLimiter.js';
 import { tenantScope } from './src/middleware/auth.js';
 
@@ -61,18 +63,22 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173'],
     },
   },
   frameguard: { action: 'deny' },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+];
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -119,6 +125,8 @@ app.use('/api/online-classes', onlineClassRoutes);
 app.use('/api/ptm', ptmRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/enquiry', enquiryRoutes);
+app.use('/api/superadmin', superAdminRoutes);
 
 app.use(errorHandler);
 
