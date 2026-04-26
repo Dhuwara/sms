@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, GraduationCap, Users, Calendar, DollarSign, BookOpen, MessageSquare, BarChart, Shield, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/utils/api';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -39,20 +40,11 @@ const LandingPage = () => {
     e.preventDefault();
     setFormLoading(true);
     try {
-      const res = await fetch('/api/enquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Thank you! We will contact you soon.');
-        setFormData({ name: '', email: '', message: '' });
-      } else {
-        toast.error(data.message || 'Failed to send message. Please try again.');
-      }
-    } catch {
-      toast.error('Something went wrong. Please try again.');
+      const res = await api.post('/api/enquiry', formData);
+      toast.success(res.data?.message || 'Thank you! We will contact you soon.');
+      setFormData({ name: '', email: '', message: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send message. Please try again.');
     } finally {
       setFormLoading(false);
     }
