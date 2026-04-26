@@ -117,8 +117,6 @@ const initDayDraft = (periods, tt, day) => {
 const Classes = () => {
   const dispatch = useDispatch();
   const classes = useSelector(s => s.classes.list);
-  console.log(classes,"claseses")
-  console.log(classes,"classes  ")
   const teachers = useSelector(s => s.classes.teachers);
   const students = useSelector(s => s.students.list);
 
@@ -474,7 +472,6 @@ const Classes = () => {
   // ─── Timetable ───────────────────────────────────────────────────────────────
 
   const handleTtPeriodClassChange = async (classId) => {
-    console.log(classId, "classId");
     setTtPeriodClassId(classId);
     setTtEditMode(false);
     setTtDayEditMode(false);
@@ -484,7 +481,6 @@ const Classes = () => {
     const config = configRes.data;
     const tt = ttRes.data;
     setPeriodConfig(config);
-    console.log(config,"configggg")
     setPeriodDraft(config.periods || []);
     setTtPeriodTimetable(tt);
     setDayDraft(initDayDraft(config.periods || [], tt, ttPeriodDay));
@@ -1132,8 +1128,6 @@ const Classes = () => {
                               .map((p, i) => {
                                 const typeInfo = PERIOD_TYPES.find((t) => t.value === p.type) || PERIOD_TYPES[0];
                                 const subjectOptions = classes.find((c) => c._id === ttPeriodClassId)?.subjects || [];
-                                console.log(p,"ppppp")
-                                console.log(teachers,"teacerrr");
                                 const filteredTeachers = teachers.filter((t) => t.subjects?.includes(p.subject));
                                 return (
                                   <tr key={p.globalIdx} className={`${typeInfo.rowBg} transition-all`}>

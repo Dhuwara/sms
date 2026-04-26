@@ -40,13 +40,13 @@ import Scholarships from './pages/Admin/Scholarships';
 import Payroll from './pages/Admin/Payroll';
 import Settings from './pages/Admin/Settings';
 import AdminCalendarEvents from './pages/Admin/CalendarEvents';
+import Enquiries from './pages/Admin/Enquiries';
 import StaffDashboard from './pages/Staff/StaffDashboard';
 import StudentDashboard from './pages/Student/StudentDashboard';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import Layout from './components/Layout';
 
 const getDefaultPath = (role) => {
-  console.log(role,"roleee")
   switch (role) {
     case 'staff': return '/staff/profile';
     case 'student': return '/student/profile';
@@ -67,11 +67,8 @@ function App() {
   }
 
   const ProtectedRoute = ({ children, allowedRoles }) => {
-    console.log(children,allowedRoles,"allowerdRoles")
-    console.log(user,"userrolee")
     if (!user) return <Navigate to="/login" replace />;
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-      console.log("allowerdroelsuer")
       return <Navigate to={getDefaultPath(user.role)} replace />;
     }
     return <Layout user={user} onLogout={logout}>{children}</Layout>;
@@ -231,6 +228,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminCalendarEvents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/enquiries"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Enquiries />
               </ProtectedRoute>
             }
           />

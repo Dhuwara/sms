@@ -8,7 +8,6 @@ import {
 import api from '../utils/api';
 
 const Layout = ({ children, user, onLogout }) => {
-  console.log(children,"children")
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -86,6 +85,7 @@ const Layout = ({ children, user, onLogout }) => {
     // { name: 'Transport', path: '/transport', icon: Bus },
     // { name: 'Hostel', path: '/hostel', icon: Building },
     { name: 'Communication', path: '/communication', icon: Mail },
+    { name: 'Enquiries', path: '/enquiries', icon: MessageSquare },
     { name: 'Calendar Events', path: '/calendar-events', icon: CalendarDays },
     { name: 'Substitutions', path: '/substitutions', icon: UserCheck },
     { name: 'Scholarships & Awards', path: '/scholarships', icon: Award },

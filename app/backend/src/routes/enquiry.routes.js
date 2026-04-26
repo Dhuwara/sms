@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { submitEnquiry } from '../controllers/enquiry.controller.js';
+import { submitEnquiry, getEnquiries, markContacted } from '../controllers/enquiry.controller.js';
+import { protect } from '../middleware/auth.js';
 
 const router = Router();
 
-// Public — no auth middleware
 router.post('/', submitEnquiry);
+router.get('/', protect, getEnquiries);
+router.patch('/:id/contacted', protect, markContacted);
 
 export default router;

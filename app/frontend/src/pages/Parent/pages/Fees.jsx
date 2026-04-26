@@ -28,7 +28,6 @@ const Fees = ({ selectedChild, childFees, childSelector, formatDate }) => {
     setLoading(true);
     try {
       const res = await api.get(`/api/payments/fee-details/${selectedChild._id}`);
-      console.log(res,"es")
       setFeeDetails(res.data);
     } catch (err) {
       console.error('Failed to fetch fee details:', err.response?.data || err.message);
@@ -116,7 +115,6 @@ const Fees = ({ selectedChild, childFees, childSelector, formatDate }) => {
     : (childFees.summary?.totalDue || 0);
 
   const components = hasFeeDetails ? feeDetails.components : [];
-  console.log("components")
 
   return (
     <div className="space-y-6">

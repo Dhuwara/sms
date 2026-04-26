@@ -95,7 +95,6 @@ const ParentDashboard = ({ user, module = 'profile' }) => {
             api.get(`/api/parent/children/${selectedChild._id}/attendance`),
             api.get('/api/student-leaves/parent/pending')
           ]);
-          console.log(leaveRes, "leaveRes")
           setChildAttendance(attRes.data);
           setPendingLeaves(leaveRes?.data || []);
         }

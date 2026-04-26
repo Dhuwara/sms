@@ -23,7 +23,6 @@ import Documents from './pages/Documents';
 import Settings from './pages/Settings';
 
 const StaffDashboard = ({ user, module = 'profile' }) => {
-  console.log(user,"userrr")
   const dispatch = useDispatch();
   const commClasses = useSelector(s => s.classes.list);
   const commAnnouncements = useSelector(s => s.communication.announcements);
@@ -162,7 +161,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   useEffect(() => {
     if (module === 'attendance') {
-      console.log('Attendance module loaded, fetching data...');
       fetchingRef.current = { ...fetchingRef.current, today: false, history: false, balance: false, leaves: false, staff: false };
 
       fetchTodayAttendance();
@@ -176,7 +174,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
 
   useEffect(() => {
     if (module === 'timetable') {
-      console.log('Timetable module loaded, fetching data...');
       fetchingRef.current = { ...fetchingRef.current, timetable: false, substitutions: false, examDuties: false };
 
       fetchMyTimetable();
@@ -265,9 +262,7 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
         return;
       }
       try {
-        console.log("hitsstudentsss")
         const response = await api.get(`/api/staff/classes/${selectedClassForStudents}/students`);
-        console.log(response, "responseee")
         setClassStudents(response.data || []);
       } catch (error) {
         console.error('Error fetching students:', error);
@@ -355,7 +350,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     try {
       const response = await api.get('/api/staff/my-attendance/today');
       const attendanceData = response.data?.data || response.data || null;
-      console.log('Today Attendance Data:', attendanceData);
       setTodayAttendance(attendanceData);
     } catch (error) {
       console.error('Error fetching today attendance:', error);
@@ -370,7 +364,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.history = true;
     try {
       const response = await api.get('/api/staff/my-attendance/history');
-      console.log(response, "reponseee")
       setAttendanceHistory(response?.data || []);
     } catch (error) {
       console.error('Error fetching attendance history:', error);
@@ -397,7 +390,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     fetchingRef.current.leaves = true;
     try {
       const response = await api.get('/api/staff/my-leaves');
-      console.log(response, "pepeepp")
       setMyLeaves(response?.data || []);
     } catch (error) {
       console.error('Error fetching leaves:', error);
@@ -518,13 +510,11 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
   };
 
   const fetchOnlineClasses = async (classId) => {
-    console.log(classId, "classId")
     if (!classId) return;
     if (fetchingRef.current.onlineClasses) return;
     fetchingRef.current.onlineClasses = true;
     try {
       const response = await api.get(`/api/online-classes/class/${classId}`);
-      console.log(response, "response")
       setOnlineClasses(response.data?.data || response.data || []);
     } catch (error) {
       console.error('Error fetching online classes:', error);
@@ -1312,7 +1302,6 @@ const StaffDashboard = ({ user, module = 'profile' }) => {
     try {
       const res = await api.get(`/api/communication/class-contacts/${classId}`);
       setCommContacts(res.data || []);
-      console.log(res, "Resssss")
     } catch { setCommContacts([]); }
   };
 

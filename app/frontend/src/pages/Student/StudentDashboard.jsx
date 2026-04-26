@@ -73,7 +73,6 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
       setLoading(true);
       try {
         if (module === 'profile' || module === 'timetable' || module === 'online-classes') {
-          console.log(user, "hitssinside")
           const schedRes = await api.get("/api/student/me/schedule");
           const userData = await api.get("/api/student/me/info");
 
@@ -81,13 +80,9 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           setUserInfo(userData.data.student)
           if (schedRes.data?.class?._id) {
             try {
-              console.log("beforeee")
               const pcRes = await api.get(`/api/timetable/periods/${schedRes.data.class._id}/${getAcademicYear()}`);
-              console.log("Afterrr")
-              console.log("Period config response:", pcRes)
               setPeriodConfig(pcRes.data);
               const ttRes = await api.get(`/api/timetable/${schedRes.data.class._id}/${getAcademicYear()}`);
-              console.log("Timetable response:", ttRes)
               setTimetableData(ttRes.data);
             } catch (error) {
               console.error('Error fetching timetable:', error);
@@ -120,12 +115,10 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
         }
 
         if (module === 'exams') {
-          console.log("hotsssserererer")
           const [examsRes, resultsRes] = await Promise.all([
             api.get('/api/exams'),
             api.get('/api/exams/my-results'),
           ]);
-          console.log(examsRes.data, "examReaarr")
           setExams(examsRes.data);
           setExamResults(resultsRes.data);
         }
@@ -137,21 +130,18 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
           // Fetch homework
           try {
             const hwRes = await api.get('/api/homework/my-homework');
-            console.log(hwRes.data, "hwRes.data");
             setHomeworkData(hwRes.data?.data || hwRes.data || []);
           } catch (e) { console.error('Homework fetch error:', e); }
 
           // Fetch lesson plans
           try {
             const lpRes = await api.get('/api/lesson-plans/my-plans');
-            console.log(lpRes.data, "lpRes.data");
             setLessonPlansData(lpRes.data || []);
           } catch (e) { console.error('Lesson plans fetch error:', e); }
 
           // Fetch study materials
           try {
             const smRes = await api.get('/api/study-materials/my-materials');
-            console.log(smRes.data, "smRes.data");
             setStudyMaterialsData(smRes?.data || []);
           } catch (e) { console.error('Study materials fetch error:', e); }
         }
@@ -205,7 +195,6 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
 
   const handleDownloadFile = async (homeworkId, filename, originalName) => {
     try {
-      console.log('Downloading file:', { homeworkId, filename, originalName });
       const response = await api.get(`/api/homework/${homeworkId}/attachments/${filename}`, {
         responseType: 'blob'
       });
@@ -314,7 +303,6 @@ const StudentDashboard = ({ user, module = 'profile' }) => {
     e.preventDefault();
     setLeaveLoading(true);
     try {
-      console.log(leaveForm, "leaveForm")
       await api.post('/api/student-leaves/apply', leaveForm);
       toast.success("Leave application submitted successfully!");
       setIsLeaveModalOpen(false);

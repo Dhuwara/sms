@@ -6,7 +6,7 @@ import api from '@/utils/api';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   const [formLoading, setFormLoading] = useState(false);
 
   const features = [
@@ -42,7 +42,7 @@ const LandingPage = () => {
     try {
       const res = await api.post('/api/enquiry', formData);
       toast.success(res.data?.message || 'Thank you! We will contact you soon.');
-      setFormData({ name: '', email: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', message: '' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send message. Please try again.');
     } finally {
@@ -317,6 +317,16 @@ const LandingPage = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-semibold text-[#0F172A] mb-2">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full h-12 px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-[#FCD34D] transition-colors"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-semibold text-[#0F172A] mb-2">Message</label>
                   <textarea
                     required
@@ -354,7 +364,7 @@ const LandingPage = () => {
             </div>
             <p className="text-slate-400 text-center md:text-right">
               © 2024 AJM International Institution. All rights reserved.<br />
-              This is a demo application showcasing school management features.
+              
             </p>
           </div>
         </div>

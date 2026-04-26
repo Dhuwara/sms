@@ -25,7 +25,6 @@ const Students = () => {
    const [isParentEye, setParentIsEye] = useState(false);
 
     const handlePassword = (password) => {
-      console.log(password,":pass")
       if(password ==='student')setIsEye((prev) => !prev);
       else{
         setParentIsEye((prev)=> !prev)
