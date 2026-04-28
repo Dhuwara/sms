@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const saApi = axios.create({ baseURL: BASE, withCredentials: true });
 
